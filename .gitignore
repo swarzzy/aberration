@@ -1,0 +1,21 @@
+bin/
+obj/
+.idea
+Makefile
+
+# Visual Studio Stuff
+.vs
+*.sln
+*.vcxproj
+*.filters
+*.user
+
+# CMake files
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+cmake_install.cmake
+cmake_uninstall.cmake
+_build/
+
+#Binaries and libs

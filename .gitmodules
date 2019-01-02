@@ -1,0 +1,3 @@
+[submodule "dependencies/hypermath"]
+	path = dependencies/hypermath
+	url = https://github.com/swarzzy/hypermath
