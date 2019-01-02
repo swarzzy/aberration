@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.0.0 FATAL_ERROR)
-project(sandbox)
+project(Sandbox)
 
-#set(SOURCES)
+set(SOURCES
+	src/Sandbox.cpp
+	)
 
-#add_executable(Sandbox src/Source.cpp)
-#arget_sources(Sandbox PUBLIC ${SOURCES})
-#arget_link_libraries(Sandbox ${GLFW_LIBRARIES} gl3w hypermath)
-#target_include_directories(Sandbox ${GLFW_I})
+add_executable(Sandbox src/Sandbox.cpp)
+target_sources(Sandbox PUBLIC ${SOURCES})
+target_link_libraries(Sandbox Aberration)

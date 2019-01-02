@@ -1,7 +1,12 @@
 bin/
 obj/
-.idea
+build/
 Makefile
+
+# CLion
+cmake-build-debug/
+cmake-build-release/
+.idea
 
 # Visual Studio Stuff
 .vs
