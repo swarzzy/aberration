@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0.0 FATAL_ERROR)
 set(CMAKE_CONFIGURATION_TYPES Debug Release RelWithDebInfo CACHE STRING"" INTERNAL FORCE)
 project(Aberration-engine)
 set(CMAKE_CXX_STANDARD 17)
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 ######################################################
 ## VARIABLES #########################################
@@ -24,15 +25,16 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/bin)
 
-# Hypermath
-set(HYPERMATH_INCLUDE_DIR ${DEPENDENCIES_DIR}/hypermath)
-add_subdirectory(${DEPENDENCIES_DIR}/hypermath)
-include_directories(${HYPERMATH_INCLUDE_DIR})
-
-# Aberration
-set(ABERRATION_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/Aberration/src)
-add_subdirectory(Aberration)
-include_directories(${ABERRATION_INCLUDE_DIR})
+# Platform definitions
+if(WIN32)
+	add_compile_definitions(AB_PLATFORM_WINDOWS)
+endif()
+if(UNIX)
+	add_compile_definitions(AB_PLATFORM_LINUX)
+endif()
+if(APPLE)
+	add_compile_definitions(AB_PLATFORM_MACOS)
+endif()
 
 # Compiler flags
 if(MSVC)
@@ -45,4 +47,15 @@ else()
 	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${CLANG_RELDEB_FLAGS}")
 endif()
 
+# Hypermath
+set(HYPERMATH_INCLUDE_DIR ${DEPENDENCIES_DIR}/hypermath)
+add_subdirectory(${DEPENDENCIES_DIR}/hypermath)
+include_directories(${HYPERMATH_INCLUDE_DIR})
+
+# Aberration
+set(ABERRATION_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/Aberration)
+add_subdirectory(Aberration)
+include_directories(${ABERRATION_INCLUDE_DIR})
+
+# Sandbox
 add_subdirectory(Sandbox)
