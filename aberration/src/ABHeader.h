@@ -12,3 +12,4 @@
 // Aberration headers
 #include "Types.h"
 #include "Common.h"
+#include "utils/Singleton.h"

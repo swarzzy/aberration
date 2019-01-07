@@ -49,13 +49,13 @@ endif()
 
 # Hypermath
 set(HYPERMATH_INCLUDE_DIR ${DEPENDENCIES_DIR}/hypermath)
-add_subdirectory(${DEPENDENCIES_DIR}/hypermath)
 include_directories(${HYPERMATH_INCLUDE_DIR})
+add_subdirectory(${DEPENDENCIES_DIR}/hypermath)
 
 # Aberration
 set(ABERRATION_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/Aberration)
-add_subdirectory(Aberration)
 include_directories(${ABERRATION_INCLUDE_DIR})
+add_subdirectory(Aberration)
 
 # Sandbox
 add_subdirectory(Sandbox)
