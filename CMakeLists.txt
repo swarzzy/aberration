@@ -10,41 +10,30 @@ set(DEPENDENCIES_DIR ${CMAKE_SOURCE_DIR}/dependencies)
 
 ######################################################
 ## MSVC FLAGS ########################################
-set(MSVC_RELEASE_FLAGS "/Ox /Ob2 /Ot /GL /fp:fast /WX")
-set(MSVC_DEBUG_FLAGS "/Od /fp:fast /WX")
-set(MSVC_RELDEB_FLAGS "/Ox /Ob2 /Ot /GL /fp:fast /WX")
+set(MSVC_RELEASE_FLAGS "/Ox /Ob2 /Ot /GL /fp:fast /WX /D \"AB_CONFIG_DISTRIB\"")
+set(MSVC_DEBUG_FLAGS "/Od /fp:fast /WX /D \"AB_CONFIG_DEBUG\" /D \"AB_DEBUG_MEMORY\"")
+set(MSVC_RELDEB_FLAGS "/Ox /Ob2 /Ot /GL /fp:fast /WX /D \"AB_CONFIG_RELEASE\" /D \"AB_DEBUG_MEMORY\"")
 
 ######################################################
 ## CLANG WINDOWS FLAGS ###############################
 if(WIN32)
-set(CLANG_RELEASE_FLAGS "-fno-rtti -Werror -O3 -static")
-set(CLANG_DEBUG_FLAGS "-fno-rtti -Werror -O0 -static")
-set(CLANG_RELDEB_FLAGS "-fno-rtti -Werror -O3 -static")
+set(CLANG_RELEASE_FLAGS "-fno-rtti -Werror -O3 -static -D AB_CONFIG_DISTRIB")
+set(CLANG_DEBUG_FLAGS "-fno-rtti -Werror -O0 -static -D AB_CONFIG_DEBUG -D AB_DEBUG_MEMORY")
+set(CLANG_RELDEB_FLAGS "-fno-rtti -Werror -O3 -static -D AB_CONFIG_RELEASE -D AB_DEBUG_MEMORY")
 endif()
 
 ######################################################
 ## CLANG UNIX FLAGS ##################################
 if(UNIX)
-set(CLANG_RELEASE_FLAGS "-fno-rtti -Werror -O3")
-set(CLANG_DEBUG_FLAGS "-fno-rtti -Werror -O0")
-set(CLANG_RELDEB_FLAGS "-fno-rtti -Werror -O3")
+set(CLANG_RELEASE_FLAGS "-fno-rtti -Werror -O3 -D AB_CONFIG_DISTRIB")
+set(CLANG_DEBUG_FLAGS "-fno-rtti -Werror -O0 -D AB_CONFIG_DEBUG -D AB_DEBUG_MEMORY")
+set(CLANG_RELDEB_FLAGS "-fno-rtti -Werror -O3 -D AB_CONFIG_RELEASE -D AB_DEBUG_MEMORY")
 endif()
 
 # Output directories
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/lib/${CMAKE_BUILD_TYPE}/)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/lib/${CMAKE_BUILD_TYPE}/)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/bin/${CMAKE_BUILD_TYPE}/)
-
-# Platform definitions
-if(WIN32)
-	add_compile_definitions(AB_PLATFORM_WINDOWS)
-endif()
-if(UNIX)
-	add_compile_definitions(AB_PLATFORM_LINUX)
-endif()
-if(APPLE)
-	add_compile_definitions(AB_PLATFORM_MACOS)
-endif()
 
 # Compiler flags
 if(MSVC)

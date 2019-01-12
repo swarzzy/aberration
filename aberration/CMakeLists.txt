@@ -3,7 +3,18 @@ project(Aberration)
 
 include(../cmake/PrecompiledHeader.cmake)
 
-add_compile_definitions(PRIVATE AB_BUILD_DLL _CRT_SECURE_NO_WARNINGS)
+# Platform definitions
+if(WIN32)
+	add_compile_definitions(AB_PLATFORM_WINDOWS)
+endif()
+if(UNIX)
+	add_compile_definitions(AB_PLATFORM_LINUX)
+endif()
+if(APPLE)
+	add_compile_definitions(AB_PLATFORM_MACOS)
+endif()
+
+add_compile_definitions(AB_BUILD_DLL _CRT_SECURE_NO_WARNINGS)
 
 set(ABERRATION_SRC_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
 
@@ -15,10 +26,10 @@ set(HEADERS
 	src/ABHeader.h
 	src/Common.h
 	src/Types.h
-	src/utils/Log.h
 	src/platform/Console.h
 	src/platform/Platform.h
-	src/utils/ABLog.h
+	src/platform/Memory.h
+	src/utils/Log.h
 	src/utils/Singleton.h
 	src/utils/String.h
 	src/utils/TypeTraits.h
@@ -28,11 +39,13 @@ set(HEADERS
 set(WIN_SOURCES
 	src/platform/windows/WinPlatform.cpp
 	src/platform/windows/WinConsole.cpp
+	src/platform/windows/WinMemory.cpp
 	)
 
 set(UNIX_SOURCES
 	src/platform/unix/UnixPlatform.cpp
 	src/platform/unix/UnixConsole.cpp
+	src/platform/unix/UnixMemory.cpp
 	)
 
 if (NOT WIN32 AND NOT UNIX)
