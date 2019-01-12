@@ -10,20 +10,30 @@ set(DEPENDENCIES_DIR ${CMAKE_SOURCE_DIR}/dependencies)
 
 ######################################################
 ## MSVC FLAGS ########################################
-set(MSVC_RELEASE_FLAGS "/Ox /Ob2 /Ot /GL /fp:fast")
-set(MSVC_DEBUG_FLAGS "/Od /fp:fast")
-set(MSVC_RELDEB_FLAGS "/Ox /Ob2 /Ot /GL /fp:fast")
+set(MSVC_RELEASE_FLAGS "/Ox /Ob2 /Ot /GL /fp:fast /WX")
+set(MSVC_DEBUG_FLAGS "/Od /fp:fast /WX")
+set(MSVC_RELDEB_FLAGS "/Ox /Ob2 /Ot /GL /fp:fast /WX")
 
 ######################################################
-## CLANG FLAGS #######################################
-set(CLANG_RELEASE_FLAGS "-O3")
-set(CLANG_DEBUG_FLAGS "-O0")
-set(CLANG_RELDEB_FLAGS "-O3")
+## CLANG WINDOWS FLAGS ###############################
+if(WIN32)
+set(CLANG_RELEASE_FLAGS "-fno-rtti -Werror -O3 -static")
+set(CLANG_DEBUG_FLAGS "-fno-rtti -Werror -O0 -static")
+set(CLANG_RELDEB_FLAGS "-fno-rtti -Werror -O3 -static")
+endif()
+
+######################################################
+## CLANG UNIX FLAGS ##################################
+if(UNIX)
+set(CLANG_RELEASE_FLAGS "-fno-rtti -Werror -O3")
+set(CLANG_DEBUG_FLAGS "-fno-rtti -Werror -O0")
+set(CLANG_RELDEB_FLAGS "-fno-rtti -Werror -O3")
+endif()
 
 # Output directories
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/lib/${CMAKE_BUILD_TYPE}/)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/lib/${CMAKE_BUILD_TYPE}/)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/bin/${CMAKE_BUILD_TYPE}/)
 
 # Platform definitions
 if(WIN32)
@@ -49,13 +59,13 @@ endif()
 
 # Hypermath
 set(HYPERMATH_INCLUDE_DIR ${DEPENDENCIES_DIR}/hypermath)
-include_directories(${HYPERMATH_INCLUDE_DIR})
-add_subdirectory(${DEPENDENCIES_DIR}/hypermath)
+#include_directories(${HYPERMATH_INCLUDE_DIR})
+#add_subdirectory(${DEPENDENCIES_DIR}/hypermath)
 
 # Aberration
-set(ABERRATION_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/Aberration)
+set(ABERRATION_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/aberration)
 include_directories(${ABERRATION_INCLUDE_DIR})
-add_subdirectory(Aberration)
+add_subdirectory(aberration)
 
 # Sandbox
-add_subdirectory(Sandbox)
+add_subdirectory(sandbox)

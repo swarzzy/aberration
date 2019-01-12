@@ -9,21 +9,13 @@ class B {
 	
 };
 int main() {
-	int arr[] = { 96 };
-	int32 a = ab::console_print(arr, 1);
-	ab::console_set_color(ab::ConsoleColor::Red, ab::ConsoleColor::DarkWhite);
-	ab::console_print("\n", 1);
-	ab::console_set_color(ab::ConsoleColor::DarkWhite, ab::ConsoleColor::Black);
-	ab::console_print(std::to_string(a).c_str(), 2);
-	printf("\n%llu", std::size("12345"));
-	const char* str = "12345";
-	B b;
-	ab::utils::Log::Initialize(ab::utils::LogLevel::Warn);
-	ab::utils::Log::GetInstance()->Message(ab::utils::LogLevel::Warn, str, "6789asdffg", "zxcvbn" );
-	//ab::utils::Log::GetInstance()->HandleArg("6789asdf");
-	//ab::utils::Log::GetInstance()->HandleArg("zxcvbn");
-
-	//ab::utils::Log::GetInstance()->HandleArg("zxcv");
+	AB_CORE_INFO("Macro info ", 43);
+	AB_CORE_WARN("Macro Warn ", 43);
+	AB_CORE_ERROR("Macro error ", 43);
+	//AB_CORE_FATAL("Macro fatal ", 43);
+	ab::DateTime t;
+	ab::get_local_time(t);
+	printf(t.ToString().c_str());
 
 
 

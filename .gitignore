@@ -22,5 +22,8 @@ CMakeScripts
 cmake_install.cmake
 cmake_uninstall.cmake
 _build/
+_build_msvc/
+_build_clang/
+
 
 #Binaries and libs

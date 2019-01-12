@@ -1,61 +1,121 @@
 #pragma once
 #include "src/ABHeader.h"
 #include "src/utils/String.h"
+#include "src/platform/Console.h"
+#include "src/platform/Platform.h"
+
+// TODO:
+// -- Time stamps
+// -- Logging to file
 
 namespace ab::utils {
 
-	enum class LogLevel {
-		Info,
-		Warn,
+	enum class LogLevel : uint32 {
+		Fatal = 0,
 		Error,
-		Fatal
+		Warn,
+		Info,
 	};
 
-	class Log : public Singleton<Log> {
+	class Log {
 		AB_DISALLOW_COPY_AND_MOVE(Log)
 	private:
 		friend class Singleton<Log>;
 
-		static const uint32 LOG_BUFFER_SIZE = 15;
+		static const uint32 LOG_BUFFER_SIZE = 1024;
 
-		LogLevel m_LogLevel;
-		char m_Buffer[LOG_BUFFER_SIZE];
-		int32 m_Filled;
+		inline static LogLevel m_LogLevel = LogLevel::Info;
+		inline static char m_Buffer[LOG_BUFFER_SIZE];
+		inline static uint64 m_Filled = 0;
 
-	protected:
 		Log(LogLevel level);
 		~Log() {}
 
 	public:
 		template<typename... Args>
-		void Message(LogLevel level, Args&&... args);
-		void SetLevel(LogLevel level);
+		static void Message(LogLevel level, Args&&... args);
+		inline static void SetLevel(LogLevel level);
 
-	//private:
+	private:
 		template<typename Arg>
-		void HandleArgs(Arg&& arg);
+		static void HandleArgs(Arg&& arg);
 		template<typename First, typename... Args>
-		void HandleArgs(First&& first, Args&&... args);
+		static void HandleArgs(First&& first, Args&&... args);
 	};
 
-	inline Log::Log(LogLevel level)
-		: m_LogLevel(level)
-		, m_Filled(0)
-	{
-		
+	template<typename... Args>
+	void log_stamp(LogLevel level, const char* file, const char* func, int32 line, Args&&... args) {
+		switch(level) {
+		case LogLevel::Info : {Log::Message(level, std::forward<Args>(args)...); } break;
+		case LogLevel::Warn: {	char fl[256];
+								if (strlen(file) < 255) {
+									memcpy(fl, file, strlen(file) + 1);
+									cut_filename_from_end(fl);
+								}
+								else
+									fl[0] = '\0';
+								Log::Message(level, std::forward<Args>(args)..., "\n->  FILE: ", fl, "\n->  FUNC: ", func, "\n->  LINE: ", line);
+							 } break;
+		case LogLevel::Error: {	char fl[256];
+								if (strlen(file) < 255) {
+									memcpy(fl, file, strlen(file) + 1);
+									cut_filename_from_end(fl);
+								}
+								else
+									fl[0] = '\0';
+								Log::Message(level, std::forward<Args>(args)..., "\n->  FILE: ", fl, "\n->  FUNC: ", func, "\n->  LINE: ", line);
+							  } break;
+		case LogLevel::Fatal: {	char fl[256];
+								if (strlen(file) < 255) {
+									memcpy(fl, file, strlen(file) + 1);
+									cut_filename_from_end(fl);
+								}
+								else
+								fl[0] = '\0';
+								Log::Message(level, std::forward<Args>(args)..., "\n->  FILE: ", fl, "\n->  FUNC: ", func, "\n->  LINE: ", line);
+							  } break;
+	}
+	}
+#define AB_CORE_INFO(...) do { ab::utils::log_stamp(ab::utils::LogLevel::Info, __FILE__, "", 0, __VA_ARGS__); } while(false)
+#define AB_CORE_WARN(...) do { ab::utils::log_stamp(ab::utils::LogLevel::Warn, __FILE__, __func__, __LINE__, __VA_ARGS__); } while(false)
+#define AB_CORE_ERROR(...) do { ab::utils::log_stamp(ab::utils::LogLevel::Error, __FILE__, __func__, __LINE__, __VA_ARGS__); } while(false)
+#define AB_CORE_FATAL(...) do { ab::utils::log_stamp(ab::utils::LogLevel::Fatal, __FILE__, __func__, __LINE__, __VA_ARGS__); __debugbreak();} while(false)
+
+	inline void Log::SetLevel(LogLevel level) {
+		m_LogLevel = level;
 	}
 
 	template <typename ... Args>
 	void Log::Message(LogLevel level, Args&&... args) {
-		HandleArgs(std::forward<Args>(args)...);
-		console_print(m_Buffer, m_Filled);
-		m_Filled = 0;
+		if (level <= m_LogLevel) {
+			DateTime time = {};
+			get_local_time(time);
+			memcpy(m_Buffer + m_Filled, time.ToString().c_str(), DateTime::DATETIME_STRING_SIZE - 1);
+			m_Buffer[DateTime::DATETIME_STRING_SIZE - 1] = ':';
+			m_Buffer[DateTime::DATETIME_STRING_SIZE] = ' ';
+			m_Filled += DateTime::DATETIME_STRING_SIZE + 1;
+
+			HandleArgs(std::forward<Args>(args)...);
+
+			switch (level) {
+			case LogLevel::Info: { console_set_color(ConsoleColor::DarkGreen, ConsoleColor::Black); } break;
+			case LogLevel::Warn: { console_set_color(ConsoleColor::DarkYellow, ConsoleColor::Black); } break;
+			case LogLevel::Error: { console_set_color(ConsoleColor::Red, ConsoleColor::Black); } break;
+			case LogLevel::Fatal: { console_set_color(ConsoleColor::DarkRed, ConsoleColor::Black); } break;
+			default: { console_set_color(ConsoleColor::DarkWhite, ConsoleColor::Black); }
+			}
+			
+			console_print(m_Buffer, static_cast<uint32>(m_Filled));
+			console_set_color(ConsoleColor::Default, ConsoleColor::Default);
+			m_Filled = 0;
+		}
 	}
 	
 	// Expand args with recursion
 	template <typename Arg>
 	void Log::HandleArgs(Arg&& arg) {
 		std::string str = to_string(arg);
+		// TODO: get rid of string
 		if (m_Filled < LOG_BUFFER_SIZE) {
 			if (str.size() < LOG_BUFFER_SIZE - (m_Filled + 1)) {
 				memcpy(m_Buffer + m_Filled, str.c_str(), sizeof(char) * str.size());
