@@ -1,5 +1,6 @@
 #include "../Memory.h"
 #include <cstdlib>
+#include <sys/sysinfo.h>
 
 #define AB_ALLOC_PROC(size) malloc(size)
 #define AB_FREE_PROC(block) free(block)
@@ -42,7 +43,7 @@ namespace ab::internal {
 #if defined(AB_DEBUG_MEMORY)
 		if (size > LOGGING_TRESHOLD)
 			//TODO: propper logging
-			printf("Large allocation(>%lld bytes): %lld bytes in file: %s, line: %d\n", LOGGING_TRESHOLD, size, file, line);
+			printf("Large allocation(>%llu bytes): %llu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size, file, line);
 #endif
 
 		uint64 actualSize = size + sizeof(uint64);
@@ -59,7 +60,7 @@ namespace ab::internal {
 #if defined(AB_DEBUG_MEMORY)
 		if (size > LOGGING_TRESHOLD)
 			//TODO: propper logging
-			printf("Large deallocation(>%lld bytes): %lld bytes in file: %s, line: %d\n", LOGGING_TRESHOLD, size, file, line);
+			printf("Large deallocation(>%llu bytes): %llu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size, file, line);
 #endif
 
 		AB_FREE_PROC(actualBlock);
@@ -68,9 +69,13 @@ namespace ab::internal {
 
 namespace ab {
 	AB_API void get_system_memory_info(SystemMemoryInfo& info) {
-		// TODO: get memory status
-		//http://pubs.opengroup.org/onlinepubs/009695399/functions/sysconf.html
-		//https://stackoverflow.com/questions/2513505/how-to-get-available-memory-c-g/26639774
+		struct sysinfo sysInfo = {};
+		sysinfo(&sysInfo);
+		info.totalPhys = sysInfo.totalram;
+		info.totalSwap = sysInfo.totalswap;
+		info.availablePhys = sysInfo.freeram;
+		info.availableSwap = sysInfo.freeswap;
+		info.memoryLoad = info.availablePhys * 100 / info.totalPhys;
 	}
 
 	void get_app_memory_info(AppMemoryInfo& info) {

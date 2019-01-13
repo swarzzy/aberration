@@ -1,14 +1,14 @@
 #pragma once
-
-// STL
-#include <string>
-#include <string_view>
-#include <vector>
 // Aberration headers
 #include "Common.h"
 #include "Types.h"
 #include "utils/Singleton.h"
 #include "platform/Memory.h"
+
+// STL
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include <map>
 #include <unordered_map>

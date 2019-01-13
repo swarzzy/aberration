@@ -2,13 +2,13 @@
 #include "src/ABHeader.h"
 
 #if defined (AB_DEBUG_MEMORY)
-#define AB_ALLOC		new(__FILE__, __LINE__)
-#define AB_FREES		delete(__FILE__, __LINE__)
-#define AB_FREEA		delete[](__FILE__, __LINE__)
+#define AB_NEW		new(__FILE__, __LINE__)
+#define AB_DELS		delete
+#define AB_DELA		delete[]
 #else
-#define AB_ALLOC		new
-#define AB_FREES		delete		// delete scalar
-#define AB_FREEA		delete[]	// delete array
+#define AB_NEW		new
+#define AB_DELS		delete		// delete scalar
+#define AB_DELA		delete[]	// delete array
 #endif
 
 namespace ab::internal {
@@ -57,8 +57,6 @@ namespace ab {
 		uint64 availablePhys;
 		uint64 totalSwap;
 		uint64 availableSwap;
-		uint64 totalVirtual;
-		uint64 availableVirtual;
 	};
 
 	struct AB_API AppMemoryInfo {

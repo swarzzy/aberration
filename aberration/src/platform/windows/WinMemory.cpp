@@ -43,9 +43,8 @@ namespace ab::internal {
 #if defined(AB_DEBUG_MEMORY)
 		if (size > LOGGING_TRESHOLD)
 			//TODO: propper logging
-			printf("Large allocation(>%lld bytes): %lld bytes in file: %s, line: %d\n", LOGGING_TRESHOLD ,size, file, line);
+			printf("Large allocation(>%llu bytes): %llu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD ,size, file, line);
 #endif
-
 		uint64 actualSize = size + sizeof(uint64);
 		byte* block = static_cast<byte*>(AB_ALLOC_PROC(actualSize));
 		memcpy(block, &size, sizeof(uint64));
@@ -60,7 +59,7 @@ namespace ab::internal {
 #if defined(AB_DEBUG_MEMORY)
 		if (size > LOGGING_TRESHOLD)
 			//TODO: propper logging
-			printf("Large deallocation(>%lld bytes): %lld bytes in file: %s, line: %d\n", LOGGING_TRESHOLD, size, file, line);
+			printf("Large deallocation(>%llu bytes): %llu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size, file, line);
 #endif
 
 		AB_FREE_PROC(actualBlock);
@@ -78,8 +77,6 @@ namespace ab {
 		info.availablePhys = status.ullAvailPhys;
 		info.totalSwap = status.ullTotalPageFile;
 		info.availableSwap = status.ullAvailPageFile;
-		info.totalVirtual = status.ullTotalVirtual;
-		info.availableVirtual = status.ullAvailVirtual;
 	}
 
 	void get_app_memory_info(AppMemoryInfo& info) {
