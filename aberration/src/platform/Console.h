@@ -1,7 +1,7 @@
 #pragma once
 #include "src/ABHeader.h"
 
-namespace ab {
+namespace AB {
 
 	enum class ConsoleColor : uint16 {
 		Black = 0, DarkBlue, DarkGreen, DarkCyan, DarkRed, DarkPurple, DarkYellow,

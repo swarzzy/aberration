@@ -1,4 +1,4 @@
-namespace ab {
+namespace AB {
 	template <typename Class>
 	template <typename... Args>
 	void Singleton<Class>::Initialize(Args&&... args) noexcept(std::is_nothrow_constructible<Class>::value) {

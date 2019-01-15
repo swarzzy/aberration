@@ -1,7 +1,9 @@
 #pragma once
 #include "src/ABHeader.h"
+#include <type_traits>
+#include <utility>
 
-namespace ab {
+namespace AB {
 	template<typename Class>
 	class Singleton {
 		AB_DISALLOW_COPY_AND_MOVE(Singleton)

@@ -3,7 +3,7 @@
 // Windows implemetation
 #include <Windows.h>
 
-namespace ab {
+namespace AB {
 	static const ConsoleColor CONSOLE_DEFAULT_TEXT_COLOR = ConsoleColor::DarkWhite;
 	static const ConsoleColor CONSOLE_DEFAULT_BACK_COLOR = ConsoleColor::Black;
 

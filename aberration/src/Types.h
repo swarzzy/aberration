@@ -13,8 +13,9 @@ typedef unsigned __int16	uint16; // unsigned short
 typedef unsigned __int32	uint32; // unsigned int
 typedef unsigned __int64	uint64; // unsigned long long (size_t)
 
-typedef __int8			byte;
-typedef unsigned __int8	ubyte;
+#undef byte // Defined as unsigned char in rpcndr.h
+typedef unsigned __int8		byte;
+//typedef unsigned __int8	ubyte;
 
 #else
 #include <cstdint>
@@ -28,8 +29,9 @@ typedef uint16_t	uint16;	// unsigned short
 typedef uint32_t	uint32;	// unsigned int
 typedef uint64_t	uint64;	// unsigned long long (size_t)
 
-typedef int8_t		byte;
-typedef uint8_t		ubyte;
+#undef byte // Defined as unsigned char in rpcndr.h
+typedef uint8_t		byte;
+//typedef uint8_t		ubyte;
 
 #endif
 

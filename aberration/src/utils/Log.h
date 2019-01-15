@@ -8,7 +8,7 @@
 // -- Time stamps
 // -- Logging to file
 
-namespace ab::utils {
+namespace AB::utils {
 
 	enum class LogLevel : uint32 {
 		Fatal = 0,
@@ -20,8 +20,6 @@ namespace ab::utils {
 	class Log {
 		AB_DISALLOW_COPY_AND_MOVE(Log)
 	private:
-		friend class Singleton<Log>;
-
 		static const uint32 LOG_BUFFER_SIZE = 1024;
 
 		inline static LogLevel m_LogLevel = LogLevel::Info;
@@ -76,10 +74,19 @@ namespace ab::utils {
 							  } break;
 	}
 	}
-#define AB_CORE_INFO(...) do { ab::utils::log_stamp(ab::utils::LogLevel::Info, __FILE__, "", 0, __VA_ARGS__); } while(false)
-#define AB_CORE_WARN(...) do { ab::utils::log_stamp(ab::utils::LogLevel::Warn, __FILE__, __func__, __LINE__, __VA_ARGS__); } while(false)
-#define AB_CORE_ERROR(...) do { ab::utils::log_stamp(ab::utils::LogLevel::Error, __FILE__, __func__, __LINE__, __VA_ARGS__); } while(false)
-#define AB_CORE_FATAL(...) do { ab::utils::log_stamp(ab::utils::LogLevel::Fatal, __FILE__, __func__, __LINE__, __VA_ARGS__); __debugbreak();} while(false)
+
+#define _AB_CORE_INFO(...) do { AB::utils::log_stamp(AB::utils::LogLevel::Info, __FILE__, "", 0, __VA_ARGS__); } while(false)
+#define _AB_CORE_WARN(...) do { AB::utils::log_stamp(AB::utils::LogLevel::Warn, __FILE__, __func__, __LINE__, __VA_ARGS__); } while(false)
+#define _AB_CORE_ERROR(...) do { AB::utils::log_stamp(AB::utils::LogLevel::Error, __FILE__, __func__, __LINE__, __VA_ARGS__); } while(false)
+#define _AB_CORE_FATAL(...) do { AB::utils::log_stamp(AB::utils::LogLevel::Fatal, __FILE__, __func__, __LINE__, __VA_ARGS__); __debugbreak();} while(false)
+#define _AB_CORE_ASSERT(expr, ...) do { if (!(expr)) {AB::utils::log_stamp(AB::utils::LogLevel::Fatal, __FILE__, __func__, __LINE__, \
+										"ASSERTION FAILED: ", #expr, "\n", __VA_ARGS__); __debugbreak();}} while(false)
+
+#define AB_CORE_INFO(...) _AB_CORE_INFO(__VA_ARGS__) 
+#define AB_CORE_WARN(...) _AB_CORE_WARN(__VA_ARGS__)
+#define AB_CORE_ERROR(...) _AB_CORE_ERROR(__VA_ARGS__)
+#define AB_CORE_FATAL(...) _AB_CORE_FATAL(__VA_ARGS__)
+#define AB_CORE_ASSERT(expr, ...) _AB_CORE_ASSERT(expr, __VA_ARGS__)
 
 	inline void Log::SetLevel(LogLevel level) {
 		m_LogLevel = level;

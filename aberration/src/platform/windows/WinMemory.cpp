@@ -12,7 +12,7 @@ static uint64 CurrentAllocations	= 0;
 static uint64 TotalUsedMemory		= 0;
 static uint64 TotalAllocations		= 0;
 
-namespace ab::internal {
+namespace AB::internal {
 	AB_API void* allocate_memory(uint64 size) {
 		CurrentUsedMemory += size;
 		CurrentAllocations++;
@@ -26,12 +26,14 @@ namespace ab::internal {
 	}
 
 	AB_API void free_memory(void* block) {
-		byte* actualBlock = static_cast<byte*>(block) - sizeof(uint64);
-		uint64 size = *reinterpret_cast<uint64*>(actualBlock);
-		CurrentUsedMemory -= size;
-		CurrentAllocations--;
+		if (block != nullptr) {
+			byte* actualBlock = static_cast<byte*>(block) - sizeof(uint64);
+			uint64 size = *reinterpret_cast<uint64*>(actualBlock);
+			CurrentUsedMemory -= size;
+			CurrentAllocations--;
 
-		AB_FREE_PROC(actualBlock);
+			AB_FREE_PROC(actualBlock);
+		}
 	}
 
 	AB_API void* allocate_memory_debug(uint64 size, const char* file, uint32 line) {
@@ -51,22 +53,29 @@ namespace ab::internal {
 		return block + sizeof(uint64);
 	}
 	AB_API void free_memory_debug(void* block, const char* file, uint32 line) {
-		byte* actualBlock = static_cast<byte*>(block) - sizeof(uint64);
-		uint64 size = *reinterpret_cast<uint64*>(actualBlock);
-		CurrentUsedMemory -= size;
-		CurrentAllocations--;
+		if (block != nullptr) {
+			byte* actualBlock = static_cast<byte*>(block) - sizeof(uint64);
+			uint64 size = *reinterpret_cast<uint64*>(actualBlock);
+			CurrentUsedMemory -= size;
+			CurrentAllocations--;
 
 #if defined(AB_DEBUG_MEMORY)
-		if (size > LOGGING_TRESHOLD)
-			//TODO: propper logging
-			printf("Large deallocation(>%llu bytes): %llu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size, file, line);
+			if (size > LOGGING_TRESHOLD)
+				//TODO: propper logging
+				printf("Large deallocation(>%llu bytes): %llu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size, file, line);
 #endif
 
-		AB_FREE_PROC(actualBlock);
+			AB_FREE_PROC(actualBlock);
+		}
+#if defined(AB_DEBUG_MEMORY)
+		if (block == nullptr)
+			//TODO: propper logging
+			printf("Attempt to delete nullptr in file: %s, line: %u\n", file, line);
+#endif
 	}
 }
 
-namespace ab {
+namespace AB {
 	AB_API void get_system_memory_info(SystemMemoryInfo& info) {
 		MEMORYSTATUSEX status;
 		status.dwLength = sizeof(MEMORYSTATUSEX);

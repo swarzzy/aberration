@@ -1,7 +1,7 @@
 #include "../Platform.h"
 #include <windows.h>
 
-namespace ab {
+namespace AB {
 
 	std::string DateTime::ToString() {
 		if (hour < 24 && minute < 60 && seconds < 60) {

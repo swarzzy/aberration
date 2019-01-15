@@ -1,7 +1,7 @@
 #pragma once 
 #include "src/ABHeader.h"
 
-namespace ab {
+namespace AB {
 	struct AB_API DateTime {
 		uint16 year;
 		uint16 month;

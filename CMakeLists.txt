@@ -1,33 +1,57 @@
 cmake_minimum_required(VERSION 3.0.0 FATAL_ERROR)
 set(CMAKE_CONFIGURATION_TYPES Debug Release RelWithDebInfo CACHE STRING"" INTERNAL FORCE)
+#cmake_policy(SET CMP0076 NEW)
 project(Aberration-engine)
 set(CMAKE_CXX_STANDARD 17)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+set(DISABLE_EXCEPTIONS TRUE)
 
 ######################################################
 ## VARIABLES #########################################
 set(DEPENDENCIES_DIR ${CMAKE_SOURCE_DIR}/dependencies)
 
 ######################################################
+## DISABLING EXCEPTIONS FOR MSVC #####################
+
+if(DISABLE_EXCEPTIONS)
+if(MSVC)
+	if(CMAKE_CXX_FLAGS MATCHES "/EHsc ")
+  	string(REPLACE "/EHsc" "/EHs-c-" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  	message(STATUS "CMAKE_CXX_FLAGS matches /EHsc before end of string
+	-- replaced...")
+  	message(STATUS "")
+	endif()
+
+	if(CMAKE_CXX_FLAGS MATCHES "/EHsc$")
+  	string(REPLACE "/EHsc" "/EHs-c-" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  	message(STATUS "CMAKE_CXX_FLAGS matches /EHsc at end of string --
+	replaced...")
+  	message(STATUS "")
+	endif()
+	endif(MSVC)
+endif(DISABLE_EXCEPTIONS)
+
+######################################################
 ## MSVC FLAGS ########################################
-set(MSVC_RELEASE_FLAGS "/Ox /Ob2 /Ot /GL /fp:fast /WX /D \"AB_CONFIG_DISTRIB\"")
-set(MSVC_DEBUG_FLAGS "/Od /fp:fast /WX /D \"AB_CONFIG_DEBUG\" /D \"AB_DEBUG_MEMORY\"")
-set(MSVC_RELDEB_FLAGS "/Ox /Ob2 /Ot /GL /fp:fast /WX /D \"AB_CONFIG_RELEASE\" /D \"AB_DEBUG_MEMORY\"")
+set(MSVC_RELEASE_FLAGS "/std:c++17 /GR- /Ox /Ob2 /Ot /GL /fp:fast /WX /D \"AB_CONFIG_DISTRIB\"")
+set(MSVC_DEBUG_FLAGS "/std:c++17 /GR- /Od /fp:fast /WX /D \"AB_CONFIG_DEBUG\" /D \"AB_DEBUG_MEMORY\"")
+set(MSVC_RELDEB_FLAGS "/std:c++17 /GR- /Ox /Ob2 /Ot /GL /fp:fast /WX /D \"AB_CONFIG_RELEASE\" /D \"AB_DEBUG_MEMORY\"")
 
 ######################################################
 ## CLANG WINDOWS FLAGS ###############################
 if(WIN32)
-set(CLANG_RELEASE_FLAGS "-fno-rtti -Werror -O3 -static -D AB_CONFIG_DISTRIB")
-set(CLANG_DEBUG_FLAGS "-fno-rtti -Werror -O0 -static -D AB_CONFIG_DEBUG -D AB_DEBUG_MEMORY")
-set(CLANG_RELDEB_FLAGS "-fno-rtti -Werror -O3 -static -D AB_CONFIG_RELEASE -D AB_DEBUG_MEMORY")
+set(CLANG_RELEASE_FLAGS "-std=c++17 -fno-rtti -fno-exceptions -Werror -O3 -static -D AB_CONFIG_DISTRIB")
+set(CLANG_DEBUG_FLAGS "-std=c++17 -fno-rtti -fno-exceptions -Werror -O0 -static -D AB_CONFIG_DEBUG -D AB_DEBUG_MEMORY")
+set(CLANG_RELDEB_FLAGS "-std=c++17 -fno-rtti -fno-exceptions -Werror -O3 -static -D AB_CONFIG_RELEASE -D AB_DEBUG_MEMORY")
 endif()
 
 ######################################################
 ## CLANG UNIX FLAGS ##################################
 if(UNIX)
-set(CLANG_RELEASE_FLAGS "-fno-rtti -Werror -O3 -D AB_CONFIG_DISTRIB")
-set(CLANG_DEBUG_FLAGS "-fno-rtti -Werror -O0 -D AB_CONFIG_DEBUG -D AB_DEBUG_MEMORY")
-set(CLANG_RELDEB_FLAGS "-fno-rtti -Werror -O3 -D AB_CONFIG_RELEASE -D AB_DEBUG_MEMORY")
+set(CLANG_RELEASE_FLAGS "-std=c++17 -fno-rtti -fno-exceptions -Werror -O3 -D AB_CONFIG_DISTRIB")
+set(CLANG_DEBUG_FLAGS "-std=c++17 -fno-rtti -fno-exceptions -Werror -O0 -D AB_CONFIG_DEBUG -D AB_DEBUG_MEMORY")
+set(CLANG_RELDEB_FLAGS "-std=c++17 -fno-rtti -fno-exceptions -Werror -O3 -D AB_CONFIG_RELEASE -D AB_DEBUG_MEMORY")
 endif()
 
 # Output directories

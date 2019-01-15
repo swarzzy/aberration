@@ -1,5 +1,6 @@
 #pragma once
 #include "src/ABHeader.h"
+#include <memory>
 
 #if defined (AB_DEBUG_MEMORY)
 #define AB_NEW		new(__FILE__, __LINE__)
@@ -11,7 +12,7 @@
 #define AB_DELA		delete[]	// delete array
 #endif
 
-namespace ab::internal {
+namespace AB::internal {
 	AB_API void* allocate_memory(uint64 size);
 	AB_API void free_memory(void* block);
 
@@ -19,7 +20,7 @@ namespace ab::internal {
 	AB_API void free_memory_debug(void* block, const char* file, uint32 line);
 }
 
-namespace ab {
+namespace AB {
 
 	template<typename T>
 	class Allocator {
@@ -51,6 +52,12 @@ namespace ab {
 		}
 	};
 
+	template<typename T1, typename T2>
+	inline bool operator==(const Allocator<T1>& left, const Allocator<T2>& right) { return true; }
+
+	template<typename T1, typename T2>
+	inline bool operator!=(const Allocator<T1>& left, const Allocator<T2>& right) { return false; }
+
 	struct AB_API SystemMemoryInfo {
 		uint32 memoryLoad;
 		uint64 totalPhys;
@@ -79,31 +86,34 @@ namespace ab {
 #pragma clang diagnostic ignored "-Winline-new-delete"
 #endif
 
+#define AB_MEMORY_OVERRIDE_NEW_DELETE
+#if defined (AB_MEMORY_OVERRIDE_NEW_DELETE)
 inline void* operator new(uint64 size) {
-	return ab::internal::allocate_memory(size);
+	return AB::internal::allocate_memory(size);
 }
 inline void* operator new(uint64 size, const char* file, uint32 line) {
-	return ab::internal::allocate_memory_debug(size, file ,line);
+	return AB::internal::allocate_memory_debug(size, file ,line);
 }
 inline void* operator new[](uint64 size) {
-	return ab::internal::allocate_memory(size);
+	return AB::internal::allocate_memory(size);
 }
 inline void* operator new[](uint64 size, const char* file, uint32 line) {
-	return ab::internal::allocate_memory_debug(size, file, line);
+	return AB::internal::allocate_memory_debug(size, file, line);
 }
 inline void operator delete(void* block) noexcept {
-	ab::internal::free_memory(block);
+	AB::internal::free_memory(block);
+	//free(block);
 }
 inline void operator delete(void* block, const char* file, uint32 line) noexcept {
-	ab::internal::free_memory_debug(block, file, line);
+	AB::internal::free_memory_debug(block, file, line);
 }
 inline void operator delete[](void* block) noexcept {
-	ab::internal::free_memory(block);
-
+	AB::internal::free_memory(block);
 }
 inline void operator delete[](void* block, const char* file, uint32 line) noexcept {
-	ab::internal::free_memory_debug(block, file, line);
+	AB::internal::free_memory_debug(block, file, line);
 }
+#endif
 
 // warning C4595: 'operator new': non-member operator new or delete functions may not be declared inline
 #if defined(_MSC_VER)

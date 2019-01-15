@@ -1,17 +1,18 @@
 #pragma once
 #include "src/ABHeader.h"
+#include <string>
 
-namespace ab {
+namespace AB {
 
 	// Aberration string class
 	using String = std::basic_string<char, std::char_traits<char>, Allocator<char>>;
 
 	// Based on https://habr.com/post/205772/
-	// ab::String ToString()
+	// AB::String ToString()
 	template<typename T> struct HasToString {
 	private:
 		template<typename U> 
-		static decltype(std::declval<U>().ToString()) Detect(const U&); // Will be called if type has ab::String ToString()
+		static decltype(std::declval<U>().ToString()) Detect(const U&); // Will be called if type has AB::String ToString()
 		static void Detect(...); // Will be called for all other types
 	public:
 		// Checking type of Detect() that was called

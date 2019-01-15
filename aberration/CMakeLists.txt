@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.0.0 FATAL_ERROR)
+#cmake_policy(SET CMP0076 NEW)
 project(Aberration)
 
 include(../cmake/PrecompiledHeader.cmake)
@@ -18,8 +19,16 @@ add_compile_definitions(AB_BUILD_DLL _CRT_SECURE_NO_WARNINGS)
 
 set(ABERRATION_SRC_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
 
+##### LIBRARIES
+
+set(ABERRATION_LIB_WIN32)
+set(ABERRATION_LIB_UNIX)
+
+##### SOURCES
+
 set(SOURCES
 	src/ABHeader.cpp
+	src/platform/Window.cpp
 	)
 
 set(HEADERS
@@ -29,6 +38,8 @@ set(HEADERS
 	src/platform/Console.h
 	src/platform/Platform.h
 	src/platform/Memory.h
+	src/platform/Window.h
+	src/platform/Gamepad.h
 	src/utils/Log.h
 	src/utils/Singleton.h
 	src/utils/String.h
@@ -40,6 +51,8 @@ set(WIN_SOURCES
 	src/platform/windows/WinPlatform.cpp
 	src/platform/windows/WinConsole.cpp
 	src/platform/windows/WinMemory.cpp
+	src/platform/windows/Win32Window.h
+	src/platform/windows/Win32Window.cpp
 	)
 
 set(UNIX_SOURCES
@@ -53,12 +66,15 @@ if (NOT WIN32 AND NOT UNIX)
 endif()
 if (WIN32)
     set(PLATFORM_SOURCES ${WIN_SOURCES})
+    set(PLATFORM_LIBS ${ABERRATION_LIB_WIN32})
 endif (WIN32)
 if (UNIX)
 	set(PLATFORM_SOURCES ${UNIX_SOURCES})
+	set(PLATFORM_LIBS ${ABERRATION_LIB_UNIX})
 endif()
 
 add_library(Aberration SHARED ${HEADERS} ${SOURCES} ${PLATFORM_SOURCES})
+target_link_libraries(Aberration ${PLATFORM_LIBS})
 add_precompiled_header(Aberration ABHeader.h SOURCE_CXX src/ABHeader.cpp FORCEINCLUDE)
 target_include_directories(Aberration PRIVATE ${ABERRATION_SRC_INCLUDE_DIR})
 #target_link_libraries(Aberration hypermath)
