@@ -1,23 +1,25 @@
 #pragma once
-#include "src/ABHeader.h"
+#include "src/Types.h"
+#include "src/Common.h"
+
 #include <memory>
 
 #if defined (AB_DEBUG_MEMORY)
-#define AB_NEW		new(__FILE__, __LINE__)
-#define AB_DELS		delete
-#define AB_DELA		delete[]
+#define ab_create			new(__FILE__, __LINE__)
+#define ab_delete_scalar	delete
+#define ab_delete_array		delete[]
 #else
-#define AB_NEW		new
-#define AB_DELS		delete		// delete scalar
-#define AB_DELA		delete[]	// delete array
+#define ab_create			new
+#define ab_delete_scalar	delete		// delete scalar
+#define ab_delete_array		delete[]	// delete array
 #endif
 
 namespace AB::internal {
-	AB_API void* allocate_memory(uint64 size);
-	AB_API void free_memory(void* block);
+	AB_API void* AllocateMemory(uint64 size);
+	AB_API void FreeMemory(void* block);
 
-	AB_API void* allocate_memory_debug(uint64 size, const char* file, uint32 line);
-	AB_API void free_memory_debug(void* block, const char* file, uint32 line);
+	AB_API void* AllocateMemoryDebug(uint64 size, const char* file, uint32 line);
+	AB_API void FreeMemoryDebug(void* block, const char* file, uint32 line);
 }
 
 namespace AB {
@@ -36,18 +38,18 @@ namespace AB {
 
 		T* allocate(size_type count) {
 #if defined(AB_DEBUG_MEMORY)
-			void* block = internal::allocate_memory_debug(count * sizeof(T), "class AB::Allocator<T>", 1);
+			void* block = internal::AllocateMemoryDebug(count * sizeof(T), "class AB::Allocator<T>", 1);
 #else
-			void* block = internal::allocate_memory(count * sizeof(T));
+			void* block = internal::AllocateMemory(count * sizeof(T));
 #endif
 			return static_cast<T*>(block);
 		}
 
 		void deallocate(T* ptr, size_type n) {
 #if defined(AB_DEBUG_MEMORY)
-			internal::free_memory_debug(ptr, "class AB::Allocator<T>", 1);
+			internal::FreeMemoryDebug(ptr, "class AB::Allocator<T>", 1);
 #else
-			internal::free_memory(ptr);
+			internal::FreeMemory(ptr);
 #endif
 		}
 	};
@@ -73,8 +75,8 @@ namespace AB {
 		uint64 totalAllocations;
 	};
 
-	AB_API void get_system_memory_info(SystemMemoryInfo& info);
-	AB_API void get_app_memory_info(AppMemoryInfo& info);
+	AB_API void GetSystemMemoryInfo(SystemMemoryInfo& info);
+	AB_API void GetAppMemoryInfo(AppMemoryInfo& info);
 }
 
 // warning C4595: 'operator new': non-member operator new or delete functions may not be declared inline
@@ -89,29 +91,29 @@ namespace AB {
 #define AB_MEMORY_OVERRIDE_NEW_DELETE
 #if defined (AB_MEMORY_OVERRIDE_NEW_DELETE)
 inline void* operator new(uint64 size) {
-	return AB::internal::allocate_memory(size);
+	return AB::internal::AllocateMemory(size);
 }
 inline void* operator new(uint64 size, const char* file, uint32 line) {
-	return AB::internal::allocate_memory_debug(size, file ,line);
+	return AB::internal::AllocateMemoryDebug(size, file ,line);
 }
 inline void* operator new[](uint64 size) {
-	return AB::internal::allocate_memory(size);
+	return AB::internal::AllocateMemory(size);
 }
 inline void* operator new[](uint64 size, const char* file, uint32 line) {
-	return AB::internal::allocate_memory_debug(size, file, line);
+	return AB::internal::AllocateMemoryDebug(size, file, line);
 }
 inline void operator delete(void* block) noexcept {
-	AB::internal::free_memory(block);
+	AB::internal::FreeMemory(block);
 	//free(block);
 }
 inline void operator delete(void* block, const char* file, uint32 line) noexcept {
-	AB::internal::free_memory_debug(block, file, line);
+	AB::internal::FreeMemoryDebug(block, file, line);
 }
 inline void operator delete[](void* block) noexcept {
-	AB::internal::free_memory(block);
+	AB::internal::FreeMemory(block);
 }
 inline void operator delete[](void* block, const char* file, uint32 line) noexcept {
-	AB::internal::free_memory_debug(block, file, line);
+	AB::internal::FreeMemoryDebug(block, file, line);
 }
 #endif
 

@@ -32,6 +32,17 @@ if(MSVC)
 	endif(MSVC)
 endif(DISABLE_EXCEPTIONS)
 
+# Platform definitions
+if(WIN32)
+	add_compile_definitions(AB_PLATFORM_WINDOWS)
+endif()
+if(UNIX)
+	add_compile_definitions(AB_PLATFORM_LINUX)
+endif()
+if(APPLE)
+	add_compile_definitions(AB_PLATFORM_MACOS)
+endif()
+
 ######################################################
 ## MSVC FLAGS ########################################
 set(MSVC_RELEASE_FLAGS "/std:c++17 /GR- /Ox /Ob2 /Ot /GL /fp:fast /WX /D \"AB_CONFIG_DISTRIB\"")

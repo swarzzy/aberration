@@ -21,14 +21,13 @@ set(ABERRATION_SRC_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
 
 ##### LIBRARIES
 
-set(ABERRATION_LIB_WIN32)
+set(ABERRATION_LIB_WIN32 OpenGL32)
 set(ABERRATION_LIB_UNIX)
 
 ##### SOURCES
 
 set(SOURCES
 	src/ABHeader.cpp
-	src/platform/Window.cpp
 	)
 
 set(HEADERS
@@ -39,7 +38,7 @@ set(HEADERS
 	src/platform/Platform.h
 	src/platform/Memory.h
 	src/platform/Window.h
-	src/platform/Gamepad.h
+	src/platform/Input.h
 	src/utils/Log.h
 	src/utils/Singleton.h
 	src/utils/String.h
@@ -48,10 +47,9 @@ set(HEADERS
 	)
 
 set(WIN_SOURCES
-	src/platform/windows/WinPlatform.cpp
-	src/platform/windows/WinConsole.cpp
-	src/platform/windows/WinMemory.cpp
-	src/platform/windows/Win32Window.h
+	src/platform/windows/Win32Platform.cpp
+	src/platform/windows/Win32Console.cpp
+	src/platform/windows/Win32Memory.cpp
 	src/platform/windows/Win32Window.cpp
 	)
 

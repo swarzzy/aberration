@@ -12,7 +12,7 @@ namespace AB {
 		return ("00:00:00");
 	}
 
-	AB_API void get_local_time(DateTime& datetime) {
+	AB_API void GetLocalTime(DateTime& datetime) {
 		SYSTEMTIME time;
 		GetLocalTime(&time);
 

@@ -10,7 +10,7 @@ namespace AB {
 	// NOTE: Might be unsafe store handle as static variable
 	static HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 
-	int32 console_print(const void* data, uint32 count) {
+	AB_API int32 console_print(const void* data, uint32 count) {
 		DWORD written;
 		BOOL result = WriteConsoleA(consoleHandle, data, count, &written, NULL);
 		if (written != count || result == 0)
@@ -18,7 +18,15 @@ namespace AB {
 		return 1;
 	}
 
-	int32 console_set_color(ConsoleColor textColor, ConsoleColor backColor) {
+	AB_API int32 ConsolePrint(const char* string) {
+		DWORD written;
+		BOOL result = WriteConsoleA(consoleHandle, string, static_cast<DWORD>(std::strlen(string)), &written, NULL);
+		if (result == 0)
+			return 0;
+		return 1;
+	}
+
+	AB_API int32 ConsoleSetColor(ConsoleColor textColor, ConsoleColor backColor) {
 		if (textColor == ConsoleColor::Default)
 			textColor = CONSOLE_DEFAULT_TEXT_COLOR;
 		if (backColor == ConsoleColor::Default)

@@ -1,5 +1,6 @@
 #pragma once 
 #include "src/ABHeader.h"
+#include <string>
 
 namespace AB {
 	struct AB_API DateTime {
@@ -16,5 +17,5 @@ namespace AB {
 		static const uint16 DATETIME_STRING_SIZE = 9; // hh:mm:ss\0
 	};
 
-	AB_API void get_local_time(DateTime& datetime);
+	AB_API void GetLocalTime(DateTime& datetime);
 }

@@ -8,6 +8,7 @@ namespace AB {
 		DarkWhite, Gray, Blue, Green, Cyan, Red, Purple, Yellow, White, Default
 	};
 
-	AB_API int32 console_print(const void* data, uint32 count);
-	AB_API int32 console_set_color(ConsoleColor textColor, ConsoleColor backColor);
+	AB_DEPRECATED AB_API int32 console_print(const void* data, uint32 count);
+	AB_API int32 ConsolePrint(const char* string);
+	AB_API int32 ConsoleSetColor(ConsoleColor textColor, ConsoleColor backColor);
 }

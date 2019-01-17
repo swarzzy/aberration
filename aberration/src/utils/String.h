@@ -1,6 +1,5 @@
 #pragma once
 #include "src/ABHeader.h"
-#include <string>
 
 namespace AB {
 
@@ -19,7 +18,7 @@ namespace AB {
 		static constexpr bool value = std::is_same<String, decltype(Detect(std::declval<T>()))>::value;
 	};
 
-	inline void cut_filename_from_end(char* str, char separator = '\\') {
+	inline void CutFilenameFromEnd(char* str, char separator = '\\') {
 		uint64 beg = 0;
 		uint64 end = strlen(str);
 		bool found = false;
@@ -43,7 +42,7 @@ namespace AB {
 	}
 
 	template<typename T>
-	inline String to_string(T arg) {
+	inline String ToString(T arg) {
 		if constexpr (std::is_fundamental<T>::value)
 			// TODO: sprintf
 			return String(std::to_string(arg));
@@ -53,24 +52,24 @@ namespace AB {
 			return "<ERROR::STRING: UNKNOWN TYPE>";
 	}
 
-	inline String to_string(const String& string) {
+	inline String ToString(const String& string) {
 		return String(string);
 	}
 
-	//inline String to_string(const std::string& string) {
+	//inline String ToString(const std::string& string) {
 	//	return String(string);
 	//}
-	inline String to_string(std::string_view string) {
+	inline String ToString(std::string_view string) {
 		return String(string);
 	}
-	inline String to_string(char* str) {
+	inline String ToString(char* str) {
 		return String(str);
 	}
-	inline String to_string(char ch) {
+	inline String ToString(char ch) {
 		// TODO: get rid of std::string (sprintf)
 		return String(std::to_string(ch));
 	}
-	inline String to_string(const char* str) {
+	inline String ToString(const char* str) {
 		return String(str);
 	}
 }

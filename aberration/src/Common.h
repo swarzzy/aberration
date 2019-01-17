@@ -21,3 +21,7 @@
 	TypeName(TypeName&& TypeName) = delete;\
 	TypeName& operator=(const TypeName& other) = delete;\
 	TypeName& operator=(TypeName&& other) = delete;
+
+#define AB_DEPRECATED [[deprecated]]
+
+#define AB_BIT(shift) (1 << shift)

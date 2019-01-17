@@ -14,11 +14,10 @@
 #include "Common.h"
 #include "Types.h"
 #include "platform/Memory.h"
-#include "utils/String.h"
-#include "utils/Log.h"
 
 // STL
 #include <string_view>
+#include <sstream>
 #include <vector>
 #include <utility>
 
@@ -31,3 +30,7 @@
 #if !defined(_MSC_VER)
 #include <cstring>
 #endif
+
+//#include "platform/Platform.h"
+#include "utils/String.h"
+//#include "utils/Log.h"
