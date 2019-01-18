@@ -1,7 +1,9 @@
 #include "../Platform.h"
 #include <ctime>
+#include <src/platform/Platform.h>
 
-namespace ab {
+
+namespace AB {
 
 	std::string DateTime::ToString() {
 		if (hour < 24 && minute < 60 && seconds < 60) {
@@ -12,7 +14,7 @@ namespace ab {
 		return ("00:00:00");
 	}
 
-	AB_API void get_local_time(DateTime& datetime) {
+	AB_API void GetLocalTime(DateTime& datetime) {
 		std::time_t t = std::time(nullptr);
 		auto tm = std::localtime(&t);
 

@@ -97,9 +97,9 @@ namespace AB::utils {
 #define _AB_CORE_INFO(...) do { AB::utils::LogMessage(AB::utils::LogLevel::Info, __FILE__, "", 0, __VA_ARGS__); } while(false)
 #define _AB_CORE_WARN(...) do { AB::utils::LogMessage(AB::utils::LogLevel::Warn, __FILE__, __func__, __LINE__, __VA_ARGS__); } while(false)
 #define _AB_CORE_ERROR(...) do { AB::utils::LogMessage(AB::utils::LogLevel::Error, __FILE__, __func__, __LINE__, __VA_ARGS__); } while(false)
-#define _AB_CORE_FATAL(...) do { AB::utils::LogMessage(AB::utils::LogLevel::Fatal, __FILE__, __func__, __LINE__, __VA_ARGS__); __debugbreak();} while(false)
+#define _AB_CORE_FATAL(...) do { AB::utils::LogMessage(AB::utils::LogLevel::Fatal, __FILE__, __func__, __LINE__, __VA_ARGS__); AB_DEBUG_BREAK();} while(false)
 #define _AB_CORE_ASSERT(expr, ...) do { if (!(expr)) {AB::utils::LogMessage(AB::utils::LogLevel::Fatal, __FILE__, __func__, __LINE__, \
-										"ASSERTION FAILED: ", #expr, "\n", __VA_ARGS__); __debugbreak();}} while(false)
+										"ASSERTION FAILED: ", #expr, "\n", __VA_ARGS__); AB_DEBUG_BREAK();}} while(false)
 #endif
 
 #define AB_CORE_INFO(...) _AB_CORE_INFO(__VA_ARGS__) 

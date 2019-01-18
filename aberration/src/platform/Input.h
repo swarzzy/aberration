@@ -142,6 +142,10 @@ namespace AB {
 		RightSuper = 0x5C,
 		Clear = 0x0C,
 	};
+#elif defined (AB_PLATFORM_LINUX)
+
+	enum class KeyboardKey : uint8 {
+	};
 
 #endif
 }

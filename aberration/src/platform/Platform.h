@@ -2,6 +2,12 @@
 #include "src/ABHeader.h"
 #include <string>
 
+#if defined(AB_PLATFORM_WINDOWS)
+#define AB_DEBUG_BREAK() __debugbreak()
+#elif defined(AB_PLATFORM_LINUX)
+#define AB_DEBUG_BREAK() __builtin_debugtrap()
+#endif
+
 namespace AB {
 	struct AB_API DateTime {
 		uint16 year;

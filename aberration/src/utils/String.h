@@ -62,14 +62,22 @@ namespace AB {
 	inline String ToString(std::string_view string) {
 		return String(string);
 	}
+
 	inline String ToString(char* str) {
 		return String(str);
 	}
+
 	inline String ToString(char ch) {
 		// TODO: get rid of std::string (sprintf)
 		return String(std::to_string(ch));
 	}
+
 	inline String ToString(const char* str) {
 		return String(str);
+	}
+
+	inline String ToString(const unsigned char* str) {
+		// TODO: This cast might be unsafe
+		return String(reinterpret_cast<const char*>(str));
 	}
 }

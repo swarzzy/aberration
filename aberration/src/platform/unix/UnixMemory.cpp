@@ -1,9 +1,12 @@
 #include "../Memory.h"
-#include <cstdlib>
-#include <sys/sysinfo.h>
+#include "../Console.h"
 
-#define AB_ALLOC_PROC(size) malloc(size)
-#define AB_FREE_PROC(block) free(block)
+#include <sys/sysinfo.h>
+#include <cstdlib>
+#include <cstring>
+
+#define AB_ALLOC_PROC(size) std::malloc(size)
+#define AB_FREE_PROC(block) std::free(block)
 
 static uint64 LOGGING_TRESHOLD = 1024; // * 1024
 
@@ -12,8 +15,8 @@ static uint64 CurrentAllocations = 0;
 static uint64 TotalUsedMemory = 0;
 static uint64 TotalAllocations = 0;
 
-namespace ab::internal {
-	AB_API void* allocate_memory(uint64 size) {
+namespace AB::internal {
+	AB_API void* AllocateMemory(uint64 size) {
 		CurrentUsedMemory += size;
 		CurrentAllocations++;
 		TotalUsedMemory += size;
@@ -25,7 +28,7 @@ namespace ab::internal {
 		return block + sizeof(uint64);
 	}
 
-	AB_API void free_memory(void* block) {
+	AB_API void FreeMemory(void* block) {
 		byte* actualBlock = static_cast<byte*>(block) - sizeof(uint64);
 		uint64 size = *reinterpret_cast<uint64*>(actualBlock);
 		CurrentUsedMemory -= size;
@@ -34,41 +37,49 @@ namespace ab::internal {
 		AB_FREE_PROC(actualBlock);
 	}
 
-	AB_API void* allocate_memory_debug(uint64 size, const char* file, uint32 line) {
+	AB_API void* AllocateMemoryDebug(uint64 size, const char* file, uint32 line) {
 		CurrentUsedMemory += size;
 		CurrentAllocations++;
 		TotalUsedMemory += size;
 		TotalAllocations++;
 
 #if defined(AB_DEBUG_MEMORY)
-		if (size > LOGGING_TRESHOLD)
-			//TODO: propper logging
-			printf("Large allocation(>%llu bytes): %llu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size, file, line);
-#endif
+		if (size > LOGGING_TRESHOLD) {
+            //TODO: propper logging
+            //TODO: propper logging
+            char buff[256];
+            sprintf(buff, "Large allocation(>%lu bytes): %lu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size,
+                    file, line);
+            ConsolePrint(buff);
+        }
+    #endif
 
 		uint64 actualSize = size + sizeof(uint64);
 		byte* block = static_cast<byte*>(AB_ALLOC_PROC(actualSize));
 		memcpy(block, &size, sizeof(uint64));
 		return block + sizeof(uint64);
 	}
-	AB_API void free_memory_debug(void* block, const char* file, uint32 line) {
+	AB_API void FreeMemoryDebug(void* block, const char* file, uint32 line) {
 		byte* actualBlock = static_cast<byte*>(block) - sizeof(uint64);
 		uint64 size = *reinterpret_cast<uint64*>(actualBlock);
 		CurrentUsedMemory -= size;
 		CurrentAllocations--;
 
 #if defined(AB_DEBUG_MEMORY)
-		if (size > LOGGING_TRESHOLD)
-			//TODO: propper logging
-			printf("Large deallocation(>%llu bytes): %llu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size, file, line);
+		if (size > LOGGING_TRESHOLD) {
+            //TODO: propper logging
+            char buff[256];
+            sprintf(buff, "Large deallocation(>%lu bytes): %lu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size, file, line);
+            ConsolePrint(buff);
+        }
 #endif
 
 		AB_FREE_PROC(actualBlock);
 	}
 }
 
-namespace ab {
-	AB_API void get_system_memory_info(SystemMemoryInfo& info) {
+namespace AB {
+	AB_API void GetSystemMemoryInfo(SystemMemoryInfo& info) {
 		struct sysinfo sysInfo = {};
 		sysinfo(&sysInfo);
 		info.totalPhys = sysInfo.totalram;
@@ -78,7 +89,7 @@ namespace ab {
 		info.memoryLoad = info.availablePhys * 100 / info.totalPhys;
 	}
 
-	void get_app_memory_info(AppMemoryInfo& info) {
+	AB_API void GetAppMemoryInfo(AppMemoryInfo& info) {
 		info.currentUsed = CurrentUsedMemory;
 		info.currentAllocations = CurrentAllocations;
 		info.totalUsed = TotalUsedMemory;
