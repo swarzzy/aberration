@@ -1,2 +1,2 @@
 # aberration
-A Handmade realtime 3D engine
+A handmade realtime 3D engine
