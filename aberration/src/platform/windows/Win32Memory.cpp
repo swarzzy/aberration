@@ -22,6 +22,8 @@ namespace AB::internal {
 		
 		uint64 actualSize = size + sizeof(uint64);
 		byte* block = static_cast<byte*>(AB_ALLOC_PROC(actualSize));
+		if (block == nullptr)
+			return nullptr;
 		memcpy(block, &size, sizeof(uint64));
 		return block + sizeof(uint64);
 	}
@@ -43,16 +45,19 @@ namespace AB::internal {
 		TotalUsedMemory += size;
 		TotalAllocations++;
 
-#if defined(AB_DEBUG_MEMORY)
+#		if defined(AB_DEBUG_MEMORY)
 		if (size > LOGGING_TRESHOLD) {
 			//TODO: propper logging
 			char buff[256];
 			sprintf(buff, "Large allocation(>%llu bytes): %llu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size, file, line);
 			ConsolePrint(buff);
 		}
-#endif
+#		endif
+
 		uint64 actualSize = size + sizeof(uint64);
 		byte* block = static_cast<byte*>(AB_ALLOC_PROC(actualSize));
+		if (block == nullptr)
+			return nullptr;
 		memcpy(block, &size, sizeof(uint64));
 		return block + sizeof(uint64);
 	}
@@ -63,25 +68,25 @@ namespace AB::internal {
 			CurrentUsedMemory -= size;
 			CurrentAllocations--;
 
-#if defined(AB_DEBUG_MEMORY)
+#		if defined(AB_DEBUG_MEMORY)
 			if (size > LOGGING_TRESHOLD) {
 				//TODO: propper logging
 				char buff[256];
 				sprintf(buff, "Large deallocation(>%llu bytes): %llu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size, file, line);
 				ConsolePrint(buff);
 			}
-#endif
+#		endif
 
 			AB_FREE_PROC(actualBlock);
 		}
-#if defined(AB_DEBUG_MEMORY)
+#		if defined(AB_DEBUG_MEMORY)
 		if (block == nullptr) {
 			//TODO: propper logging
 			char buff[128];
 			sprintf(buff, "Attempt to delete nullptr in file: %s, line: %u\n", file, line);
 			ConsolePrint(buff);
 		}
-#endif
+#		endif
 	}
 }
 

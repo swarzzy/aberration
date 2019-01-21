@@ -3,11 +3,11 @@
 
 namespace AB {
 
-	std::string DateTime::ToString() {
+	String DateTime::ToString() {
 		if (hour < 24 && minute < 60 && seconds < 60) {
 			char buff[DATETIME_STRING_SIZE];
 			sprintf(buff, "%02d:%02d:%02d", hour, minute, seconds);
-			return std::string(buff);
+			return String(buff);
 		}
 		return ("00:00:00");
 	}

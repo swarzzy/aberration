@@ -19,7 +19,7 @@ namespace AB {
 		uint16 seconds;
 		uint16 milliseconds;
 
-		std::string ToString();
+		String ToString();
 		static const uint16 DATETIME_STRING_SIZE = 9; // hh:mm:ss\0
 	};
 

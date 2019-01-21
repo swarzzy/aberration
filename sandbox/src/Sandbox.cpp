@@ -1,5 +1,10 @@
 #include <Aberration.h>
-//#include <conio.h>
+#if defined(AB_PLATFORM_WINDOWS)
+#include <conio.h>
+#endif
+
+
+#if defined(AB_PLATFORM_LINUX)
 #include <X11/X.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -30,6 +35,8 @@ void X11() {
     //		WhitePixel(display,screenID)
     //		);
 
+	//XClearWindow(display, window);
+	//XMapRaised(display, window);
 
     // GL context
     GLint majorGLX = 0;
@@ -44,7 +51,7 @@ void X11() {
 
     GLint glxAttribs[] = {
             GLX_RGBA,
-            GLX_DOUBLEBUFFER,
+            GLX_DOUBLEBUFFER, True,
             GLX_RED_SIZE, 8,
             GLX_GREEN_SIZE, 8,
             GLX_BLUE_SIZE, 8,
@@ -54,8 +61,10 @@ void X11() {
             None
     };
 
+	printf("POINT\n");
     XVisualInfo* vInfo = glXChooseVisual(display, screenID, glxAttribs);
-    AB_CORE_ASSERT(vInfo, "Failed to initialize OpenGL.");
+	printf("END POINT\n");
+   // AB_CORE_ASSERT(vInfo, "Failed to initialize OpenGL.");
 
     XSetWindowAttributes windowAttribs;
     windowAttribs.background_pixel = BlackPixel(display, screenID);
@@ -78,6 +87,8 @@ void X11() {
     		CWBackPixel | CWColormap | CWBorderPixel | CWEventMask,
     		&windowAttribs
     		);
+
+
 
 	// GL context
 	GLXContext context = glXCreateContext(display, vInfo, NULL, GL_TRUE);
@@ -208,18 +219,21 @@ void X11() {
     XFree(screen);
     XCloseDisplay(display);
 }
-
+#endif
 
 int main() {
+
 	AB::utils::Log::Initialize(AB::utils::LogLevel::Info);
 	AB::SystemMemoryInfo info = {};
 	AB::GetSystemMemoryInfo(info);
 	AB_CORE_INFO("Memory load: ", info.memoryLoad, "\nTotal phys: ", info.totalPhys / 1024 / 1024, "\nAvail phys: ", info.availablePhys / 1024 / 1024,
 				 "\nTotal swap: ", info.totalSwap / (1024 * 1024), "\nAvail swap: ", info.availableSwap / 1024 / 1024,
 				 "\n");
-
+#if defined(AB_PLATFORM_LINUX)
 	X11();
-	/*AB::Window::Create("Aberration", 800, 600);
+#elif defined(AB_PLATFORM_WINDOWS)
+
+	AB::Window::Create("Aberration", 800, 600);
 	AB::Window::SetResizeCallback([](uint32 w, uint32 h) {printf("Window resized: %u %u\n", w, h); });
 	AB::Window::SetGamepadButtonCallback([](uint8 g, AB::GamepadButton b, bool c, bool p) {printf("Button: %d c: %d p: %d\n", b, c, p); });
 	AB::Window::SetKeyCallback([](AB::KeyboardKey k, bool c, bool p, uint32 rc) {printf("Key pressed: %d %d %d %d\n", static_cast<uint32>(k), c, p, rc); });
@@ -232,14 +246,18 @@ int main() {
 	}
 
 	AB::Window::Destroy();
-*/
+
 
 	//printf("lol");
 
+#endif
 	AB::AppMemoryInfo mem = {};
 	AB::GetAppMemoryInfo(mem);
 	AB_CORE_INFO("\nCurr: ", mem.currentUsed, "\nCurr alloc: ", mem.currentAllocations, "\nTotal: ", mem.totalUsed, "\nTotal alloc: ", mem.totalAllocations, "\n");
 	std::vector<int, AB::Allocator<int>> list;
-	//_getch();
+
+#if defined(AB_PLATFORM_WINDOWS)
+	_getch();
+#endif
 	return 0;
 }

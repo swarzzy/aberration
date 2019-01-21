@@ -24,6 +24,7 @@ cmake_uninstall.cmake
 _build/
 _build_msvc/
 _build_clang/
+_build_clang_linux/
 
 
 #Binaries and libs

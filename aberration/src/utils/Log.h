@@ -31,10 +31,10 @@ namespace AB::utils {
 		char m_Buffer[LOG_BUFFER_SIZE];
 		uint64 m_Filled;
 
-		inline Log(LogLevel level);
 		inline ~Log() {}
 
 	public:
+		inline Log(LogLevel level);
 		inline static void Initialize(LogLevel level);
 		inline static void Destroy();
 		inline static Log* Instance();
