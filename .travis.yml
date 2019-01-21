@@ -14,8 +14,8 @@ addons:
 # - libX11-dev
 script:
   # Link gcc-6 and g++-6 to their standard commands
-  - ln -s /usr/bin/clang /usr/local/bin/clang
-  - ln -s /usr/bin/clang++ /usr/local/bin/clang++
+  - sudo ln -s /usr/bin/clang /usr/local/bin/clang
+  - sudo ln -s /usr/bin/clang++ /usr/local/bin/clang++
   # Export CC and CXX to tell cmake which compiler to use
   - export CC=/usr/bin/clang
   - export CXX=/usr/bin/clang++
