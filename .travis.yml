@@ -6,11 +6,11 @@ compiler:
   - clang
 addons:
   apt:
-#    sources:
-#     - ubuntu-toolchain-r-test
-#  packages:
-#   - cmake
-#  - clang
+    sources:
+     - ubuntu-toolchain-r-test
+  packages:
+   - cmake
+  - clang
 # - libX11-dev
 script:
   # Link gcc-6 and g++-6 to their standard commands
