@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.0.0 FATAL_ERROR)
 #cmake_policy(SET CMP0076 NEW)
 project(Aberration)
 
+set(AB_PLATFORM_UNIX_USE_X11 TRUE)
+
 include(../cmake/PrecompiledHeader.cmake)
 
 # Platform definitions
@@ -28,6 +30,7 @@ set(ABERRATION_LIB_UNIX X11 GL)
 
 set(SOURCES
 	src/ABHeader.cpp
+	src/utils/String.cpp
 	)
 
 set(HEADERS
@@ -59,6 +62,10 @@ set(UNIX_SOURCES
 	src/platform/unix/UnixMemory.cpp
 	)
 
+set(X11_SOURCES
+	src/platform/unix/X11Window.cpp
+	)
+
 if (NOT WIN32 AND NOT UNIX)
 	error("Unsupported OS")
 endif()
@@ -67,6 +74,9 @@ if (WIN32)
     set(PLATFORM_LIBS ${ABERRATION_LIB_WIN32})
 endif (WIN32)
 if (UNIX)
+if(AB_PLATFORM_UNIX_USE_X11)
+	list(APPEND UNIX_SOURCES ${X11_SOURCES})
+endif()
 	set(PLATFORM_SOURCES ${UNIX_SOURCES})
 	set(PLATFORM_LIBS ${ABERRATION_LIB_UNIX})
 endif()

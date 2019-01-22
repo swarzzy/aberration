@@ -2,6 +2,7 @@
 #include "src/ABHeader.h"
 
 namespace AB {
+	enum class KeyboardKey : unsigned char;
 
 	// Aberration string class
 	using String = std::basic_string<char, std::char_traits<char>, Allocator<char>>;
@@ -80,4 +81,7 @@ namespace AB {
 		// TODO: This cast might be unsafe
 		return String(reinterpret_cast<const char*>(str));
 	}
+
+	// TODO: might be unsafe use it from anothe dll or executable (heap mismatch)
+	AB_API String ToString(KeyboardKey key);
 }

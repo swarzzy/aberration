@@ -18,16 +18,16 @@ typedef DWORD WINAPI _Win32XInputGetState(DWORD dwUserIndex, XINPUT_STATE* pStat
 typedef DWORD WINAPI _Win32XInputSetState(DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
 
 // Dummy functions for use if XInput loading failed. Is will work as is no device connected
-inline static DWORD WINAPI _Win32XInputGetStateDummy(DWORD dwUserIndex, XINPUT_STATE* pState) {
+inline static DWORD WINAPI __Win32XInputGetStateDummy(DWORD dwUserIndex, XINPUT_STATE* pState) {
 	return ERROR_DEVICE_NOT_CONNECTED;
 }
 
-inline static DWORD WINAPI _Win32XInputSetStateDummy(DWORD dwUserIndex, XINPUT_VIBRATION* pVibration) {
+inline static DWORD WINAPI __Win32XInputSetStateDummy(DWORD dwUserIndex, XINPUT_VIBRATION* pVibration) {
 	return ERROR_DEVICE_NOT_CONNECTED;
 }
 
-static _Win32XInputGetState* Win32XInputGetState = _Win32XInputGetStateDummy;
-static _Win32XInputSetState* Win32XInputSetState = _Win32XInputSetStateDummy;
+static _Win32XInputGetState* Win32XInputGetState = __Win32XInputGetStateDummy;
+static _Win32XInputSetState* Win32XInputSetState = __Win32XInputSetStateDummy;
 
 // ^^^ XInput functions definitions
 
@@ -80,14 +80,17 @@ namespace AB {
 		std::function<void(uint8, int16, int16, int16, int16)> gamepadStickCallback;
 		std::function<void(uint8, byte, byte)> gamepadTriggerCallback;
 
-		Win32KeyState keys[KEYBOARD_KEYS_COUNT]; // 1-current state, 2-prev state, 3+ - repeat count
 		std::function<void(KeyboardKey, bool, bool, uint32)> keyCallback;
+		Win32KeyState keys[KEYBOARD_KEYS_COUNT]; // 1-current state, 2-prev state, 3+ - repeat count
+		uint8 keyTable[KEYBOARD_KEYS_COUNT];
 	};
 
-	LRESULT CALLBACK WindowCallback(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam);
-	static void GamepadUpdate(WindowProperties* props);
-	static void LoadXInput();
-	static void InitOpenGL(HWND windowHandle);
+	static LRESULT CALLBACK _Win32WindowCallback(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam);
+	static void _Win32GamepadUpdate(WindowProperties* props);
+	static void _Win32LoadXInput();
+	static void _Win32InitOpenGL(HWND windowHandle);
+	static void _Win32InitKeyTable(uint8* keytable);
+	static uint8 _Win32KeyConvertToABKeycode(WindowProperties* window, uint64 Win32Key);
 
 	void Window::Create(const String& title, uint32 width, uint32 height) {
 		if (s_WindowProperties) {
@@ -134,10 +137,9 @@ namespace AB {
 			{
 				TranslateMessage(&message);
 				DispatchMessage(&message);
-
 			}
 		}
-		GamepadUpdate(s_WindowProperties);
+		_Win32GamepadUpdate(s_WindowProperties);
 
 		// TODO: Temporary opengl stuff
 		glViewport(0, 0, s_WindowProperties->width, s_WindowProperties->height);
@@ -242,7 +244,7 @@ namespace AB {
 
 		WNDCLASS windowClass = {};
 		windowClass.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
-		windowClass.lpfnWndProc = WindowCallback;
+		windowClass.lpfnWndProc = _Win32WindowCallback;
 		windowClass.hInstance = instance;
 		windowClass.lpszClassName = WINDOW_CLASS_NAME;
 
@@ -281,7 +283,7 @@ namespace AB {
 		s_WindowProperties->Win32WindowDC = GetDC(handle);
 
 		// OPENGL stuff
-		InitOpenGL(handle);
+		_Win32InitOpenGL(handle);
 
 
 		//SetWindowLongPtr(window->windowHandle, GWLP_USERDATA, 0);
@@ -292,10 +294,12 @@ namespace AB {
 		s_WindowProperties->Win32MouseTrackEvent.dwHoverTime = HOVER_DEFAULT;
 		s_WindowProperties->Win32MouseTrackEvent.hwndTrack = s_WindowProperties->Win32WindowHandle;
 		TrackMouseEvent(&s_WindowProperties->Win32MouseTrackEvent);
+		
+		_Win32InitKeyTable(s_WindowProperties->keyTable);
 
 		SetFocus(s_WindowProperties->Win32WindowHandle);
 
-		LoadXInput();
+		_Win32LoadXInput();
 
 		// TODO: Move to function
 		for (uint32 i = 0; i < XUSER_MAX_COUNT; i++) {
@@ -305,7 +309,7 @@ namespace AB {
 		}
 	}
 
-	LRESULT CALLBACK WindowCallback(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam) {
+	static LRESULT CALLBACK _Win32WindowCallback(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam) {
 		LRESULT result = 0;
 
 		if (message == WM_CREATE) {
@@ -428,20 +432,26 @@ namespace AB {
 			
 			// KEYBOARD INPUT
 
+			case WM_SYSKEYDOWN:
+
+			case WM_SYSKEYUP:
+				
 			case WM_KEYDOWN: {
-				window->keys[wParam].prevState = window->keys[wParam].currentState;
-				window->keys[wParam].currentState = true;
-				window->keys[wParam].repeatCount += AB_KEY_REPEAT_COUNT_FROM_LPARAM(lParam);
+				uint32 key = _Win32KeyConvertToABKeycode(window, wParam);
+				window->keys[key].prevState = window->keys[key].currentState;
+				window->keys[key].currentState = true;
+				window->keys[key].repeatCount += AB_KEY_REPEAT_COUNT_FROM_LPARAM(lParam);
 				if (window->keyCallback)
-					window->keyCallback(static_cast<KeyboardKey>(wParam), true, window->keys[wParam].prevState, window->keys[wParam].repeatCount);
+					window->keyCallback(static_cast<KeyboardKey>(key), true, window->keys[key].prevState, window->keys[key].repeatCount);
 			} break;
 
 			case WM_KEYUP: {
-				window->keys[wParam].prevState = window->keys[wParam].currentState;
-				window->keys[wParam].currentState = false;
-				window->keys[wParam].repeatCount = 0;
+				uint32 key = _Win32KeyConvertToABKeycode(window, wParam);
+				window->keys[key].prevState = window->keys[key].currentState;
+				window->keys[key].currentState = false;
 				if (window->keyCallback)
-					window->keyCallback(static_cast<KeyboardKey>(wParam), false, window->keys[wParam].prevState, window->keys[wParam].repeatCount);
+					window->keyCallback(static_cast<KeyboardKey>(key), false, window->keys[key].prevState, window->keys[key].repeatCount);
+				window->keys[key].repeatCount = 0;
 			} break;
 
 			// ^^^^ KEYBOARD INPUT
@@ -466,7 +476,7 @@ namespace AB {
 		return result;
 	}
 
-	void GamepadUpdate(WindowProperties* props) {
+	static void _Win32GamepadUpdate(WindowProperties* props) {
 		for (DWORD cIndex = 0; cIndex < XUSER_MAX_COUNT; cIndex++) {
 			XINPUT_STATE cState;
 			auto result = Win32XInputGetState(cIndex, &cState);
@@ -530,7 +540,7 @@ namespace AB {
 		}
 	}
 
-	void LoadXInput() {
+	static void _Win32LoadXInput() {
 		// TODO: try another versions
 		HMODULE xInputLibrary = LoadLibrary(AB_XINPUT_DLL);
 		if (xInputLibrary) {
@@ -542,7 +552,7 @@ namespace AB {
 		}
 	}
 
-	static void InitOpenGL(HWND windowHandle) {
+	static void _Win32InitOpenGL(HWND windowHandle) {
 		HDC windowDC = GetDC(windowHandle);
 
 		PIXELFORMATDESCRIPTOR desiredPixelFormat = {};
@@ -565,5 +575,135 @@ namespace AB {
 		auto result = wglMakeCurrent(windowDC, glRC);
 		AB_CORE_ASSERT(result, "Failed to create OpenGL context.");
 		ReleaseDC(windowHandle, windowDC);
+	}
+
+	static uint8 _Win32KeyConvertToABKeycode(WindowProperties* window, uint64 Win32Key) {
+		if (Win32Key < KEYBOARD_KEYS_COUNT)
+			return window->keyTable[Win32Key];
+		return static_cast<uint8>(KeyboardKey::InvalidKey);
+	}
+
+	static void _Win32InitKeyTable(uint8* keytable) {
+		memset(keytable, static_cast<uint8>(KeyboardKey::InvalidKey), KEYBOARD_KEYS_COUNT);
+
+		keytable[0x08] = static_cast<uint8>(KeyboardKey::Backspace);
+		keytable[0x09] = static_cast<uint8>(KeyboardKey::Tab);
+		keytable[0x0c] = static_cast<uint8>(KeyboardKey::Clear);
+		keytable[0x0d] = static_cast<uint8>(KeyboardKey::Enter);
+		keytable[0x10] = static_cast<uint8>(KeyboardKey::Shift);
+		keytable[0x11] = static_cast<uint8>(KeyboardKey::Ctrl);
+		keytable[0x12] = static_cast<uint8>(KeyboardKey::Alt);
+		keytable[0x13] = static_cast<uint8>(KeyboardKey::Pause);
+		keytable[0x14] = static_cast<uint8>(KeyboardKey::CapsLock);
+		keytable[0x1b] = static_cast<uint8>(KeyboardKey::Escape);
+		keytable[0x20] = static_cast<uint8>(KeyboardKey::Space);
+		keytable[0x21] = static_cast<uint8>(KeyboardKey::PageUp);
+		keytable[0x22] = static_cast<uint8>(KeyboardKey::PageDown);
+		keytable[0x23] = static_cast<uint8>(KeyboardKey::End);
+		keytable[0x24] = static_cast<uint8>(KeyboardKey::Home);
+		keytable[0x25] = static_cast<uint8>(KeyboardKey::Left);
+		keytable[0x26] = static_cast<uint8>(KeyboardKey::Up);
+		keytable[0x27] = static_cast<uint8>(KeyboardKey::Right);
+		keytable[0x28] = static_cast<uint8>(KeyboardKey::Down);
+		keytable[0x2c] = static_cast<uint8>(KeyboardKey::PrintScreen);
+		keytable[0x2d] = static_cast<uint8>(KeyboardKey::Insert);
+		keytable[0x2e] = static_cast<uint8>(KeyboardKey::Delete);
+		keytable[0x30] = static_cast<uint8>(KeyboardKey::Key0);
+		keytable[0x31] = static_cast<uint8>(KeyboardKey::Key1);
+		keytable[0x32] = static_cast<uint8>(KeyboardKey::Key2);
+		keytable[0x33] = static_cast<uint8>(KeyboardKey::Key3);
+		keytable[0x34] = static_cast<uint8>(KeyboardKey::Key4);
+		keytable[0x35] = static_cast<uint8>(KeyboardKey::Key5);
+		keytable[0x36] = static_cast<uint8>(KeyboardKey::Key6);
+		keytable[0x37] = static_cast<uint8>(KeyboardKey::Key7);
+		keytable[0x38] = static_cast<uint8>(KeyboardKey::Key8);
+		keytable[0x39] = static_cast<uint8>(KeyboardKey::Key9);
+		keytable[0x41] = static_cast<uint8>(KeyboardKey::A);
+		keytable[0x42] = static_cast<uint8>(KeyboardKey::B);
+		keytable[0x43] = static_cast<uint8>(KeyboardKey::C);
+		keytable[0x44] = static_cast<uint8>(KeyboardKey::D);
+		keytable[0x45] = static_cast<uint8>(KeyboardKey::E);
+		keytable[0x46] = static_cast<uint8>(KeyboardKey::F);
+		keytable[0x47] = static_cast<uint8>(KeyboardKey::G);
+		keytable[0x48] = static_cast<uint8>(KeyboardKey::H);
+		keytable[0x49] = static_cast<uint8>(KeyboardKey::I);
+		keytable[0x4a] = static_cast<uint8>(KeyboardKey::J);
+		keytable[0x4b] = static_cast<uint8>(KeyboardKey::K);
+		keytable[0x4c] = static_cast<uint8>(KeyboardKey::L);
+		keytable[0x4d] = static_cast<uint8>(KeyboardKey::M);
+		keytable[0x4e] = static_cast<uint8>(KeyboardKey::N);
+		keytable[0x4f] = static_cast<uint8>(KeyboardKey::O);
+		keytable[0x50] = static_cast<uint8>(KeyboardKey::P);
+		keytable[0x51] = static_cast<uint8>(KeyboardKey::Q);
+		keytable[0x52] = static_cast<uint8>(KeyboardKey::R);
+		keytable[0x53] = static_cast<uint8>(KeyboardKey::S);
+		keytable[0x54] = static_cast<uint8>(KeyboardKey::T);
+		keytable[0x55] = static_cast<uint8>(KeyboardKey::U);
+		keytable[0x56] = static_cast<uint8>(KeyboardKey::V);
+		keytable[0x57] = static_cast<uint8>(KeyboardKey::W);
+		keytable[0x58] = static_cast<uint8>(KeyboardKey::X);
+		keytable[0x59] = static_cast<uint8>(KeyboardKey::Y);
+		keytable[0x5a] = static_cast<uint8>(KeyboardKey::Z);
+		keytable[0x5b] = static_cast<uint8>(KeyboardKey::LeftSuper);
+		keytable[0x5c] = static_cast<uint8>(KeyboardKey::RightSuper);
+		keytable[0x60] = static_cast<uint8>(KeyboardKey::NumPad0);
+		keytable[0x61] = static_cast<uint8>(KeyboardKey::NumPad1);
+		keytable[0x62] = static_cast<uint8>(KeyboardKey::NumPad2);
+		keytable[0x63] = static_cast<uint8>(KeyboardKey::NumPad3);
+		keytable[0x64] = static_cast<uint8>(KeyboardKey::NumPad4);
+		keytable[0x65] = static_cast<uint8>(KeyboardKey::NumPad5);
+		keytable[0x66] = static_cast<uint8>(KeyboardKey::NumPad6);
+		keytable[0x67] = static_cast<uint8>(KeyboardKey::NumPad7);
+		keytable[0x68] = static_cast<uint8>(KeyboardKey::NumPad8);
+		keytable[0x69] = static_cast<uint8>(KeyboardKey::NumPad9);
+		keytable[0x6a] = static_cast<uint8>(KeyboardKey::NumPadMultiply);
+		keytable[0x6b] = static_cast<uint8>(KeyboardKey::NumPadAdd);
+		keytable[0x6d] = static_cast<uint8>(KeyboardKey::NumPadSubtract);
+		keytable[0x6e] = static_cast<uint8>(KeyboardKey::NumPadDecimal);
+		keytable[0x6f] = static_cast<uint8>(KeyboardKey::NumPadDivide);
+		keytable[0x70] = static_cast<uint8>(KeyboardKey::F1);
+		keytable[0x71] = static_cast<uint8>(KeyboardKey::F2);
+		keytable[0x72] = static_cast<uint8>(KeyboardKey::F3);
+		keytable[0x73] = static_cast<uint8>(KeyboardKey::F4);
+		keytable[0x74] = static_cast<uint8>(KeyboardKey::F5);
+		keytable[0x75] = static_cast<uint8>(KeyboardKey::F6);
+		keytable[0x76] = static_cast<uint8>(KeyboardKey::F7);
+		keytable[0x77] = static_cast<uint8>(KeyboardKey::F8);
+		keytable[0x78] = static_cast<uint8>(KeyboardKey::F9);
+		keytable[0x79] = static_cast<uint8>(KeyboardKey::F10);
+		keytable[0x7a] = static_cast<uint8>(KeyboardKey::F11);
+		keytable[0x7b] = static_cast<uint8>(KeyboardKey::F12);
+		keytable[0x7c] = static_cast<uint8>(KeyboardKey::F13);
+		keytable[0x7d] = static_cast<uint8>(KeyboardKey::F14);
+		keytable[0x7e] = static_cast<uint8>(KeyboardKey::F15);
+		keytable[0x7f] = static_cast<uint8>(KeyboardKey::F16);
+		keytable[0x80] = static_cast<uint8>(KeyboardKey::F17);
+		keytable[0x81] = static_cast<uint8>(KeyboardKey::F18);
+		keytable[0x82] = static_cast<uint8>(KeyboardKey::F19);
+		keytable[0x83] = static_cast<uint8>(KeyboardKey::F20);
+		keytable[0x84] = static_cast<uint8>(KeyboardKey::F21);
+		keytable[0x85] = static_cast<uint8>(KeyboardKey::F22);
+		keytable[0x86] = static_cast<uint8>(KeyboardKey::F23);
+		keytable[0x87] = static_cast<uint8>(KeyboardKey::F24);
+		keytable[0x90] = static_cast<uint8>(KeyboardKey::NumLock);
+		keytable[0x91] = static_cast<uint8>(KeyboardKey::ScrollLock);
+		keytable[0xa0] = static_cast<uint8>(KeyboardKey::LeftShift);
+		keytable[0xa1] = static_cast<uint8>(KeyboardKey::RightShift);
+		// Only Ctrl now works and processed by SYSKEY events
+		//keytable[0xa2] = static_cast<uint8>(KeyboardKey::LeftCtrl);
+		//keytable[0xa3] = static_cast<uint8>(KeyboardKey::RightCtrl);
+		//keytable[0xa4] = static_cast<uint8>(KeyboardKey::LeftAlt); 0x11
+		keytable[0xa5] = static_cast<uint8>(KeyboardKey::Menu);
+		keytable[0xba] = static_cast<uint8>(KeyboardKey::Semicolon);
+		keytable[0xbb] = static_cast<uint8>(KeyboardKey::Equal);
+		keytable[0xbc] = static_cast<uint8>(KeyboardKey::Comma);
+		keytable[0xbd] = static_cast<uint8>(KeyboardKey::Minus);
+		keytable[0xbe] = static_cast<uint8>(KeyboardKey::Period);
+		keytable[0xbf] = static_cast<uint8>(KeyboardKey::Slash);
+		keytable[0xc0] = static_cast<uint8>(KeyboardKey::Tilde);
+		keytable[0xdb] = static_cast<uint8>(KeyboardKey::LeftBracket);
+		keytable[0xdc] = static_cast<uint8>(KeyboardKey::BackSlash);
+		keytable[0xdd] = static_cast<uint8>(KeyboardKey::RightBracket);
+		keytable[0xde] = static_cast<uint8>(KeyboardKey::Apostrophe);
 	}
 }

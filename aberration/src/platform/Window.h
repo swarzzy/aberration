@@ -25,11 +25,13 @@ namespace AB {
 		static void SetKeyCallback(const std::function<void(KeyboardKey key, bool currState, bool prevState, uint32 repeatCount)>& func);
 
 		static void GetMousePosition(uint32& xPos, uint32& yPos);
-		static bool	MouseButtonPressed(MouseButton button);
+		static bool MouseButtonPressed(MouseButton button);
 		static bool MouseInClientArea();
 		static void SetMouseButtonCallback(const std::function<void(MouseButton btn, bool state)>& func);
 		static void SetMouseMoveCallback(const std::function<void(uint32 xPos, uint32 yPos)>& func);
 
+
+		// Currently not working on Linux
 		static bool GamepadButtonPressed(uint8 gamepadNumber, GamepadButton button);
 		static bool GamepadButtonReleased(uint8 gamepadNumber, GamepadButton button);
 		static bool GamepadButtonHeld(uint8 gamepadNumber, GamepadButton button);
