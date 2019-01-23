@@ -4,7 +4,12 @@
 
 #include <Windows.h>
 #include <Xinput.h>
-#include <gl/gl.h>
+
+#include "Win32WGLContext.h"
+#include "../API/OpenGL/ABOpenGL.h"
+
+// TODO:
+// -- WGL_ARB_framebuffer_sRGB
 
 // Macros from windowsx.h
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
@@ -30,6 +35,11 @@ static _Win32XInputGetState* Win32XInputGetState = __Win32XInputGetStateDummy;
 static _Win32XInputSetState* Win32XInputSetState = __Win32XInputSetStateDummy;
 
 // ^^^ XInput functions definitions
+
+extern "C" {
+	static PFNGLGENBUFFERSPROC _glGenBuffers = nullptr;
+#define glGenBuffers _glGenBuffers
+}
 
 namespace AB {
 
@@ -88,16 +98,19 @@ namespace AB {
 	static LRESULT CALLBACK _Win32WindowCallback(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam);
 	static void _Win32GamepadUpdate(WindowProperties* props);
 	static void _Win32LoadXInput();
-	static void _Win32InitOpenGL(HWND windowHandle);
+	static void _Win32InitOpenGL(WindowProperties* winProps);
 	static void _Win32InitKeyTable(uint8* keytable);
 	static uint8 _Win32KeyConvertToABKeycode(WindowProperties* window, uint64 Win32Key);
 
 	void Window::Create(const String& title, uint32 width, uint32 height) {
+		// !!!!!!!!!!!!!!!!!!!!!!!!!!
+		// TODO: Rewrote whole log because not it have different instances in dll and exe
+		utils::Log::Initialize(utils::LogLevel::Info);
 		if (s_WindowProperties) {
 			AB_CORE_WARN("Window already initialized");
 			return;
 		}
-
+		
 		s_WindowProperties = ab_create WindowProperties {};
 		//memset(s_WindowProperties, 0, sizeof(WindowProperties));
 		s_WindowProperties->title = title;
@@ -248,8 +261,51 @@ namespace AB {
 		windowClass.hInstance = instance;
 		windowClass.lpszClassName = WINDOW_CLASS_NAME;
 
-		auto result = RegisterClass(&windowClass);
-		AB_CORE_ASSERT(result, "Failed to create window.");
+		auto RCresult = RegisterClass(&windowClass);
+		AB_CORE_ASSERT(RCresult, "Failed to create window.");
+
+		HWND fakeWindow = CreateWindowEx(
+			NULL,
+			windowClass.lpszClassName,
+			"",
+			WS_OVERLAPPEDWINDOW,
+			CW_USEDEFAULT,
+			CW_USEDEFAULT,
+			1,
+			1,
+			NULL,
+			NULL,
+			instance,
+			NULL
+		);
+
+		HDC fakeWindowDC = GetDC(fakeWindow);
+
+		PIXELFORMATDESCRIPTOR fakeDesiredPixelFormat = {};
+		fakeDesiredPixelFormat.nSize = sizeof(PIXELFORMATDESCRIPTOR);
+		fakeDesiredPixelFormat.nVersion = 1;
+		fakeDesiredPixelFormat.dwFlags = PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER;
+		fakeDesiredPixelFormat.cColorBits = 32;
+		fakeDesiredPixelFormat.cAlphaBits = 8;
+		fakeDesiredPixelFormat.cDepthBits = 24;
+		fakeDesiredPixelFormat.cStencilBits = 8;
+
+		auto fakeActualPFIndex = ChoosePixelFormat(fakeWindowDC, &fakeDesiredPixelFormat);
+
+		PIXELFORMATDESCRIPTOR fakeActualPixelFormat = {};
+		DescribePixelFormat(fakeWindowDC, fakeActualPFIndex, sizeof(PIXELFORMATDESCRIPTOR), &fakeActualPixelFormat);
+		SetPixelFormat(fakeWindowDC, fakeActualPFIndex, &fakeActualPixelFormat);
+
+		HGLRC fakeGLRC = wglCreateContext(fakeWindowDC);
+		auto resultMC = wglMakeCurrent(fakeWindowDC, fakeGLRC);
+		AB_CORE_ASSERT(resultMC, "Failed to create OpenGL context.");
+		// TODO: Should it release dc?
+		//ReleaseDC(windowHandle, windowDC);
+
+		auto wglLoadProcsResult = Win32LoadWGLProcs(fakeWindowDC);
+		AB_CORE_ASSERT(wglLoadProcsResult, "Failed to load WGL extensions");
+
+		// ACTUAL WINDOW
 
 		RECT actualSize = {};
 		actualSize.top = 0;
@@ -262,7 +318,7 @@ namespace AB {
 		char* name = reinterpret_cast<char*>(alloca(s_WindowProperties->title.size() + 1));
 		memcpy(name, s_WindowProperties->title.c_str(), s_WindowProperties->title.size() + 1);
 
-		auto handle = CreateWindowEx(
+		HWND actualWindowHandle = CreateWindowEx(
 			NULL,
 			windowClass.lpszClassName,
 			name,
@@ -277,16 +333,67 @@ namespace AB {
 			s_WindowProperties
 		);
 
-		AB_CORE_ASSERT(handle, "Failed to create window.");
+		AB_CORE_ASSERT(actualWindowHandle, "Failed to create window.");
 
-		s_WindowProperties->Win32WindowHandle = handle;
-		s_WindowProperties->Win32WindowDC = GetDC(handle);
+		HDC actualWindowDC = GetDC(actualWindowHandle);
 
-		// OPENGL stuff
-		_Win32InitOpenGL(handle);
+		// ^^^^ ACTUAL WINDOW
 
+		int attribList[] = {
+			WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+			WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+			WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+			WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
+			WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+			WGL_COLOR_BITS_ARB, 32,
+			WGL_DEPTH_BITS_ARB, 24,
+			WGL_STENCIL_BITS_ARB, 8,
+			0
+		};
 
-		//SetWindowLongPtr(window->windowHandle, GWLP_USERDATA, 0);
+		int actualPixelFormatID = 0;
+		UINT numFormats = 0;
+
+		auto resultCPF = wglChoosePixelFormatARB(fakeWindowDC, attribList, nullptr, 1, &actualPixelFormatID, &numFormats);
+		AB_CORE_ASSERT(resultCPF, "Failed to initialize OpenGL extended context.");
+
+		PIXELFORMATDESCRIPTOR actualPixelFormat = {};
+		auto resultDPF = DescribePixelFormat(actualWindowDC, actualPixelFormatID, sizeof(PIXELFORMATDESCRIPTOR), &actualPixelFormat);
+		AB_CORE_ASSERT(resultDPF, "Failed to initialize OpenGL extended context.");
+		SetPixelFormat(actualWindowDC, actualPixelFormatID, &actualPixelFormat);
+
+		int GLMajor = 3;
+		int GLMinor = 3;
+
+		int contextAttribs[] = {
+			WGL_CONTEXT_MAJOR_VERSION_ARB, GLMajor,
+			WGL_CONTEXT_MINOR_VERSION_ARB, GLMinor,
+			WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+			0
+		};
+
+		HGLRC actualGLRC = wglCreateContextAttribsARB(actualWindowDC, 0, contextAttribs);
+		AB_CORE_ASSERT(actualGLRC, "Failed to initialize OpenGL extended context");
+
+		wglMakeCurrent(NULL, NULL);
+		wglDeleteContext(fakeGLRC);
+		ReleaseDC(fakeWindow, fakeWindowDC);
+		DestroyWindow(fakeWindow);
+
+		resultMC = wglMakeCurrent(actualWindowDC, actualGLRC);
+		AB_CORE_ASSERT(resultMC, "Failed to initialize OpenGL extended context");
+
+		AB_CORE_INFO("lol");
+
+		AB_CORE_INFO("\nOpenGL Initialized\nVendor: ", glGetString(GL_VENDOR),
+			"\nRenderer: ", glGetString(GL_RENDERER),
+			"\nVersion: ", glGetString(GL_VERSION),
+			"\nGLSL Version: ", glGetString(GL_SHADING_LANGUAGE_VERSION));
+
+		_Win32InitOpenGL(s_WindowProperties);
+
+		s_WindowProperties->Win32WindowHandle = actualWindowHandle;
+		s_WindowProperties->Win32WindowDC = actualWindowDC;
 
 		//window->mouseWin32TrackEvent
 		s_WindowProperties->Win32MouseTrackEvent.cbSize = sizeof(TRACKMOUSEEVENT);
@@ -315,8 +422,10 @@ namespace AB {
 		if (message == WM_CREATE) {
 			CREATESTRUCT* props = reinterpret_cast<CREATESTRUCT*>(lParam);
 			WindowProperties* window = reinterpret_cast<WindowProperties*>(props->lpCreateParams);
-			SetWindowLongPtr(windowHandle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(window));
-			window->running = true;
+			if (window) {
+				SetWindowLongPtr(windowHandle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(window));
+				window->running = true;
+			}
 
 			return result;
 		};
@@ -552,30 +661,11 @@ namespace AB {
 		}
 	}
 
-	static void _Win32InitOpenGL(HWND windowHandle) {
-		HDC windowDC = GetDC(windowHandle);
-
-		PIXELFORMATDESCRIPTOR desiredPixelFormat = {};
-		desiredPixelFormat.nSize = sizeof(PIXELFORMATDESCRIPTOR);
-		desiredPixelFormat.nVersion = 1;
-		desiredPixelFormat.dwFlags = PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER;
-		desiredPixelFormat.cColorBits = 32;
-		desiredPixelFormat.cAlphaBits = 8;
-		desiredPixelFormat.cDepthBits = 24;
-		desiredPixelFormat.cStencilBits = 8;
-
-		auto actualPFIndex = ChoosePixelFormat(windowDC, &desiredPixelFormat);
-
-		PIXELFORMATDESCRIPTOR actualPixelFormat = {};
-		DescribePixelFormat(windowDC, actualPFIndex, sizeof(PIXELFORMATDESCRIPTOR), &actualPixelFormat);
-		SetPixelFormat(windowDC, actualPFIndex, &actualPixelFormat);
-
-		// TODO: delete context wglDeleteContext
-		HGLRC glRC = wglCreateContext(windowDC);
-		auto result = wglMakeCurrent(windowDC, glRC);
-		AB_CORE_ASSERT(result, "Failed to create OpenGL context.");
-		ReleaseDC(windowHandle, windowDC);
+	static void _Win32InitOpenGL(WindowProperties* winProps) {
+		_glGenBuffers = reinterpret_cast<PFNGLGENBUFFERSPROC>(wglGetProcAddress("glGenBuffers"));
+		AB_CORE_ASSERT(_glGenBuffers, "Failed to load OpenGL proc.");
 	}
+	
 
 	static uint8 _Win32KeyConvertToABKeycode(WindowProperties* window, uint64 Win32Key) {
 		if (Win32Key < KEYBOARD_KEYS_COUNT)

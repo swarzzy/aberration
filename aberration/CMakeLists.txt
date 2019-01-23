@@ -31,6 +31,7 @@ set(ABERRATION_LIB_UNIX X11 GL)
 set(SOURCES
 	src/ABHeader.cpp
 	src/utils/String.cpp
+	src/platform/API/OpenGL/ABOpenGL.cpp
 	)
 
 set(HEADERS
@@ -42,10 +43,9 @@ set(HEADERS
 	src/platform/Memory.h
 	src/platform/Window.h
 	src/platform/Input.h
+	src/platform/API/OpenGL/ABOpenGL.h
 	src/utils/Log.h
-	src/utils/Singleton.h
 	src/utils/String.h
-	src/utils/TypeTraits.h
 	Aberration.h
 	)
 
@@ -54,6 +54,8 @@ set(WIN_SOURCES
 	src/platform/windows/Win32Console.cpp
 	src/platform/windows/Win32Memory.cpp
 	src/platform/windows/Win32Window.cpp
+	src/platform/windows/Win32WGLContext.h
+	src/platform/windows/Win32WGLContext.cpp
 	)
 
 set(UNIX_SOURCES

@@ -9,6 +9,7 @@
 #endif
 
 namespace AB {
+
 	struct AB_API DateTime {
 		uint16 year;
 		uint16 month;
@@ -24,4 +25,5 @@ namespace AB {
 	};
 
 	AB_API void GetLocalTime(DateTime& datetime);
+
 }
