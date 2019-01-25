@@ -16,16 +16,8 @@
 #include "platform/Memory.h"
 
 // STL
-#include <string_view>
-#include <sstream>
-#include <vector>
-#include <utility>
-
-#include <map>
-#include <unordered_map>
-#include <memory>
-#include <algorithm>
 #include <functional>
+#include <string>
 
 #if !defined(_MSC_VER)
 #include <cstring>

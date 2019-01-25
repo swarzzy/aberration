@@ -6,7 +6,11 @@
 #include <Xinput.h>
 
 #include "Win32WGLContext.h"
-#include "../API/OpenGL/ABOpenGL.h"
+
+// Forward declaration from ABOpenGL.h
+namespace AB::GL {
+	bool32 LoadFunctions();
+}
 
 // TODO:
 // -- WGL_ARB_framebuffer_sRGB
@@ -36,16 +40,14 @@ static _Win32XInputSetState* Win32XInputSetState = __Win32XInputSetStateDummy;
 
 // ^^^ XInput functions definitions
 
-extern "C" {
-	static PFNGLGENBUFFERSPROC _glGenBuffers = nullptr;
-#define glGenBuffers _glGenBuffers
-}
-
 namespace AB {
 
 	static const char* AB_XINPUT_DLL = "xinput1_3.dll";
 	static const char* WINDOW_CLASS_NAME = "Aberration Engine Win32";
-	static const uint32 GAMEPAD_STATE_ARRAY_SIZE = GAMEPAD_BUTTONS_COUNT * XUSER_MAX_COUNT;
+	static constexpr uint32 GAMEPAD_STATE_ARRAY_SIZE = GAMEPAD_BUTTONS_COUNT * XUSER_MAX_COUNT;
+
+	static constexpr uint32 OPENGL_MAJOR_VERSION = 3;
+	static constexpr uint32 OPENGL_MINOR_VERSION = 3;
 
 	struct GamepadAnalogCtrl {
 		int16 leftStickX;
@@ -72,25 +74,26 @@ namespace AB {
 		bool running;
 		HWND Win32WindowHandle;
 		HDC Win32WindowDC;
-		std::function<void()> closeCallback;
-		std::function<void(uint32, uint32)> resizeCallback;
+		HGLRC OpenGLRC;
+		CloseCallback* closeCallback;
+		ResizeCallback* resizeCallback;
 
 		TRACKMOUSEEVENT Win32MouseTrackEvent;
 		int32 mousePositionX;
 		int32 mousePositionY;
-		std::function<void(MouseButton, bool)> mouseButtonCallback;
-		std::function<void(uint32, uint32)> mouseMoveCallback;
+		MouseButtonCallback* mouseButtonCallback;
+		MouseMoveCallback* mouseMoveCallback;
 		bool mouseButtonsCurrentState[MOUSE_BUTTONS_COUNT];
 		bool mouseInClientArea;
 
 		bool gamepadCurrentState[GAMEPAD_STATE_ARRAY_SIZE];
 		bool gamepadPrevState[GAMEPAD_STATE_ARRAY_SIZE];
 		GamepadAnalogCtrl gamepadAnalogControls[XUSER_MAX_COUNT];
-		std::function<void(uint8, GamepadButton, bool, bool)> gamepadButtonCallback;
-		std::function<void(uint8, int16, int16, int16, int16)> gamepadStickCallback;
-		std::function<void(uint8, byte, byte)> gamepadTriggerCallback;
+		GamepadButtonCallback* gamepadButtonCallback;
+		GamepadStickCallback* gamepadStickCallback;
+		GamepadTriggerCallback* gamepadTriggerCallback;
 
-		std::function<void(KeyboardKey, bool, bool, uint32)> keyCallback;
+		KeyCallback* keyCallback;
 		Win32KeyState keys[KEYBOARD_KEYS_COUNT]; // 1-current state, 2-prev state, 3+ - repeat count
 		uint8 keyTable[KEYBOARD_KEYS_COUNT];
 	};
@@ -125,12 +128,20 @@ namespace AB {
 	}
 
 	void Window::Destroy() {
+		s_WindowProperties->running = false;
 		ShowWindow(s_WindowProperties->Win32WindowHandle, SW_HIDE);
+		wglMakeCurrent(NULL, NULL);
+		wglDeleteContext(s_WindowProperties->OpenGLRC);
 		DestroyWindow(s_WindowProperties->Win32WindowHandle);
 		UnregisterClass(WINDOW_CLASS_NAME, GetModuleHandle(0));
-		// TODO: might be unsafe. It can call another methods before WM_DESTROY happens
+		ReleaseDC(s_WindowProperties->Win32WindowHandle, s_WindowProperties->Win32WindowDC);
 		ab_delete_scalar s_WindowProperties;
 		s_WindowProperties = nullptr;
+	}
+
+	void Window::Close() {
+		s_WindowProperties->running = false;
+		ShowWindow(s_WindowProperties->Win32WindowHandle, SW_HIDE);
 	}
 
 	bool Window::IsOpen() {
@@ -153,12 +164,17 @@ namespace AB {
 			}
 		}
 		_Win32GamepadUpdate(s_WindowProperties);
+	}
 
-		// TODO: Temporary opengl stuff
-		glViewport(0, 0, s_WindowProperties->width, s_WindowProperties->height);
-		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-		SwapBuffers(s_WindowProperties->Win32WindowDC);
+	void Window::SwapBuffers() {
+		::SwapBuffers(s_WindowProperties->Win32WindowDC);
+	}
+
+	void Window::EnableVSync(bool32 enable) {
+		if (enable)
+			wglSwapIntervalEXT(1);
+		else
+			wglSwapIntervalEXT(0);
 	}
 
 	void Window::GetSize(uint32& width, uint32& height) {
@@ -166,11 +182,11 @@ namespace AB {
 		height = s_WindowProperties->height;
 	}
 
-	void Window::SetCloseCallback(const std::function<void()>& func) {
+	void Window::SetCloseCallback(CloseCallback* func) {
 		s_WindowProperties->closeCallback = func;
 	}
 
-	void Window::SetResizeCallback(const std::function<void(uint32 width, uint32 height)>& func) {
+	void Window::SetResizeCallback(ResizeCallback* func) {
 		s_WindowProperties->resizeCallback = func;
 	}
 
@@ -178,7 +194,7 @@ namespace AB {
 		return !(s_WindowProperties->keys[static_cast<uint8>(key)].prevState) && s_WindowProperties->keys[static_cast<uint8>(key)].currentState;
 	}
 
-	void Window::SetKeyCallback(const std::function<void(KeyboardKey key, bool currState, bool prevState, uint32 repeatCount)>& func) {
+	void Window::SetKeyCallback(KeyCallback* func) {
 		s_WindowProperties->keyCallback = func;
 	}
 
@@ -195,11 +211,11 @@ namespace AB {
 		return s_WindowProperties->mouseInClientArea;
 	}
 
-	void Window::SetMouseButtonCallback(const std::function<void(MouseButton btn, bool state)>& func) {
+	void Window::SetMouseButtonCallback(MouseButtonCallback* func) {
 		s_WindowProperties->mouseButtonCallback = func;
 	}
 
-	void Window::SetMouseMoveCallback(const std::function<void(uint32 xPos, uint32 yPos)>& func) {
+	void Window::SetMouseMoveCallback(MouseMoveCallback* func) {
 		s_WindowProperties->mouseMoveCallback = func;
 	}
 
@@ -240,15 +256,15 @@ namespace AB {
 		}
 	}
 
-	void Window::SetGamepadButtonCallback(const std::function<void(uint8 gpNumber, GamepadButton btn, bool currState, bool prevState)>& func) {
+	void Window::SetGamepadButtonCallback(GamepadButtonCallback* func) {
 		s_WindowProperties->gamepadButtonCallback = func;
 	}
 
-	void Window::SetGamepadStickCallback(const std::function<void(uint8 gpNumber, int16 xLs, int16 yLs, int16 xRs, int16 yRs)>& func) {
+	void Window::SetGamepadStickCallback(GamepadStickCallback* func) {
 		s_WindowProperties->gamepadStickCallback = func;
 	}
 
-	void Window::SetGamepadTriggerCallback(const std::function<void(uint8 gpNumber, byte lt, byte rt)>& func) {
+	void Window::SetGamepadTriggerCallback(GamepadTriggerCallback* func) {
 		s_WindowProperties->gamepadTriggerCallback = func;
 	}
 
@@ -302,7 +318,7 @@ namespace AB {
 		// TODO: Should it release dc?
 		//ReleaseDC(windowHandle, windowDC);
 
-		auto wglLoadProcsResult = Win32LoadWGLProcs(fakeWindowDC);
+		auto wglLoadProcsResult = Win32::LoadWGLFunctions(fakeWindowDC);
 		AB_CORE_ASSERT(wglLoadProcsResult, "Failed to load WGL extensions");
 
 		// ACTUAL WINDOW
@@ -362,12 +378,9 @@ namespace AB {
 		AB_CORE_ASSERT(resultDPF, "Failed to initialize OpenGL extended context.");
 		SetPixelFormat(actualWindowDC, actualPixelFormatID, &actualPixelFormat);
 
-		int GLMajor = 3;
-		int GLMinor = 3;
-
 		int contextAttribs[] = {
-			WGL_CONTEXT_MAJOR_VERSION_ARB, GLMajor,
-			WGL_CONTEXT_MINOR_VERSION_ARB, GLMinor,
+			WGL_CONTEXT_MAJOR_VERSION_ARB, OPENGL_MAJOR_VERSION,
+			WGL_CONTEXT_MINOR_VERSION_ARB, OPENGL_MINOR_VERSION,
 			WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
 			0
 		};
@@ -383,17 +396,17 @@ namespace AB {
 		resultMC = wglMakeCurrent(actualWindowDC, actualGLRC);
 		AB_CORE_ASSERT(resultMC, "Failed to initialize OpenGL extended context");
 
-		AB_CORE_INFO("lol");
-
 		AB_CORE_INFO("\nOpenGL Initialized\nVendor: ", glGetString(GL_VENDOR),
 			"\nRenderer: ", glGetString(GL_RENDERER),
 			"\nVersion: ", glGetString(GL_VERSION),
 			"\nGLSL Version: ", glGetString(GL_SHADING_LANGUAGE_VERSION));
 
-		_Win32InitOpenGL(s_WindowProperties);
+		bool32 glLoadResult = GL::LoadFunctions();
+		AB_CORE_ASSERT(glLoadResult, "Failed to load OpenGL");
 
 		s_WindowProperties->Win32WindowHandle = actualWindowHandle;
 		s_WindowProperties->Win32WindowDC = actualWindowDC;
+		s_WindowProperties->OpenGLRC = actualGLRC;
 
 		//window->mouseWin32TrackEvent
 		s_WindowProperties->Win32MouseTrackEvent.cbSize = sizeof(TRACKMOUSEEVENT);
@@ -660,12 +673,6 @@ namespace AB {
 			AB_CORE_ERROR("Failed to load xinput1_3.dll. Gamepad is not working");
 		}
 	}
-
-	static void _Win32InitOpenGL(WindowProperties* winProps) {
-		_glGenBuffers = reinterpret_cast<PFNGLGENBUFFERSPROC>(wglGetProcAddress("glGenBuffers"));
-		AB_CORE_ASSERT(_glGenBuffers, "Failed to load OpenGL proc.");
-	}
-	
 
 	static uint8 _Win32KeyConvertToABKeycode(WindowProperties* window, uint64 Win32Key) {
 		if (Win32Key < KEYBOARD_KEYS_COUNT)

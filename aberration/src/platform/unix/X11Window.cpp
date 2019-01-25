@@ -8,6 +8,13 @@
 #include <X11/Xatom.h>
 #include <GL/glx.h>
 
+// TODO: Destroy context and delete all stuff in Destroy()
+
+// Forward declaration from ABOpenGL.h
+namespace AB::GL {
+	bool32 LoadFunctions();
+}
+
 namespace AB {
 
 	static constexpr uint32 AB_X11_MB_LEFT		= 1;
@@ -15,6 +22,22 @@ namespace AB {
 	static constexpr uint32 AB_X11_MB_MIDDLE	= 2;
 	static constexpr uint32 AB_X11_MB_XB1		= 8;
 	static constexpr uint32 AB_X11_MB_XB2		= 9;
+
+	static constexpr uint32 OPENGL_MAJOR_VERSION = 3;
+	static constexpr uint32 OPENGL_MINOR_VERSION = 3;
+
+	// GLX Extensions
+
+	typedef GLXContext proc_glXCreateContextAttribsARB(Display *dpy, GLXFBConfig config, GLXContext share_context, Bool direct,	const int *attrib_list);
+	static proc_glXCreateContextAttribsARB* glXCreateContextAttribsARB = nullptr;
+
+	typedef void proc_glXSwapIntervalEXT(Display *dpy, GLXDrawable drawable, int interval);
+	static proc_glXSwapIntervalEXT* glXSwapIntervalEXT = nullptr;
+
+	typedef int proc_glXSwapIntervalSGI(int interval);
+	static proc_glXSwapIntervalSGI* glXSwapIntervalSGI = nullptr;
+
+	// ^^^^ GLX Extensions
 
 	struct X11KeyState {
 		bool currentState;
@@ -35,34 +58,34 @@ namespace AB {
 		::Window X11Window;
 		Atom X11WmDeleteMessage;
 
-		std::function<void()> closeCallback;
-		std::function<void(uint32, uint32)> resizeCallback;
+		CloseCallback* closeCallback;
+		ResizeCallback* resizeCallback;
 
 		int32 mousePositionX;
 		int32 mousePositionY;
-		std::function<void(MouseButton, bool)> mouseButtonCallback;
-		std::function<void(uint32, uint32)> mouseMoveCallback;
+		MouseButtonCallback* mouseButtonCallback;
+		MouseMoveCallback* mouseMoveCallback;
 		bool mouseButtonsCurrentState[MOUSE_BUTTONS_COUNT];
 		bool mouseInClientArea;
 
 		//bool gamepadCurrentState[GAMEPAD_STATE_ARRAY_SIZE];
 		//bool gamepadPrevState[GAMEPAD_STATE_ARRAY_SIZE];
 		//GamepadAnalogCtrl gamepadAnalogControls[XUSER_MAX_COUNT];
-		//std::function<void(uint8, GamepadButton, bool, bool)> gamepadButtonCallback;
-		//std::function<void(uint8, int16, int16, int16, int16)> gamepadStickCallback;
-		//std::function<void(uint8, byte, byte)> gamepadTriggerCallback;
 
-		X11KeyState keys[KEYBOARD_KEYS_COUNT]; // 1-current state, 2-prev state, 3+ - repeat count
-		std::function<void(KeyboardKey, bool, bool, uint32)> keyCallback;
+		X11KeyState keys[KEYBOARD_KEYS_COUNT];
+		KeyCallback* keyCallback;
 	};
 
-	static uint8 _Win32KeyConvertToABKeycode(WindowProperties* window, uint32 X11KeySym);
+	static uint8 _X11KeyConvertToABKeycode(WindowProperties* window, uint32 X11KeySym);
+	static bool32 _GLXLoadExtensions(WindowProperties* windowProps);
 
 	Window::~Window() {
 
 	}
 
 	void Window::Create(const String& title, uint32 width, uint32 height) {
+		// TODO: LOG!!!!
+		AB::utils::Log::Initialize(utils::LogLevel::Info);
 		if (s_WindowProperties) {
 			AB_CORE_WARN("Window already initialized");
 			return;
@@ -77,7 +100,7 @@ namespace AB {
 	}
 
 	void Window::Destroy() {
-		// TODO: Temporary
+		// TODO: Destroy Context
 		//glXDestroyContext(display, context);
 		//XFree(vInfo);
 
@@ -86,6 +109,11 @@ namespace AB {
 		XCloseDisplay(s_WindowProperties->X11Display);
 		ab_delete_scalar s_WindowProperties;
 		s_WindowProperties = nullptr;
+	}
+
+	void Window::Close() {
+		s_WindowProperties->running = false;
+		XUnmapWindow(s_WindowProperties->X11Display, s_WindowProperties->X11Window);
 	}
 
 	bool Window::IsOpen() {
@@ -118,7 +146,7 @@ namespace AB {
 						char str[25];
 						KeySym keysym;
 						uint32 length = XLookupString(&event.xkey, str, 25, &keysym, NULL);
-						uint8 key = _Win32KeyConvertToABKeycode(s_WindowProperties, keysym);
+						uint8 key = _X11KeyConvertToABKeycode(s_WindowProperties, keysym);
 
 						s_WindowProperties->keys[key].prevState = s_WindowProperties->keys[key].currentState;
 						s_WindowProperties->keys[key].currentState = true;
@@ -147,7 +175,7 @@ namespace AB {
 						char str[25];
 						KeySym keysym;
 						uint32 length = XLookupString(&event.xkey, str, 25, &keysym, NULL);
-						uint8 key = _Win32KeyConvertToABKeycode(s_WindowProperties, keysym);
+						uint8 key = _X11KeyConvertToABKeycode(s_WindowProperties, keysym);
 
 						// Check if its actually repeat
 						// Checking for repeats and increment repeatCounter in KeyRelease
@@ -298,24 +326,40 @@ namespace AB {
 			}
 
 		}
-		// GL CONTEXT
-		glViewport(0, 0, s_WindowProperties->width, s_WindowProperties->height);
-		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
+	}
+
+	void Window::SwapBuffers() {
 		glXSwapBuffers(s_WindowProperties->X11Display, s_WindowProperties->X11Window);
 	}
 
+	void Window::EnableVSync(bool32 enable) {
+		if (glXSwapIntervalEXT) {
+			GLXDrawable drawable = glXGetCurrentDrawable();
+			if (drawable) {
+				if (enable)
+					glXSwapIntervalEXT(s_WindowProperties->X11Display, drawable, 1);
+				else
+					glXSwapIntervalEXT(s_WindowProperties->X11Display, drawable, 0);
+			}
+		}
+		else {
+			if (enable)
+				glXSwapIntervalSGI(1);
+			else
+				glXSwapIntervalSGI(0);
+		}
+	}
 
 	void Window::GetSize(uint32& width, uint32& height) {
 		width = s_WindowProperties->width;
 		height = s_WindowProperties->height;
 	}
 
-	void Window::SetCloseCallback(const std::function<void()>& func) {
+	void Window::SetCloseCallback(CloseCallback* func) {
 		s_WindowProperties->closeCallback = func;
 	}
 
-	void Window::SetResizeCallback(const std::function<void(uint32 width, uint32 height)>& func) {
+	void Window::SetResizeCallback(ResizeCallback* func) {
 		s_WindowProperties->resizeCallback = func;
 	}
 
@@ -323,7 +367,7 @@ namespace AB {
 		return !(s_WindowProperties->keys[static_cast<uint8>(key)].prevState) && s_WindowProperties->keys[static_cast<uint8>(key)].currentState;
 	}
 
-	void Window::SetKeyCallback(const std::function<void(KeyboardKey key, bool currState, bool prevState, uint32 repeatCount)>& func) {
+	void Window::SetKeyCallback(KeyCallback* func) {
 		s_WindowProperties->keyCallback = func;
 	}
 
@@ -340,11 +384,11 @@ namespace AB {
 		return s_WindowProperties->mouseInClientArea;
 	}
 
-	void Window::SetMouseButtonCallback(const std::function<void(MouseButton btn, bool state)>& func) {
+	void Window::SetMouseButtonCallback(MouseButtonCallback* func) {
 		s_WindowProperties->mouseButtonCallback = func;
 	}
 
-	void Window::SetMouseMoveCallback(const std::function<void(uint32 xPos, uint32 yPos)>& func) {
+	void Window::SetMouseMoveCallback(MouseMoveCallback* func) {
 		s_WindowProperties->mouseMoveCallback = func;
 	}
 	// TODO: implement gamepad input in linux
@@ -370,15 +414,15 @@ namespace AB {
 
 	}
 
-	void Window::SetGamepadButtonCallback(const std::function<void(uint8 gpNumber, GamepadButton btn, bool currState, bool prevState)>& func) {
+	void Window::SetGamepadButtonCallback(GamepadButtonCallback* func) {
 		
 	}
 
-	void Window::SetGamepadStickCallback(const std::function<void(uint8 gpNumber, int16 xLs, int16 yLs, int16 xRs, int16 yRs)>& func) {
+	void Window::SetGamepadStickCallback(GamepadStickCallback* func) {
 		
 	}
 
-	void Window::SetGamepadTriggerCallback(const std::function<void(uint8 gpNumber, byte lt, byte rt)>& func) {
+	void Window::SetGamepadTriggerCallback(GamepadTriggerCallback* func) {
 		
 	}
 
@@ -403,19 +447,32 @@ namespace AB {
 		AB_CORE_INFO("GLX version: ", majorGLX, ".", minorGLX);
 
 		GLint glxAttribs[] = {
-				GLX_RGBA,
-				GLX_DOUBLEBUFFER, True,
-				GLX_RED_SIZE, 8,
-				 GLX_GREEN_SIZE, 8,
-				GLX_BLUE_SIZE, 8,
-				GLX_ALPHA_SIZE, 8,
-				GLX_DEPTH_SIZE, 24,
-				GLX_STENCIL_SIZE, 8,
-				None
+			GLX_X_RENDERABLE, True,
+			GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
+			GLX_X_VISUAL_TYPE, GLX_TRUE_COLOR,
+			GLX_RENDER_TYPE, GLX_RGBA_BIT,
+			GLX_DOUBLEBUFFER, True,
+			GLX_RED_SIZE, 8,
+			GLX_GREEN_SIZE, 8,
+			GLX_BLUE_SIZE, 8,
+			GLX_ALPHA_SIZE, 8,
+			GLX_DEPTH_SIZE, 24,
+			GLX_STENCIL_SIZE, 8,
+			None
 		};
 
-		XVisualInfo* vInfo = glXChooseVisual(display, screenID, glxAttribs);
-		AB_CORE_ASSERT(vInfo, "Failed to initialize OpenGL.");
+		int fbCount;
+		GLXFBConfig* fbConfigs = glXChooseFBConfig(display, screenID, glxAttribs, &fbCount);
+		AB_CORE_ASSERT(fbConfigs, "Failed to load OpenGL, Failed to get framebuffer config");
+
+		// TODO: Choose best fbConfig manually
+		// https://www.khronos.org/opengl/wiki/Tutorial:_OpenGL_3.0_Context_Creation_(GLX)
+		//GLXFBConfig bestFBC = fbConfigs[1];
+		XFree(fbConfigs);
+
+		XVisualInfo* vInfo = glXGetVisualFromFBConfig(display, fbConfigs[1]);
+		//XVisualInfo* vInfo = glXChooseVisual(display, screenID, glxAttribs);
+		AB_CORE_ASSERT(vInfo, "Failed to initialize OpenGL. Failed to get visual info");
 
 		XSetWindowAttributes windowAttribs;
 		windowAttribs.background_pixel = BlackPixel(display, screenID);
@@ -447,15 +504,36 @@ namespace AB {
 							ButtonPressMask |ButtonReleaseMask | EnterWindowMask | LeaveWindowMask | ExposureMask;
 		XSelectInput(display, s_WindowProperties->X11Window, eventMask);
 
+		s_WindowProperties->X11Display = display;
+		s_WindowProperties->X11Screen = screen;
+		s_WindowProperties->X11ScreenID = screenID;
+		s_WindowProperties->X11EventMask = eventMask;
+		s_WindowProperties->running = true;
+
 		// GL context
 
-		GLXContext context = glXCreateContext(display, vInfo, NULL, GL_TRUE);
+		bool32 GLXExtensionsLoaded = _GLXLoadExtensions(s_WindowProperties);
+		AB_CORE_ASSERT(GLXExtensionsLoaded, "Failed to load GLX Extensions.");
+
+		int contextAttribs[] = {
+			GLX_CONTEXT_MAJOR_VERSION_ARB, OPENGL_MAJOR_VERSION,
+			GLX_CONTEXT_MINOR_VERSION_ARB, OPENGL_MINOR_VERSION,
+			GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
+			0
+		};
+
+		//GLXContext context = glXCreateContext(display, vInfo, NULL, GL_TRUE);
+		GLXContext context = glXCreateContextAttribsARB(display, fbConfigs[1], 0, 1, contextAttribs);
+		AB_CORE_ASSERT(context, "Failed to load OpenGL. Failed to create context.");
 		glXMakeCurrent(display, s_WindowProperties->X11Window, context);
 
 		AB_CORE_INFO("\nOpenGL Vendor: ", glGetString(GL_VENDOR),
 			"\nOpenGL Renderer: ", glGetString(GL_RENDERER),
 			"\nOpenGL Version: ", glGetString(GL_VERSION),
 			"\nGLSL Version: ", glGetString(GL_SHADING_LANGUAGE_VERSION));
+
+		bool32 glLoadResult = GL::LoadFunctions();
+		AB_CORE_ASSERT(glLoadResult, "Failed to load OpenGL");
 
 		// ^^^^ GL context
 
@@ -466,19 +544,49 @@ namespace AB {
 		//auto wm_protocols = XInternAtom(display, "WM_PROTOCOLS", False);
 		s_WindowProperties->X11WmDeleteMessage = XInternAtom(display, "WM_DELETE_WINDOW", False);
 		XSetWMProtocols(display, s_WindowProperties->X11Window, &s_WindowProperties->X11WmDeleteMessage, 1);
+	}
 
-		s_WindowProperties->X11Display = display;
-		s_WindowProperties->X11Screen = screen;
-		s_WindowProperties->X11ScreenID= screenID;
-		s_WindowProperties->X11EventMask = eventMask;
-		s_WindowProperties->running = true;
+	static bool32 _GLXLoadExtensions(WindowProperties* windowProps) {
+		bool32 result = true;
+		const char* glxExtensions = glXQueryExtensionsString(windowProps->X11Display, windowProps->X11ScreenID);
+		if (!std::strstr(glxExtensions, "GLX_ARB_create_context_profile")) {
+			AB_CORE_WARN("Failed to create OpenGL context. GLX_ARB_create_context_profile extension is not supported.");
+			return 0;
+		}
+		if (!std::strstr(glxExtensions, "GLX_EXT_swap_control")) {
+			// On some machines there is no GLX_EXT_swap_control but GLX_SGI_swap_control
+			// However glXSwapIntervalEXT still gets loaded
+			if (!std::strstr(glxExtensions, "GLX_SGI_swap_control")) {
+				AB_CORE_WARN("Failed to create OpenGL context. GLX_EXT_swap_control extension is not supported.");
+				return 0;
+			}
+		}
+
+		const char* createContextProcName = "glXCreateContextAttribsARB";
+		const char* swapIntervalProcNameEXT = "glXSwapIntervalEXT";
+		const char* swapIntervalProcNameSGI = "glXSwapIntervalSGI";
+		glXCreateContextAttribsARB = (proc_glXCreateContextAttribsARB*)glXGetProcAddress((const uchar*)createContextProcName);
+		if (!glXCreateContextAttribsARB) {
+			AB_CORE_WARN("Failed to create OpenGL context. Failed to load GLX_ARB_create_context_profile extension");
+			result = false;
+		}
+
+		glXSwapIntervalEXT = (proc_glXSwapIntervalEXT*)glXGetProcAddress((const uchar*)swapIntervalProcNameEXT);
+		if (!glXSwapIntervalEXT) {
+			glXSwapIntervalSGI = (proc_glXSwapIntervalSGI*)glXGetProcAddress((const uchar*)swapIntervalProcNameSGI);
+			if (glXSwapIntervalSGI) {
+				AB_CORE_WARN(glXSwapIntervalSGI, "Failed to create OpenGL context. Failed to load GLX_SGI_swap_control extension");
+				result = false;
+			}
+		}
+		return result;
 	}
 
 	// Does not return Shift and Ctrl keys
 	// NOTE: Some symbols such as square bracker and curly bracket 
 	// may be on different keys on some keyboards. 
 	// AB layout currently assume that symbols like that always on the same key
-	static uint8 _Win32KeyConvertToABKeycode(WindowProperties* window, uint32 X11KeySym) {
+	static uint8 _X11KeyConvertToABKeycode(WindowProperties* window, uint32 X11KeySym) {
 
 		switch(X11KeySym) {
 			case XK_BackSpace:		return static_cast<uint8>(KeyboardKey::Backspace);

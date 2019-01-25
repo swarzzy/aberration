@@ -1,1 +1,3 @@
 -- WGL_ARB_framebuffer_sRGB
+-- Stop to crash entire app when EXT_swap_control is not supported
+-- Destroy context and delete all stuff in X11 Destroy() implementation

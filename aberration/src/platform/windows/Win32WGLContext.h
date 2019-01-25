@@ -26,23 +26,29 @@ extern "C" {
 
 #define GL_SHADING_LANGUAGE_VERSION       0x8B8C
 
-	typedef const char* APIENTRY _procDef_wglGetExtensionsStringARB(HDC);
-	typedef BOOL		APIENTRY _procDef_wglChoosePixelFormatARB(HDC, const int*, const FLOAT*, UINT, int*, UINT*);
-	typedef HGLRC		APIENTRY _procDef_wglCreateContextAttribsARB(HDC, HGLRC, const int*);
+	typedef const char* APIENTRY _proc_wglGetExtensionsStringARB(HDC);
+	typedef BOOL		APIENTRY _proc_wglChoosePixelFormatARB(HDC, const int*, const FLOAT*, UINT, int*, UINT*);
+	typedef HGLRC		APIENTRY _proc_wglCreateContextAttribsARB(HDC, HGLRC, const int*);
+	typedef BOOL		APIENTRY _proc_wglSwapIntervalEXT(int interval);
+	typedef int			APIENTRY _proc_wglGetSwapIntervalEXT(void);
 
+#define wglGetExtensionsStringARB		Win32::_wglProcs.ptr_wglGetExtensionsStringARB
+#define wglChoosePixelFormatARB			Win32::_wglProcs.ptr_wglChoosePixelFormatARB
+#define wglCreateContextAttribsARB		Win32::_wglProcs.ptr_wglCreateContextAttribsARB
+#define wglSwapIntervalEXT				Win32::_wglProcs.ptr_wglSwapIntervalEXT
+#define wglGetSwapIntervalEXT			Win32::_wglProcs.ptr_wglGetSwapIntervalEXT
+}
+
+namespace AB::Win32 {
 	struct WGLProcs {
-		_procDef_wglGetExtensionsStringARB*		ptr_wglGetExtensionsStringARB;
-		_procDef_wglChoosePixelFormatARB*		ptr_wglChoosePixelFormatARB;
-		_procDef_wglCreateContextAttribsARB*	ptr_wglCreateContextAttribsARB;
+		_proc_wglGetExtensionsStringARB*	ptr_wglGetExtensionsStringARB;
+		_proc_wglChoosePixelFormatARB*		ptr_wglChoosePixelFormatARB;
+		_proc_wglCreateContextAttribsARB*	ptr_wglCreateContextAttribsARB;
+		_proc_wglSwapIntervalEXT*			ptr_wglSwapIntervalEXT;
+		_proc_wglGetSwapIntervalEXT*		ptr_wglGetSwapIntervalEXT;
 	};
 
 	extern struct WGLProcs _wglProcs;
 
-#define wglGetExtensionsStringARB		_wglProcs.ptr_wglGetExtensionsStringARB
-#define wglChoosePixelFormatARB			_wglProcs.ptr_wglChoosePixelFormatARB
-#define wglCreateContextAttribsARB		_wglProcs.ptr_wglCreateContextAttribsARB
-}
-
-namespace AB {
-	unsigned int Win32LoadWGLProcs(HDC windowDC);
+	unsigned int LoadWGLFunctions(HDC windowDC);
 }
