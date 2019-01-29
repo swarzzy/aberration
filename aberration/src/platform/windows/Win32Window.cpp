@@ -7,9 +7,14 @@
 
 #include "Win32WGLContext.h"
 
-// Forward declaration from ABOpenGL.h
+// FORWARD DECLARATIONS
 namespace AB::GL {
 	bool32 LoadFunctions();
+	void InitAPI();
+}
+
+namespace AB {
+	extern void RenderGroupResizeCallback(uint32 width, uint32 height);
 }
 
 // TODO:
@@ -207,7 +212,7 @@ namespace AB {
 		return s_WindowProperties->mouseButtonsCurrentState[static_cast<uint8>(button)];
 	}
 
-	bool Window::MouseInClientArea() {
+	bool Window::MouseInClientArea() {	
 		return s_WindowProperties->mouseInClientArea;
 	}
 
@@ -396,13 +401,14 @@ namespace AB {
 		resultMC = wglMakeCurrent(actualWindowDC, actualGLRC);
 		AB_CORE_ASSERT(resultMC, "Failed to initialize OpenGL extended context");
 
-		AB_CORE_INFO("\nOpenGL Initialized\nVendor: ", glGetString(GL_VENDOR),
-			"\nRenderer: ", glGetString(GL_RENDERER),
-			"\nVersion: ", glGetString(GL_VERSION),
-			"\nGLSL Version: ", glGetString(GL_SHADING_LANGUAGE_VERSION));
-
 		bool32 glLoadResult = GL::LoadFunctions();
 		AB_CORE_ASSERT(glLoadResult, "Failed to load OpenGL");
+		GL::InitAPI();
+
+		//AB_CORE_INFO("\nOpenGL Initialized\nVendor: ", glGetString(GL_VENDOR),
+		//	"\nRenderer: ", glGetString(GL_RENDERER),
+		//	"\nVersion: ", glGetString(GL_VERSION),
+		//	"\nGLSL Version: ", glGetString(GL_SHADING_LANGUAGE_VERSION));
 
 		s_WindowProperties->Win32WindowHandle = actualWindowHandle;
 		s_WindowProperties->Win32WindowDC = actualWindowDC;
@@ -454,6 +460,7 @@ namespace AB {
 				window->height = HIWORD(lParam);
 				if (window->resizeCallback)
 					window->resizeCallback(window->width, window->height);
+				RenderGroupResizeCallback(window->width, window->height);
 			} break;
 
 			case WM_DESTROY: {

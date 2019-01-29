@@ -11,6 +11,21 @@ namespace AB {
 	struct DateTime;
 }
 
+namespace AB::Log {
+
+	enum class LogLevel : uint32 {
+		Fatal = 0,
+		Error,
+		Warn,
+		Info,
+	};
+
+	void Initialize(LogLevel level);
+	void Message(LogLevel level, const char* file, const char* func, uint32 line, const char* format, ...);
+	void Message(LogLevel level, const char* format, ...);
+	void Print(const char* format, ...);
+}
+
 namespace AB::utils {
 
 	enum class LogLevel : uint32 {
@@ -206,3 +221,5 @@ namespace AB::utils {
 		}
 	}
 }
+
+

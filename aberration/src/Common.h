@@ -23,5 +23,6 @@
 	TypeName& operator=(TypeName&& other) = delete;
 
 #define AB_DEPRECATED [[deprecated]]
+#define fallthr [[fallthrough]]
 
 #define AB_BIT(shift) (1 << shift)

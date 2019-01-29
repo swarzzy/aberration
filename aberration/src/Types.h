@@ -1,5 +1,5 @@
 #pragma once
-
+#include <cstdint>
 // Aberration basic sized types
 // Integers
 #if defined(_MSC_VER)
@@ -21,7 +21,6 @@ typedef unsigned __int8		byte;
 //typedef unsigned __int8	ubyte;
 
 #else
-#include <cstdint>
 typedef int8_t	int8;	// char (byte)
 typedef int16_t	int16;	// short
 typedef int32_t	int32;	// int
@@ -44,3 +43,26 @@ typedef uint8_t		byte;
 // Floating point
 typedef float	float32; // float
 typedef double	float64; // double
+
+typedef uint32 color32;
+
+typedef uintptr_t uintptr;
+
+union Color {
+	Color() {}
+	Color(uint32 color) : hex(color) {}
+	uint32 hex;
+	struct {
+		uint8 r;
+		uint8 g;
+		uint8 b;
+		uint8 a;
+	};
+};
+
+// SIMD
+#define AB_ENABLE_SIMD
+#if defined(AB_ENABLE_SIMD)
+#include <xmmintrin.h>
+typedef  __m128 float128;
+#endif

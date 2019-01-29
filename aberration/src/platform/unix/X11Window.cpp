@@ -10,9 +10,14 @@
 
 // TODO: Destroy context and delete all stuff in Destroy()
 
-// Forward declaration from ABOpenGL.h
+// FORWARD DECLARATIONS
 namespace AB::GL {
 	bool32 LoadFunctions();
+	void InitAPI();
+}
+
+namespace AB {
+	extern void RenderGroupResizeCallback(uint32 width, uint32 height);
 }
 
 namespace AB {
@@ -319,6 +324,7 @@ namespace AB {
 						s_WindowProperties->height = attribs.height;
 						if (s_WindowProperties->resizeCallback)
 							s_WindowProperties->resizeCallback(attribs.width, attribs.height);
+						RenderGroupResizeCallback(attribs.width, attribs.height);
 					} break;
 				}
 
@@ -527,13 +533,14 @@ namespace AB {
 		AB_CORE_ASSERT(context, "Failed to load OpenGL. Failed to create context.");
 		glXMakeCurrent(display, s_WindowProperties->X11Window, context);
 
-		AB_CORE_INFO("\nOpenGL Vendor: ", glGetString(GL_VENDOR),
-			"\nOpenGL Renderer: ", glGetString(GL_RENDERER),
-			"\nOpenGL Version: ", glGetString(GL_VERSION),
-			"\nGLSL Version: ", glGetString(GL_SHADING_LANGUAGE_VERSION));
+		//AB_CORE_INFO("\nOpenGL Vendor: ", glGetString(GL_VENDOR),
+		//	"\nOpenGL Renderer: ", glGetString(GL_RENDERER),
+		//	"\nOpenGL Version: ", glGetString(GL_VERSION),
+		//	"\nGLSL Version: ", glGetString(GL_SHADING_LANGUAGE_VERSION));
 
 		bool32 glLoadResult = GL::LoadFunctions();
 		AB_CORE_ASSERT(glLoadResult, "Failed to load OpenGL");
+		GL::InitAPI();
 
 		// ^^^^ GL context
 

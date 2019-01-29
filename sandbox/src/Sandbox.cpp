@@ -1,5 +1,8 @@
 #include <Aberration.h>
 #include "src/platform/API/OpenGL/ABOpenGL.h"
+#include "Windows.h"
+#include <hypermath.h>
+#include "src/renderer/Renderer2D.h"
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!
 // TODO: Rewrote whole log because it have different instances in dll and exe
@@ -16,105 +19,53 @@ void showMemInfo() {
 		"\n");
 }
 
-const char *vertexShaderSource = "#version 330 core\n"
-"layout (location = 0) in vec3 aPos;\n"
-"layout (location = 1) in vec3 aColor;\n"
-"out vec3 ourColor;\n"
-"void main()\n"
-"{\n"
-"   gl_Position = vec4(aPos, 1.0);\n"
-"   ourColor = aColor;\n"
-"}\0";
-
-const char *fragmentShaderSource = "#version 330 core\n"
-"out vec4 FragColor;\n"
-"in vec3 ourColor;\n"
-"void main()\n"
-"{\n"
-"   FragColor = vec4(ourColor, 1.0f);\n"
-"}\n\0";
+uint32 frameCounter = 0;
 
 int main() {
 	showMemInfo();
-	AB::Window::Create("sdsd", 800, 600);
+
+	AB::Window::Create("sds d", 800, 600);
 	AB::Window::EnableVSync(true);
+
 	AB::Window::SetKeyCallback([](AB::KeyboardKey key, bool32 currState, bool32 prevState, uint32 repeatCount) {
 		if (key == AB::KeyboardKey::Escape)
 			AB::Window::Close();
 	});
-	glViewport(0, 0, 800, 600);
-	
-	int vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-	glCompileShader(vertexShader);
-	
-	int success;
-	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-	if (!success)
-	{
-		return 0;
-	}
-	
-	int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-	glCompileShader(fragmentShader);
-	
-	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-	if (!success)
-	{
-		return 0;
-	}
 
-	int shaderProgram = glCreateProgram();
-	glAttachShader(shaderProgram, vertexShader);
-	glAttachShader(shaderProgram, fragmentShader);
-	glLinkProgram(shaderProgram);
+	AB::Renderer2D::Initialize(800, 600);
+	AB::Renderer2D::LoadTexture("A:\\dev\\ab_nonrepo\\test.bmp");
 
-	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-	if (!success) {
-		return 0;
-	}
-	glDeleteShader(vertexShader);
-	glDeleteShader(fragmentShader);
-
-	
-	float vertices[] = {
-		// positions         // colors
-		 0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  // bottom right
-		-0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  // bottom left
-		 0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f   // top 
-
-	};
-
-	unsigned int VBO, VAO;
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-	
-	glBindVertexArray(VAO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-	
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-
-	glUseProgram(shaderProgram);
-
+	LARGE_INTEGER lastTime;
+	LARGE_INTEGER performanceFeq;
+	QueryPerformanceCounter(&lastTime);
+	QueryPerformanceFrequency(&performanceFeq);
 	while (AB::Window::IsOpen())
 	{
+		Color c;
+		c.r = 0;
+		c.g = 255;
+		c.b = 0;
+		c.a = 255;
+		static float32 angle = 0;
+		AB::Renderer2D::DrawRectangle({ 400, 400 }, angle, -0.5,  { 200, 200 }, c.hex);
+		AB::Renderer2D::DrawRectangle({ 100, 100 }, angle * 2, -0.5,  { 50, 50 }, 0xff34f497);
+		AB::Renderer2D::DrawRectangle({ 200, 200 }, angle / 2 , -0.5, { 100, 100 }, 0xffa6c8f3 );
 
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
+		AB::Renderer2D::Flush();
 
-		glBindVertexArray(VAO);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
-
+		//angle += 1;
 		AB::Window::SwapBuffers();
 		AB::Window::PollEvents();
+		LARGE_INTEGER currTime;
+		QueryPerformanceCounter(&currTime);
+		uint64 elapsed = currTime.QuadPart - lastTime.QuadPart;
+		uint64 elapsedMS = (elapsed * 1000 * 1000) / performanceFeq.QuadPart;
+		lastTime = currTime;
+		frameCounter++;
+		if (frameCounter > 1000) {
+			printf("Time: %lluns\n", elapsedMS);
+			frameCounter = 0;
+		}
 	}
 	return 0;
 }

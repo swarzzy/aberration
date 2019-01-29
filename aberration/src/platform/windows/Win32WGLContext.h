@@ -3,7 +3,9 @@
 extern "C" {
 
 #include <windows.h>
-#include <gl/GL.h>
+//#include <gl/GL.h>
+#define GL_TRUE                           1
+#define GL_FALSE                          0
 
 #define WGL_DRAW_TO_WINDOW_ARB            0x2001
 #define WGL_SUPPORT_OPENGL_ARB            0x2010

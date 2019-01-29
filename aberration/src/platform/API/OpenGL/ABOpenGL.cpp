@@ -1,5 +1,4 @@
 #include "ABOpenGL.h"
-
 #include <stdio.h> // TODO: stop using printf
 
 ABGLProcs _ABOpenGLProcs = {};
@@ -397,6 +396,12 @@ bool32 AB::GL::LoadFunctions() {
 		return success;
 }
 
+void AB::GL::InitAPI() {
+	uint32 globalVAO;
+	AB_GLCALL(glGenVertexArrays(1, &globalVAO));
+	AB_GLCALL(glBindVertexArray(globalVAO));
+}
+
 #elif defined(AB_PLATFORM_LINUX)
 #include <dlfcn.h>
 
@@ -428,3 +433,46 @@ bool32 AB::GL::LoadFunctions() {
 }
 
 #endif
+
+namespace AB::GL {
+
+	static constexpr uint32 LOG_BUFFER_SIZE = 512;
+	static char g_LogBuffer[LOG_BUFFER_SIZE];
+
+	AB_API void _ClearErrorQueue() {
+		while (_ABOpenGLProcs._glGetError() != GL_NO_ERROR);
+	}
+
+	AB_API bool32 _PeekError() {
+		GLenum errorCode = _ABOpenGLProcs._glGetError();
+		if (errorCode == GL_NO_ERROR)
+			return false;
+
+		const char* error;
+		switch (errorCode) {
+		case GL_INVALID_ENUM: { error = "GL_INVALID_ENUM"; } break;
+		case GL_INVALID_VALUE: { error = "GL_INVALID_VALUE"; } break;
+		case GL_INVALID_OPERATION: { error = "GL_INVALID_OPERATION"; } break;
+		case GL_INVALID_FRAMEBUFFER_OPERATION: { error = "GL_INVALID_FRAMEBUFFER_OPERATION"; } break;
+		case GL_OUT_OF_MEMORY: { error = "GL_OUT_OF_MEMORY"; } break;
+		default: {error = "UNKNOWN_ERROR"; } break;
+		}
+
+		/*if (size < 256) {
+			if (size >= 16)
+				buffer = "BUFFER OVERFLOW";
+			else
+				*buffer = '\0';
+		}*/
+		// TODO: This is actually unsafe
+		sprintf(g_LogBuffer, "A error caused by OpenGL call. Error: %s, code: %d.", error, errorCode);
+		return true;
+	}
+
+	AB_API void _GetLog(char* buffer, uint64 size) {
+		if (size >= LOG_BUFFER_SIZE)
+			memcpy(buffer, g_LogBuffer, LOG_BUFFER_SIZE);
+		else
+			*buffer = '\0';
+	}
+}

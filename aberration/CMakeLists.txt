@@ -31,7 +31,11 @@ set(ABERRATION_LIB_UNIX X11 GL)
 set(SOURCES
 	src/ABHeader.cpp
 	src/utils/String.cpp
+	##src/utils/Log.cpp
 	src/platform/API/OpenGL/ABOpenGL.cpp
+	src/renderer/Renderer2D.cpp
+	src/utils/ImageLoader.cpp
+	${CMAKE_SOURCE_DIR}/hypermath/hypermath.h
 	)
 
 set(HEADERS
@@ -44,6 +48,8 @@ set(HEADERS
 	src/platform/Window.h
 	src/platform/Input.h
 	src/platform/API/OpenGL/ABOpenGL.h
+	src/renderer/Renderer2D.h
+	src/utils/ImageLoader.h
 	src/utils/Log.h
 	src/utils/String.h
 	Aberration.h
@@ -86,7 +92,7 @@ endif()
 add_library(Aberration SHARED ${HEADERS} ${SOURCES} ${PLATFORM_SOURCES})
 target_link_libraries(Aberration ${PLATFORM_LIBS})
 add_precompiled_header(Aberration ABHeader.h SOURCE_CXX src/ABHeader.cpp FORCEINCLUDE)
-target_include_directories(Aberration PRIVATE ${ABERRATION_SRC_INCLUDE_DIR})
+target_include_directories(Aberration PRIVATE ${ABERRATION_SRC_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/hypermath)
 #target_link_libraries(Aberration hypermath)
 
 if(WIN32)
