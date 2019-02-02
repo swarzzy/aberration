@@ -2,7 +2,7 @@
 #include "src/ABHeader.h"
 
 namespace AB {
-	enum class KeyboardKey : unsigned char;
+	enum class KeyboardKey : uint8;
 
 	// Aberration string class
 	using String = std::basic_string<char, std::char_traits<char>, Allocator<char>>;

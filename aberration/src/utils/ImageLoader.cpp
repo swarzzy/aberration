@@ -1,6 +1,6 @@
 #include "ImageLoader.h"
-#include "src/utils/Log.h"
 #include "src/platform/Platform.h"
+#include "src/utils/Log.h"
 
 namespace AB {
 	

@@ -1,6 +1,6 @@
 #pragma once
 #include "src/ABHeader.h"
-#include "src/platform/Platform.h"
+//#include "src/platform/Platform.h"
 #include "src/platform/Console.h"
 
 // TODO:
@@ -99,7 +99,7 @@ namespace AB::utils {
 	}
 	}
 
-#if defined(AB_CONFIG_DISTRIB)
+#if !defined(AB_CONFIG_DISTRIB)
 
 #define _AB_CORE_INFO(...)	do{}while(false)
 #define _AB_CORE_WARN(...)	do{}while(false)
@@ -159,12 +159,12 @@ namespace AB::utils {
 	template <typename ... Args>
 	void Log::Message(LogLevel level, Args&&... args) {
 		if (level <= m_LogLevel) {
-			AB::DateTime time = {};
-			GetLocalTime(time);
-			memcpy(m_Buffer + m_Filled, time.ToString().c_str(), AB::DateTime::DATETIME_STRING_SIZE - 1);
-			m_Buffer[AB::DateTime::DATETIME_STRING_SIZE - 1] = ':';
-			m_Buffer[AB::DateTime::DATETIME_STRING_SIZE] = ' ';
-			m_Filled += DateTime::DATETIME_STRING_SIZE + 1;
+			//AB::DateTime time = {};
+			//GetLocalTime(time);
+			//memcpy(m_Buffer + m_Filled, time.ToString().c_str(), AB::DateTime::DATETIME_STRING_SIZE - 1);
+			//m_Buffer[AB::DateTime::DATETIME_STRING_SIZE - 1] = ':';
+		//	m_Buffer[AB::DateTime::DATETIME_STRING_SIZE] = ' ';
+			//m_Filled += DateTime::DATETIME_STRING_SIZE + 1;
 
 			HandleArgs(std::forward<Args>(args)...);
 			

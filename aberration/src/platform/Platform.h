@@ -1,14 +1,26 @@
 #pragma once 
 #include "src/ABHeader.h"
-#include <string>
+#include <hypermath.h>
+#include <../Aberration.h>
 
 #if defined(AB_PLATFORM_WINDOWS)
 #define AB_DEBUG_BREAK() __debugbreak()
 #elif defined(AB_PLATFORM_LINUX)
 #define AB_DEBUG_BREAK() __builtin_debugtrap()
 #endif
+typedef void(GameInitializeFn)(AB::Engine* engine, AB::GameContext* gameContext);
+typedef void(GameUpdateFn)(AB::Engine* engine, AB::GameContext* gameContext);
+typedef void(GameRenderFn)(AB::Engine* engine, AB::GameContext* gameContext);
+
+int main();
 
 namespace AB {
+
+	void UpdateGameCode(const char* libraryFullPath, const char* libraryDir);
+	void UnloadGameCode(const char* libraryDir);
+
+	// If buffer is to small, writes bufferSizeBytes chars, set bytesWritten to bufferSizeBytes and returns false
+	bool32 GetExecutablePath(char* buffer, uint32 bufferSizeBytes, uint32* bytesWritten);
 
 	struct AB_API DateTime {
 		uint16 year;

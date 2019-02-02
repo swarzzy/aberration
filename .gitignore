@@ -2,6 +2,7 @@ bin/
 obj/
 build/
 Makefile
+deprecated
 
 # CLion
 cmake-build-debug/

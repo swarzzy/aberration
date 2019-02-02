@@ -396,12 +396,6 @@ bool32 AB::GL::LoadFunctions() {
 		return success;
 }
 
-void AB::GL::InitAPI() {
-	uint32 globalVAO;
-	AB_GLCALL(glGenVertexArrays(1, &globalVAO));
-	AB_GLCALL(glBindVertexArray(globalVAO));
-}
-
 #elif defined(AB_PLATFORM_LINUX)
 #include <dlfcn.h>
 
@@ -435,6 +429,12 @@ bool32 AB::GL::LoadFunctions() {
 #endif
 
 namespace AB::GL {
+
+	void InitAPI() {
+		uint32 globalVAO;
+		AB_GLCALL(glGenVertexArrays(1, &globalVAO));
+		AB_GLCALL(glBindVertexArray(globalVAO));
+	}	
 
 	static constexpr uint32 LOG_BUFFER_SIZE = 512;
 	static char g_LogBuffer[LOG_BUFFER_SIZE];

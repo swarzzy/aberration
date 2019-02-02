@@ -43,6 +43,7 @@ namespace AB {
 		uint32 shaderHandle;
 		uint32 GLIBOHandle;
 		uint64 vertexCount;
+		uint64 indexCount;
 		hpm::Vector2 viewSpaceDim;
 		VertexData* vertexBuffer;
 		// TODO: TEMPORARY
@@ -158,6 +159,8 @@ namespace AB {
 		s_Properties->vertexBuffer[s_Properties->vertexCount].u = 0.0f;
 		s_Properties->vertexBuffer[s_Properties->vertexCount].v = 1.0f;
 		s_Properties->vertexCount++;
+
+		s_Properties->indexCount += 6;
 	}
 
 	void Renderer2D::Flush() {
@@ -181,10 +184,10 @@ namespace AB {
 
 		AB_GLCALL(glUniform1i(glGetUniformLocation(s_Properties->shaderHandle, "tex"), 0));
 
-		AB_GLCALL(glDrawElements(GL_TRIANGLES, (GLsizei)(s_Properties->vertexCount - 1) * 2, GL_UNSIGNED_SHORT, 0));
+		AB_GLCALL(glDrawElements(GL_TRIANGLES, (GLsizei)s_Properties->indexCount, GL_UNSIGNED_SHORT, 0));
 		//AB_GLCALL(glDrawArrays(GL_TRIANGLES, 0, (GLsizei)g_VertexCount));
-
 		s_Properties->vertexCount = 0;
+		s_Properties->indexCount = 0;
 	}
 
 	void _GLInit(Renderer2DProperties* properties) {
