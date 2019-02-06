@@ -14,15 +14,6 @@
 #include "Common.h"
 #include "Types.h"
 #include "platform/Memory.h"
-
-// STL
-#include <functional>
-#include <string>
-
-#if !defined(_MSC_VER)
-#include <cstring>
-#endif
+#include "utils/Log.h"
 
 //#include "platform/Platform.h"
-#include "utils/String.h"
-//#include "utils/Log.h"

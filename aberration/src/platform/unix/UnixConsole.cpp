@@ -5,7 +5,7 @@ namespace AB {
 	static const ConsoleColor CONSOLE_DEFAULT_TEXT_COLOR = ConsoleColor::DarkWhite;
 	static const ConsoleColor CONSOLE_DEFAULT_BACK_COLOR = ConsoleColor::Black;
 
-	AB_API int32 console_print(const void* data, uint32 count) {
+	AB_API int32 ConsolePrint(const void* data, uint32 count) {
 		ssize_t result = write(1, data, count);
 		if (result != count)
 			return 0;

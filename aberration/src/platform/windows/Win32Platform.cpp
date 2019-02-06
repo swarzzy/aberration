@@ -4,6 +4,7 @@
 #include "src/utils/Log.h"
 #include "src/platform/Window.h"
 #include "src/renderer/Renderer2D.h"
+#include "platform/API/OpenGL/ABOpenGL.h"
 
 // TODO: They are shouldn`t be hardcoded
 #if defined(_MSC_VER)
@@ -40,6 +41,7 @@ static GameRenderFn* _GameRender = _GameRenderDummy;
 
 int main() 
 {
+	AB_CORE_INFO("Aberration engine");
 	const uint32 executablePathBufferSize = 256;
 	const uint32 executableDirBufferSize = 256;
 	char executablePath[executablePathBufferSize];
@@ -109,7 +111,7 @@ namespace AB {
 
 				DeleteFile(TEMP_GAME_CODE_DLL_NAME);
 				char buff[280];
-				StringCbPrintfA(buff, 280, "%s%s", libraryDir, TEMP_GAME_CODE_DLL_NAME);
+				FormatString(buff, 280, "%s%s", libraryDir, TEMP_GAME_CODE_DLL_NAME);
 				auto result = CopyFile(libraryFullPath, buff, FALSE);
 				if (result) {
 					g_GameCodeDLL = LoadLibrary(TEMP_GAME_CODE_DLL_NAME);
@@ -142,7 +144,7 @@ namespace AB {
 
 	void UnloadGameCode(const char* libraryDir) {
 		char buff[280];
-		StringCbPrintfA(buff, 280, "%s%s", libraryDir, TEMP_GAME_CODE_DLL_NAME);
+		FormatString(buff, 280, "%s%s", libraryDir, TEMP_GAME_CODE_DLL_NAME);
 
 		FreeLibrary(g_GameCodeDLL);
 		g_GameCodeDLL = nullptr;
@@ -159,14 +161,19 @@ namespace AB {
 		else
 			return true;
 	}
-
-	String DateTime::ToString() {
+	uint32 DateTime::ToString(char* buffer, uint32 bufferSize) {
 		if (hour < 24 && minute < 60 && seconds < 60) {
-			char buff[DATETIME_STRING_SIZE];
-			StringCbPrintfA(buff, DATETIME_STRING_SIZE, "%02d:%02d:%02d", hour, minute, seconds);
-			return String(buff);
+			if (bufferSize >= DATETIME_STRING_SIZE) {
+				int32 written = FormatString(buffer, bufferSize, "%02u16:%02u16:%02u16", hour, minute, seconds);
+				return DATETIME_STRING_SIZE - 1;
+			}
+		} else {
+			if (bufferSize >= DATETIME_STRING_SIZE) {
+				FormatString(buffer, bufferSize, "00:00:00");
+				return DATETIME_STRING_SIZE - 1;
+			}
 		}
-		return ("00:00:00");
+		return 1;
 	}
 
 	AB_API void GetLocalTime(DateTime& datetime) {

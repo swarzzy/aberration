@@ -52,7 +52,6 @@ namespace AB {
 	};
 
 	static void _GLInit(Renderer2DProperties* properties);
-
 	void Renderer2D::Initialize(uint32 drawableSpaceX, uint32 drawableSpaceY) {
 		if (!s_Properties) {
 			s_Properties = (Renderer2DProperties*)std::malloc(sizeof(Renderer2DProperties));
@@ -111,7 +110,7 @@ namespace AB {
 			return s_Properties->texturesUsed - 1;
 
 		} else {
-			AB_CORE_ERROR("Failed to load texture. Cannot load image: ", filepath);
+			AB_CORE_ERROR("Failed to load texture. Cannot load image: %s", filepath);
 			return 0;
 		}
 	}
@@ -238,7 +237,7 @@ namespace AB {
 			AB_GLCALL(glGetShaderiv(vertexShader, GL_INFO_LOG_LENGTH, &logLen));
 			char* message = (char*)alloca(logLen);
 			AB_GLCALL(glGetShaderInfoLog(vertexShader, logLen, NULL, message));
-			AB_CORE_FATAL("Shader compilation error:\n", message);
+			AB_CORE_FATAL("Shader compilation error:\n%s", message);
 		};
 
 		AB_GLCALL(glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &result));
@@ -247,7 +246,7 @@ namespace AB {
 			AB_GLCALL(glGetShaderiv(fragmentShader, GL_INFO_LOG_LENGTH, &logLen));
 			char* message = (char*)alloca(logLen);
 			AB_GLCALL(glGetShaderInfoLog(fragmentShader, logLen, NULL, message));
-			AB_CORE_FATAL("Shader compilation error:\n", message);
+			AB_CORE_FATAL("Shader compilation error:\n%s", message);
 		};
 
 		AB_GLCALL(properties->shaderHandle = glCreateProgram());
@@ -260,7 +259,7 @@ namespace AB {
 			AB_GLCALL(glGetProgramiv(properties->shaderHandle, GL_INFO_LOG_LENGTH, &logLen));
 			char* message = (char*)alloca(logLen);
 			AB_GLCALL(glGetProgramInfoLog(properties->shaderHandle, logLen, 0, message));
-			AB_CORE_FATAL("Shader compilation error:\n", message);
+			AB_CORE_FATAL("Shader compilation error:\n%s", message);
 		}
 
 		AB_GLCALL(glDeleteShader(vertexShader));

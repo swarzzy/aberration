@@ -1,5 +1,5 @@
 #include "../Memory.h"
-#include "src/platform/Console.h"
+#include "utils/Log.h"
 #include <Windows.h>
 #include <cstdlib>
 
@@ -47,10 +47,7 @@ namespace AB::internal {
 
 #		if defined(AB_DEBUG_MEMORY)
 		if (size > LOGGING_TRESHOLD) {
-			//TODO: propper logging
-			char buff[256];
-			sprintf(buff, "Large allocation(>%llu bytes): %llu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size, file, line);
-			ConsolePrint(buff);
+			AB_CORE_INFO("Large allocation(>%u64 bytes): %u64 bytes in file: %s, line: %u32\n", LOGGING_TRESHOLD, size, file, line);
 		}
 #		endif
 
@@ -70,10 +67,7 @@ namespace AB::internal {
 
 #		if defined(AB_DEBUG_MEMORY)
 			if (size > LOGGING_TRESHOLD) {
-				//TODO: propper logging
-				char buff[256];
-				sprintf(buff, "Large deallocation(>%llu bytes): %llu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size, file, line);
-				ConsolePrint(buff);
+				AB_CORE_INFO("Large deallocation(>%u64 bytes): %u64 bytes in file: %s, line: %u32\n", LOGGING_TRESHOLD, size, file, line);
 			}
 #		endif
 
@@ -81,10 +75,7 @@ namespace AB::internal {
 		}
 #		if defined(AB_DEBUG_MEMORY)
 		if (block == nullptr) {
-			//TODO: propper logging
-			char buff[128];
-			sprintf(buff, "Attempt to delete nullptr in file: %s, line: %u\n", file, line);
-			ConsolePrint(buff);
+			AB_CORE_WARN("Attempt to delete nullptr in file: %s, line: %u\n", file, line);
 		}
 #		endif
 	}

@@ -169,13 +169,20 @@ namespace AB {
 		}
 	}
 
-	String DateTime::ToString() {
+	uint32 DateTime::ToString(char* buffer, uint32 bufferSize) {
 		if (hour < 24 && minute < 60 && seconds < 60) {
-			char buff[DATETIME_STRING_SIZE];
-			sprintf(buff, "%02d:%02d:%02d", hour, minute, seconds);
-			return String(buff);
+			if (bufferSize >= DATETIME_STRING_SIZE) {
+				FormatString(buffer, bufferSize, "%02u16:%02u16:%02u16", hour, minute, seconds);
+				return DATETIME_STRING_SIZE - 1;
+			}
 		}
-		return ("00:00:00");
+		else {
+			if (bufferSize >= DATETIME_STRING_SIZE) {
+				FormatString(buffer, bufferSize, "00:00:00");
+				return DATETIME_STRING_SIZE - 1;
+			}
+		}
+		return 1;
 	}
 
 	AB_API void GetLocalTime(DateTime& datetime) {
@@ -209,19 +216,19 @@ namespace AB {
 					}
 					else {
 						std::free(data);
-						AB_CORE_WARN("File reading error. File: ", filename, ". Failed read data from file");
+						AB_CORE_WARN("File reading error. File: %s. Failed read data from file", filename);
 					}
 				}
 				else {
-					AB_CORE_WARN("File reading error. File: ", filename, ". Memory allocation failed");
+					AB_CORE_WARN("File reading error. File: %s. Memory allocation failed", filename);
 				}
 			}
 			else {
-				AB_CORE_WARN("File reading error. File: ", filename);
+				AB_CORE_WARN("File reading error. File: %s", filename);
 			}
 		}
 		else {
-			AB_CORE_WARN("File reading error. File: ", filename, ". Failed to open file");
+			AB_CORE_WARN("File reading error. File: %s. Failed to open file.", filename);
 			return ptr;
 		}
 		close(fileHandle);
@@ -243,11 +250,11 @@ namespace AB {
 				result = true;
 			}
 			else {
-				AB_CORE_WARN("File reading error. File: ", filename, ". Write operation failed");
+				AB_CORE_WARN("File reading error. File: %s. Write operation failed.", filename);
 			}
 		}
 		else {
-			AB_CORE_WARN("File reading error. File: ", filename, ". Failed to open file");
+			AB_CORE_WARN("File reading error. File: %s. Failed to open file", filename);
 			return false;
 		}
 		close(fileHandle);

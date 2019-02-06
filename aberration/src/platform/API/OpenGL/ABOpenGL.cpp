@@ -387,8 +387,7 @@ bool32 AB::GL::LoadFunctions() {
 			else
 				_ABOpenGLProcs.procs[i] = NULL;
 			if (_ABOpenGLProcs.procs[i] == NULL) {
-				// TODO:  get pid of printf
-				printf("ERROR: Failed to load OpenGL procedure: %s\n", procNames[i]);
+				AB_CORE_ERROR("ERROR: Failed to load OpenGL procedure: %s\n", procNames[i]);
 				success = 0;
 			}
 		}
@@ -419,7 +418,7 @@ bool32 AB::GL::LoadFunctions() {
 		_ABOpenGLProcs.procs[i] = (AB_GLFUNCPTR)glXGetProcAddress((const uchar*)procNames[i]);
 		if (_ABOpenGLProcs.procs[i] == NULL) {
 			// TODO:  get pid of printf
-			printf("ERROR: Failed to load OpenGL procedure: %s\n", procNames[i]);
+			AB_CORE_ERROR("ERROR: Failed to load OpenGL procedure: %s\n", procNames[i]);
 			success = 0;
 		}
 	}
@@ -465,7 +464,7 @@ namespace AB::GL {
 				*buffer = '\0';
 		}*/
 		// TODO: This is actually unsafe
-		sprintf(g_LogBuffer, "A error caused by OpenGL call. Error: %s, code: %d.", error, errorCode);
+		FormatString(g_LogBuffer, LOG_BUFFER_SIZE, "A error caused by OpenGL call. Error: %s, code: %i32.", error, errorCode);
 		return true;
 	}
 

@@ -10,9 +10,9 @@ namespace AB {
 	// NOTE: Might be unsafe store handle as static variable
 	static HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 
-	AB_API int32 console_print(const void* data, uint32 count) {
+	AB_API int32 ConsolePrint(const void* data, uint32 count) {
 		DWORD written;
-		BOOL result = WriteConsoleA(consoleHandle, data, count, &written, NULL);
+		BOOL result = WriteConsole(consoleHandle, data, count, &written, NULL);
 		if (written != count || result == 0)
 			return 0;
 		return 1;
@@ -20,7 +20,7 @@ namespace AB {
 
 	AB_API int32 ConsolePrint(const char* string) {
 		DWORD written;
-		BOOL result = WriteConsoleA(consoleHandle, string, static_cast<DWORD>(std::strlen(string)), &written, NULL);
+		BOOL result = WriteConsole(consoleHandle, string, static_cast<DWORD>(std::strlen(string)), &written, NULL);
 		if (result == 0)
 			return 0;
 		return 1;

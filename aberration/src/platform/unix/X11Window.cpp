@@ -50,8 +50,10 @@ namespace AB {
 		uint32 repeatCount;
 	};
 
+	static constexpr uint32 WINDOW_TITLE_SIZE = 32;
+
 	struct WindowProperties {
-		String title;
+		char title[32];
 		uint32 width;
 		uint32 height;
 		bool running;
@@ -88,16 +90,16 @@ namespace AB {
 
 	}
 
-	void Window::Create(const String& title, uint32 width, uint32 height) {
+	void Window::Create(const char* title, uint32 width, uint32 height) {
 		// TODO: LOG!!!!
-		AB::utils::Log::Initialize(utils::LogLevel::Info);
 		if (s_WindowProperties) {
 			AB_CORE_WARN("Window already initialized");
 			return;
 		}
 
 		s_WindowProperties = ab_create WindowProperties{};
-		s_WindowProperties->title = title;
+		// TODO: Check is that copy safe
+		memcpy(s_WindowProperties->title, title, WINDOW_TITLE_SIZE);
 		s_WindowProperties->width = width;
 		s_WindowProperties->height = height;
 
@@ -450,7 +452,7 @@ namespace AB {
 			AB_CORE_FATAL("Failed to create OpenGL context. GLX 1.2 of greater is required.");
 
 		}
-		AB_CORE_INFO("GLX version: ", majorGLX, ".", minorGLX);
+		//AB_CORE_INFO("GLX version: ", majorGLX, ".", minorGLX);
 
 		GLint glxAttribs[] = {
 			GLX_X_RENDERABLE, True,
@@ -504,7 +506,7 @@ namespace AB {
 			&windowAttribs
 		);
 
-		XStoreName(display, s_WindowProperties->X11Window, s_WindowProperties->title.c_str());
+		XStoreName(display, s_WindowProperties->X11Window, s_WindowProperties->title);
 
 		int32 eventMask = KeyPressMask | KeyReleaseMask | KeymapStateMask | PointerMotionMask |
 							ButtonPressMask |ButtonReleaseMask | EnterWindowMask | LeaveWindowMask | ExposureMask;
@@ -582,7 +584,7 @@ namespace AB {
 		if (!glXSwapIntervalEXT) {
 			glXSwapIntervalSGI = (proc_glXSwapIntervalSGI*)glXGetProcAddress((const uchar*)swapIntervalProcNameSGI);
 			if (glXSwapIntervalSGI) {
-				AB_CORE_WARN(glXSwapIntervalSGI, "Failed to create OpenGL context. Failed to load GLX_SGI_swap_control extension");
+				AB_CORE_ASSERT(glXSwapIntervalSGI, "Failed to create OpenGL context. Failed to load GLX_SGI_swap_control extension");
 				result = false;
 			}
 		}

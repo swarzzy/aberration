@@ -9,12 +9,13 @@ namespace AB {
 		uint32 dataSize;
 		byte* data = (byte*)AB::DebugReadFile(filename, &dataSize);
 		if (!data) {
-			AB_CORE_WARN("Failed to load BMP image: ", filename, ". Failed to open file.");
+			AB_CORE_WARN("Failed to load BMP image: %s. Failed to open file.", filename);
 			return image;
 		}
 
 		BMPHeader* header = (BMPHeader*)data;
 		BMPInfoHeaderCore* infoHeader = (BMPInfoHeaderCore*)(data + sizeof(BMPHeader));
+		// TODO: Check is it actually bmp
 		uint16 bitsPerPixel = 0;
 
 		bool32 bottomUp = true;
@@ -68,14 +69,14 @@ namespace AB {
 								image.width = v3c->width;
 								bitsPerPixel = v3c->bitsPerPixel;
 							}
-							AB_CORE_WARN("Failed to load BMP image: ", filename, ". Unknown format version.");
+							AB_CORE_WARN("Failed to load BMP image: %s. Unknown format version", filename);
 							memset(&image, 0, sizeof(Image));
 							AB::DebugFreeFileMemory(data);
 							return image;
 
 						}
 						else {
-							AB_CORE_WARN("Failed to load BMP image: ", filename, ". Unknown format version.");
+							AB_CORE_WARN("Failed to load BMP image: %s. Unknown format version", filename);
 							memset(&image, 0, sizeof(Image));
 							AB::DebugFreeFileMemory(data);
 							return image;
@@ -85,7 +86,7 @@ namespace AB {
 
 		// TODO: TEMPORARY: Abort loading if pixel order is top->down 
 		if (!bottomUp) {
-			AB_CORE_WARN("Failed to load BMP image: ", filename, ". Wrong data order.");
+			AB_CORE_WARN("Failed to load BMP image: %s. Wrong data order.", filename);
 			memset(&image, 0, sizeof(Image));
 			AB::DebugFreeFileMemory(data);
 			return image;
@@ -120,7 +121,7 @@ namespace AB {
 
 		}
 		else {
-			AB_CORE_WARN("Failed to load BMP image: ", filename, ". Wrong pixel size.");
+			AB_CORE_WARN("Failed to load BMP image: %s. Wrong pixel size.", filename);
 			memset(&image, 0, sizeof(Image));
 			AB::DebugFreeFileMemory(data);
 			return image;

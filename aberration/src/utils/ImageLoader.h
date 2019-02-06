@@ -21,16 +21,16 @@ namespace AB {
 #pragma pack(push, 1)
 	// Size: 12 bytes
 	struct BMPHeader {
-		uint16  type;
-		uint32	size;
-		uint16  reserved1;
+		uint16 type;
+		uint32 size;
+		uint16 reserved1;
 		uint16 reserved2;
-		uint32	offsetToBitmap;
+		uint32 offsetToBitmap;
 	};
 
 	// Size: 40 bytes
 	struct BMPInfoHeaderCore {
-		uint32	structSize;
+		uint32 structSize;
 		uint16 width;
 		uint16 height;
 		uint16 planes;
@@ -54,7 +54,7 @@ namespace AB {
 		uint16 planes;
 		uint16 bitsPerPixel;
 		uint32 compression;
-		uint32	imageSize;
+		uint32 imageSize;
 		int32 pixelsPerMeterX;
 		int32 pixelsPerMeterY;
 		uint32 colorIndUsed;

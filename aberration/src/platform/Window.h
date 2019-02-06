@@ -21,7 +21,7 @@ namespace AB {
 		~Window();
 
 	public:
-		static void Create(const String& title, uint32 width, uint32 height);
+		static void Create(const char* title, uint32 width, uint32 height);
 		static void Destroy();
 		static void Close();
 		static bool IsOpen();

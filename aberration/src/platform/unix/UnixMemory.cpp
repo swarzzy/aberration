@@ -45,12 +45,7 @@ namespace AB::internal {
 
 #if defined(AB_DEBUG_MEMORY)
 		if (size > LOGGING_TRESHOLD) {
-            //TODO: propper logging
-            //TODO: propper logging
-            char buff[256];
-            sprintf(buff, "Large allocation(>%lu bytes): %lu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size,
-                    file, line);
-            ConsolePrint(buff);
+			AB_CORE_INFO("Large allocation(>%u64 bytes): %u64 bytes in file: %s, line: %u32\n", LOGGING_TRESHOLD, size, file, line);
         }
     #endif
 
@@ -67,10 +62,8 @@ namespace AB::internal {
 
 #if defined(AB_DEBUG_MEMORY)
 		if (size > LOGGING_TRESHOLD) {
-            //TODO: propper logging
-            char buff[256];
-            sprintf(buff, "Large deallocation(>%lu bytes): %lu bytes in file: %s, line: %u\n", LOGGING_TRESHOLD, size, file, line);
-            ConsolePrint(buff);
+			AB_CORE_INFO("Large deallocation(>%u64 bytes): %u64 bytes in file: %s, line: %u32\n", LOGGING_TRESHOLD, size, file, line);
+
         }
 #endif
 

@@ -72,8 +72,10 @@ namespace AB {
 		uint32 repeatCount;
 	};
 
+	static constexpr uint32 WINDOW_TITLE_SIZE = 32;
+
 	struct WindowProperties {
-		String title;
+		char title[32];
 		uint32 width;
 		uint32 height;
 		bool running;
@@ -110,10 +112,9 @@ namespace AB {
 	static void _Win32InitKeyTable(uint8* keytable);
 	static uint8 _Win32KeyConvertToABKeycode(WindowProperties* window, uint64 Win32Key);
 
-	void Window::Create(const String& title, uint32 width, uint32 height) {
+	void Window::Create(const char* title, uint32 width, uint32 height) {
 		// !!!!!!!!!!!!!!!!!!!!!!!!!!
 		// TODO: Rewrote whole log because not it have different instances in dll and exe
-		utils::Log::Initialize(utils::LogLevel::Info);
 		if (s_WindowProperties) {
 			AB_CORE_WARN("Window already initialized");
 			return;
@@ -121,7 +122,8 @@ namespace AB {
 		
 		s_WindowProperties = ab_create WindowProperties {};
 		//memset(s_WindowProperties, 0, sizeof(WindowProperties));
-		s_WindowProperties->title = title;
+		// TODO: Check is that copy safe
+		strcpy_s(s_WindowProperties->title, WINDOW_TITLE_SIZE, title);
 		s_WindowProperties->width = width;
 		s_WindowProperties->height = height;
 
@@ -336,13 +338,10 @@ namespace AB {
 
 		AdjustWindowRectEx(&actualSize, WS_OVERLAPPEDWINDOW | WS_VISIBLE, NULL, NULL);
 
-		char* name = reinterpret_cast<char*>(alloca(s_WindowProperties->title.size() + 1));
-		memcpy(name, s_WindowProperties->title.c_str(), s_WindowProperties->title.size() + 1);
-
 		HWND actualWindowHandle = CreateWindowEx(
 			NULL,
 			windowClass.lpszClassName,
-			name,
+			s_WindowProperties->title,
 			WS_OVERLAPPEDWINDOW | WS_VISIBLE,
 			CW_USEDEFAULT,
 			CW_USEDEFAULT,
@@ -404,11 +403,6 @@ namespace AB {
 		bool32 glLoadResult = GL::LoadFunctions();
 		AB_CORE_ASSERT(glLoadResult, "Failed to load OpenGL");
 		GL::InitAPI();
-
-		//AB_CORE_INFO("\nOpenGL Initialized\nVendor: ", glGetString(GL_VENDOR),
-		//	"\nRenderer: ", glGetString(GL_RENDERER),
-		//	"\nVersion: ", glGetString(GL_VERSION),
-		//	"\nGLSL Version: ", glGetString(GL_SHADING_LANGUAGE_VERSION));
 
 		s_WindowProperties->Win32WindowHandle = actualWindowHandle;
 		s_WindowProperties->Win32WindowDC = actualWindowDC;

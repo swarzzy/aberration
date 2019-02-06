@@ -3,11 +3,7 @@
 #include <hypermath.h>
 #include <../Aberration.h>
 
-#if defined(AB_PLATFORM_WINDOWS)
-#define AB_DEBUG_BREAK() __debugbreak()
-#elif defined(AB_PLATFORM_LINUX)
-#define AB_DEBUG_BREAK() __builtin_debugtrap()
-#endif
+
 typedef void(GameInitializeFn)(AB::Engine* engine, AB::GameContext* gameContext);
 typedef void(GameUpdateFn)(AB::Engine* engine, AB::GameContext* gameContext);
 typedef void(GameRenderFn)(AB::Engine* engine, AB::GameContext* gameContext);
@@ -32,7 +28,7 @@ namespace AB {
 		uint16 seconds;
 		uint16 milliseconds;
 
-		String ToString();
+		uint32 ToString(char* buffer, uint32 bufferSize);
 		static const uint16 DATETIME_STRING_SIZE = 9; // hh:mm:ss\0
 	};
 
