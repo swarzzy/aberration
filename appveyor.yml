@@ -6,4 +6,3 @@ configuration:
 platform: Windows
 build:
   project: Aberration.sln
-verbosity: minimal
