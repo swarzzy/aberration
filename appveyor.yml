@@ -1,0 +1,9 @@
+version: 0.1.{build}
+configuration:
+- Debug
+- Release
+- Distrib
+platform: Windows
+build:
+  project: Aberration.sln
+verbosity: minimal
