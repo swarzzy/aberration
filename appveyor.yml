@@ -4,5 +4,7 @@ configuration:
 - Release
 - Distrib
 platform: Windows
+before_build:
+  - cmd: call tools\premake\premake5.exe vs2017
 build:
   project: Aberration.sln
