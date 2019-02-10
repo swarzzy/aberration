@@ -36,8 +36,18 @@ static GameRenderFn* _GameRender = _GameRenderDummy;
 #define GameUpdate _GameUpdate
 #define GameRender _GameRender
 
+static void _LoadEngineFunctions(AB::Engine* context) {
+	context->fillRectangleTexture = AB::Renderer2D::FillRectangleTexture;
+	context->fillRectangleColor = AB::Renderer2D::FillRectangleColor;
+	context->loadTexture = AB::Renderer2D::LoadTexture;
+	context->freeTexture = AB::Renderer2D::FreeTexture;
+	context->textureCreateRegion = AB::Renderer2D::TextureCreateRegion;
+	context->windowSetKeyCallback = AB::Window::SetKeyCallback;
+}
+
 int main()
 {
+	AB_CORE_INFO("Aberration engine");
 	const uint32 executablePathBufferSize = 256;
 	const uint32 executableDirBufferSize = 256;
 	char executablePath[executablePathBufferSize];
@@ -48,7 +58,6 @@ int main()
 		// TODO: Handle this. THIS SHOULD NOT BE in distribution build
 		AB_CORE_FATAL("Too long executable path.");
 	}
-	printf("%s", executablePath);
 
 	char* executableDirPtr = executablePath;
 	for (char* ch = executablePath; *ch; ch++) {
@@ -60,7 +69,7 @@ int main()
 
 	const uint32 gameLibraryPathSize = 280;
 	char gameLibraryPath[gameLibraryPathSize];
-	snprintf(gameLibraryPath, gameLibraryPathSize,"%s%s", executableDir, GAME_CODE_DLL_NAME);
+	AB::FormatString(gameLibraryPath, gameLibraryPathSize,"%s%s", executableDir, GAME_CODE_DLL_NAME);
 
 
 	AB::Window::Create("Aberration", 800, 600);
@@ -71,11 +80,14 @@ int main()
 
 	AB::Engine* engine = (AB::Engine*)std::malloc(sizeof(AB::Engine));
 	memset(engine, 0, sizeof(AB::Engine));
-	engine->drawRectangle = AB::Renderer2D::DrawRectangle;
-	engine->windowSetKeyCallback = AB::Window::SetKeyCallback;
+
+	_LoadEngineFunctions(engine);
 
 	AB::GameContext* gameContext = (AB::GameContext*)std::malloc(sizeof(AB::GameContext));
 	memset(gameContext, 0, sizeof(AB::GameContext));
+
+	AB::UpdateGameCode(gameLibraryPath, executableDir);
+	GameInitialize(engine, gameContext);
 
 	while (AB::Window::IsOpen()) {
 		AB::UpdateGameCode(gameLibraryPath, executableDir);
@@ -106,7 +118,7 @@ namespace AB {
 
 				remove(TEMP_GAME_CODE_DLL_NAME);
 
-				snprintf(tempLibName, 280, "%s%s", libraryDir, TEMP_GAME_CODE_DLL_NAME);
+				AB::FormatString(tempLibName, 280, "%s%s", libraryDir, TEMP_GAME_CODE_DLL_NAME);
 				uint32 libRead;
 				void* libData = DebugReadFile(libraryFullPath, &libRead);
 				if (libData) {
@@ -143,7 +155,7 @@ namespace AB {
 
 	void UnloadGameCode(const char* libraryDir) {
 		char buff[280];
-		snprintf(buff, 280, "%s%s", libraryDir, TEMP_GAME_CODE_DLL_NAME);
+		AB::FormatString(buff, 280, "%s%s", libraryDir, TEMP_GAME_CODE_DLL_NAME);
 
 		if (g_GameCodeDLL)
 		    dlclose(g_GameCodeDLL);

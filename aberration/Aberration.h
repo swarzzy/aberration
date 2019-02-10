@@ -21,17 +21,32 @@ namespace AB {
 	typedef void(GamepadStickCallback)(uint8 gpNumber, int16 xLs, int16 yLs, int16 xRs, int16 yRs);
 	typedef void(GamepadTriggerCallback)(uint8 gpNumber, byte lt, byte rt);
 
-	typedef void(*ABRendererDrawRectanglePtr)(hpm::Vector2 position, float32 angle, float32 anchor, hpm::Vector2 size, color32 color);
-	typedef void(*ABWindowSetKeyCallbackPtr)(KeyCallback* func);
+	typedef void(ABRendererFillRectangleColorFn)(hpm::Vector2 position, uint16 depth, float32 angle, float32 anchor, hpm::Vector2 size, color32 color);
+	typedef void(ABRendererFillRectangleTextureFn)(hpm::Vector2 position, uint16 depth, float32 angle, float32 anchor, hpm::Vector2 size, uint16 textureHandle);
+	typedef uint16(ABRendererLoadTextureFn)(const char* filepath);
+	typedef void(ABRendererFreeTextureFn)(uint16 handle);
+	typedef uint16(ABRendererTextureCreateRegion)(uint16 handle, hpm::Vector2 min, hpm::Vector2 max);
+	typedef void(ABWindowSetKeyCallbackFn)(KeyCallback* func);
 
 	struct Engine {
-		ABRendererDrawRectanglePtr drawRectangle;
-		ABWindowSetKeyCallbackPtr windowSetKeyCallback;
+		ABRendererFillRectangleColorFn* fillRectangleColor;
+		ABRendererFillRectangleTextureFn* fillRectangleTexture;
+		ABRendererLoadTextureFn* loadTexture;
+		ABRendererFreeTextureFn* freeTexture;
+		ABWindowSetKeyCallbackFn* windowSetKeyCallback;
+		ABRendererTextureCreateRegion* textureCreateRegion;
+		struct Renderer2D {
+			static void FreeTexture(uint16 handle);
+		};
 	};
 
 	struct GameContext {
 		uint32 x;
 		uint32 y;
+		uint16 texHandle;
+		uint16 texHandle1;
+		uint16 texHandle2;
+		uint16 regHandle;
 	};
 
 }

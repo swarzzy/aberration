@@ -7,7 +7,7 @@ workspace "Aberration"
 	exceptionhandling "Off"
 	rtti "Off"
 	floatingpoint "Fast"
-	functionlevellinking "On"
+	functionlevellinking "Off"
 	language "C++"
 	cppdialect "C++17"
 	systemversion "latest"
@@ -40,7 +40,7 @@ filter { "configurations:Release" }
 	defines {
 		"AB_CONFIG_RELEASE"
 	}
-	flags { "LinkTimeOptimization" }
+	--flags { "LinkTimeOptimization" }
 
 filter { "configurations:Distrib" }
 	inlining "Auto"
@@ -49,7 +49,7 @@ filter { "configurations:Distrib" }
 	defines {
 		"AB_CONFIG_DISTRIB"
 	}
-	flags { "LinkTimeOptimization" }
+	--flags { "LinkTimeOptimization" }
 
 filter { "platforms:Windows" }
 	system "windows"
@@ -63,8 +63,6 @@ filter { "platforms:Linux" }
 		"AB_PLATFORM_LINUX"
 	}
 
-binDir = "build/bin/%{buildDir}"
-
 project "Aberration"
 	location "aberration"
 	kind "ConsoleApp"
@@ -72,8 +70,8 @@ project "Aberration"
 	--symbolspath "%{binDir}/$(DATE).pdb"
 	--linkoptions { "/PDBALTPATH:%DATE%.pdb", "/PDB:%DATE%.pdb" }
 	
-	targetdir ("%{binDir}")
-	objdir ("build/obj/%{binDir}")
+	targetdir ("build/bin/%{buildDir}")
+	objdir ("build/obj/%{buildDir}")
 
 	defines {
 		"_CRT_SECURE_NO_WARNINGS"
@@ -107,7 +105,8 @@ project "Aberration"
 
 		links {
 			"OpenGL32",
-			"gdi32"
+			"gdi32",
+			"User32"
 		}
 
 		files {

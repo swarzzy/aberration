@@ -7,55 +7,157 @@
 
 namespace AB {
 
-	const char* VERTEX_SOURCE = "#version 330 core\n"
-		"layout (location = 0) in vec2 aPos;\n"
-		"layout (location = 1) in vec4 aColor;\n"
-		"layout (location = 2) in vec2 aUV;\n"
-		"out vec4 v_Color;\n"
-		"out vec2 v_UV;\n"
-		"void main()\n"
-		"{\n"
-		"	v_UV = aUV;\n"
-		"	v_Color = aColor;\n"
-		"   gl_Position = vec4(aPos, 1.0,  1.0);\n"
-		"}\0";
+	const char* VERTEX_SOURCE = R"(
+		#version 330 core
+		layout (location = 0) in vec3 aPos;
+		layout (location = 1) in vec4 aColor;
+		layout (location = 2) in vec2 aUV;
+		out vec4 v_Color;
+		out vec2 v_UV;
+		void main()
+		{
+			v_UV = aUV;
+			v_Color = aColor;
+		   gl_Position = vec4(aPos, 1.0);
+		}
+	)";
 
-	const char* FRAGMENT_SOURCE = "#version 330 core\n"
-		"out vec4 FragColor;\n"
-		"in vec4 v_Color;\n"
-		"in vec2 v_UV;\n"
-		"uniform sampler2D tex;\n"
-		"void main()\n"
-		"{\n"
-		"   FragColor = texture(tex, v_UV);\n"
-		"}\n\0";
+	const char* FRAGMENT_SOURCE = R"(
+		#version 330 core
+		out vec4 FragColor;
+		in vec4 v_Color;
+		in vec2 v_UV;
+		uniform sampler2D tex;
+		uniform float useTexture;
+		void main()
+		{
+			if (useTexture > 0.4) {
+				FragColor = texture(tex, v_UV);
+			} else {
+				FragColor = v_Color;
+			}
+		}
+	)";
 
 	struct VertexData {
 		float32 x;
 		float32 y;
+		float32 z;
 		color32 color;
 		float32 u;
 		float32 v;
 	};
-	
+
+	struct BatchData {
+		uint32 count;
+		uint32 textureHandle;
+	};
+
+	struct RectangleData {
+		hpm::Vector2 position;
+		hpm::Vector2 size;
+		float32 angle;
+		float32 anchor;
+		uint32 color;
+		uint16 regionTexHandle;
+	};
+
+	struct UV {
+		hpm::Vector2 min;
+		hpm::Vector2 max;
+	};
+
+	struct TextureProperties {
+		bool32 used;
+		GLuint glHandle;
+		uint32 refCount;
+		PixelFormat format;
+		UV uv;
+		uint16 parent;
+	};
+
+	union SortKey {
+		uint32 value;
+		struct {
+			uint16 texHandle;
+			uint16 depth;
+		};
+	};
+
+	struct SortEntry {
+		SortKey key;
+		uint32 renderQueueIndex;
+	};
+
 	struct Renderer2DProperties {
 		uint32 GLVBOHandle;
-		uint32 shaderHandle;
 		uint32 GLIBOHandle;
+		uint32 shaderHandle;
+		hpm::Vector2 viewSpaceDim;
 		uint64 vertexCount;
 		uint64 indexCount;
-		hpm::Vector2 viewSpaceDim;
-		VertexData* vertexBuffer;
-		// TODO: TEMPORARY
-		uint32 textures[128];
-		uint32 texturesUsed;
+		uint16 texturesUsed;
+		TextureProperties textures[Renderer2D::TEXTURE_STORAGE_CAPACITY];
+		uint32 batchesUsed;
+		uint16 drawQueueUsed;
+		uint32 sortBufferLeftUsage;
+		uint32 sortBufferRightUsage;
+		BatchData batches[AB::Renderer2D::DRAW_QUEUE_CAPACITY];
+		// TODO: Maybe write vertex data directly to the gpu address space using glMapBuffer
+		// instead of having this vertex buffer
+		VertexData vertexBuffer[AB::Renderer2D::DRAW_QUEUE_CAPACITY * 4];
+		RectangleData drawQueue[AB::Renderer2D::DRAW_QUEUE_CAPACITY];
+		SortEntry sortBufferA[AB::Renderer2D::DRAW_QUEUE_CAPACITY];
+		SortEntry sortBufferB[AB::Renderer2D::DRAW_QUEUE_CAPACITY];
 	};
+
+	// NOTE: Test if return pointer to UV from main texture buffer if faster
+	static UV GetTextureRegionUV(Renderer2DProperties* properties, uint16 handle) {
+		// TODO: is there any elegant way to initialize non POD struct with zeros?
+		UV uv;
+		memset(&uv, 0, sizeof(UV));
+		if (handle > 0) {
+			uint16 index = handle - 1;
+			uv = properties->textures[index].uv;
+		}
+		return uv;
+	}
+
+	// TODO: Maybe store gl handles in regions too
+	static uint32 GetTextureRegionAPIHandle(Renderer2DProperties* properties, uint16 regionHandle) {
+		uint32 apiHandle = 0;
+		if (regionHandle > 0) {
+			uint16 index = regionHandle - 1;
+			if (properties->textures[index].parent == 0) {
+				apiHandle = properties->textures[index].glHandle;
+			} else {
+				apiHandle = properties->textures[properties->textures[index].parent - 1].glHandle;
+			}
+		}
+		return apiHandle;
+	}
+
+	// NOTE: Returns handle! Not an actual index
+	static uint16 GetTextureBaseHandle(Renderer2DProperties* properties, uint16 handle) {
+		uint16 index = handle - 1;
+		uint16 baseHandle = 0;
+		if (handle > 0) {
+			if (properties->textures[index].parent == 0) {
+				baseHandle = handle;
+			}
+			else {
+				baseHandle = properties->textures[index].parent;
+			}
+		}
+		return baseHandle;
+	}
 
 	static void _GLInit(Renderer2DProperties* properties);
 	void Renderer2D::Initialize(uint32 drawableSpaceX, uint32 drawableSpaceY) {
 		if (!s_Properties) {
 			s_Properties = (Renderer2DProperties*)std::malloc(sizeof(Renderer2DProperties));
 			memset(s_Properties, 0, sizeof(Renderer2DProperties));
+			s_Properties->sortBufferRightUsage = DRAW_QUEUE_CAPACITY - 1;
 		} else {
 			AB_CORE_WARN("2D renderer already initialized.");
 		}
@@ -67,18 +169,30 @@ namespace AB {
 		AB_GLCALL(glDeleteBuffers(1, &s_Properties->GLVBOHandle));
 		AB_GLCALL(glDeleteBuffers(1, &s_Properties->GLIBOHandle));
 		AB_GLCALL(glDeleteProgram(s_Properties->shaderHandle));
-		std::free(s_Properties->vertexBuffer);
 		std::free(s_Properties);
 		s_Properties = nullptr;
 	}
 
-	uint32 Renderer2D::LoadTexture(const char* filepath) {
-		Image image = LoadBMP(filepath);
-		if (image.bitmap) {
-			GLuint texHandle;
-			uint32 format = GL_RED;
-			uint32 inFormat = GL_RED;
-			switch(image.format) {
+	uint16 Renderer2D::LoadTexture(const char* filepath) {
+		uint16 resultHandle = 0;
+
+		bool32 hasFreeCell = false;
+		uint16 freeIndex = 0;
+		for (uint32 i = 0; i < TEXTURE_STORAGE_CAPACITY; i++) {
+			if (!s_Properties->textures[i].used) {
+				hasFreeCell = true;
+				freeIndex = i;
+				break;
+			}
+		}
+
+		if (hasFreeCell) {
+			Image image = LoadBMP(filepath);
+			if (image.bitmap) {
+				GLuint texHandle;
+				uint32 format = GL_RED;
+				uint32 inFormat = GL_RED;
+				switch (image.format) {
 				case PixelFormat::RGB: {
 					format = GL_RGB;
 					inFormat = GL_RGB8;
@@ -91,102 +205,451 @@ namespace AB {
 					// TODO: FIX THIS
 					AB_CORE_ERROR("Wrong image format");
 				} break;
+				}
+				AB_GLCALL(glGenTextures(1, &texHandle));
+				AB_GLCALL(glBindTexture(GL_TEXTURE_2D, texHandle));
+
+				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
+				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+				AB_GLCALL(glTexImage2D(GL_TEXTURE_2D, 0, inFormat, image.width, image.height, 0, format, GL_UNSIGNED_BYTE, image.bitmap));
+
+				AB_GLCALL(glBindTexture(GL_TEXTURE_2D, 0));
+
+				s_Properties->textures[freeIndex].used = true;
+				s_Properties->textures[freeIndex].refCount = 1;
+				s_Properties->textures[freeIndex].glHandle = texHandle;
+				s_Properties->textures[freeIndex].format = image.format;
+				s_Properties->textures[freeIndex].uv.min = hpm::Vector2(0.0f, 0.0f);
+				s_Properties->textures[freeIndex].uv.max = hpm::Vector2(1.0f, 1.0f);
+				s_Properties->textures[freeIndex].parent = 0;
+
+				resultHandle = freeIndex;
+	
+				DeleteBitmap(image.bitmap);
 			}
-			AB_GLCALL(glGenTextures(1, &texHandle));
-			AB_GLCALL(glBindTexture(GL_TEXTURE_2D, texHandle));
-
-			AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-			AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
-			AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-			AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-			AB_GLCALL(glTexImage2D(	GL_TEXTURE_2D, 0, inFormat,	image.width, image.height, 0, format, GL_UNSIGNED_BYTE,	image.bitmap));
-
-			AB_GLCALL(glBindTexture(GL_TEXTURE_2D, 0));
-
-			DeleteBitmap(image.bitmap);
-
-			s_Properties->textures[s_Properties->texturesUsed] = texHandle;
-			s_Properties->texturesUsed++;
-			return s_Properties->texturesUsed - 1;
-
+			else {
+				AB_CORE_ERROR("Failed to load texture. Cannot load image: %s", filepath);
+			}
 		} else {
-			AB_CORE_ERROR("Failed to load texture. Cannot load image: %s", filepath);
-			return 0;
+			AB_CORE_ERROR("Failed to load texture. No more space for textures!. Storage capacity: %u16", TEXTURE_STORAGE_CAPACITY);
+		}
+		// NOTE: Increasing handle by one in order to use 0 value as invalid handle;
+		return resultHandle + 1;
+	}
+
+	void Renderer2D::FreeTexture(uint16 handle) {
+		if (handle > 0) {
+			uint16 index = handle - 1;
+			s_Properties->textures[index].refCount--;
+			if (s_Properties->textures[index].refCount == 0) {
+				AB_GLCALL(glDeleteTextures(1, &s_Properties->textures[handle].glHandle));
+				s_Properties->textures[index].used = false;
+			}
 		}
 	}
 
-	void Renderer2D::DrawRectangle(hpm::Vector2 position, float32 angle, float32 anchor, hpm::Vector2 size, color32 color) {
-		float32 sin = hpm::Sin(hpm::ToRadians(angle));
-		float32 cos = hpm::Cos(hpm::ToRadians(angle));
-		float32 invHalfW = (2 / s_Properties->viewSpaceDim.x);
-		float32 invHalfH = (2 / s_Properties->viewSpaceDim.y);
+	uint16 Renderer2D::TextureCreateRegion(uint16 handle, hpm::Vector2 min, hpm::Vector2 max) {
+		uint16 resultHandle = 0;
+		if (handle > 0) {
+
+			bool32 hasFreeCell = false;
+			uint16 freeIndex = 0;
+			for (uint32 i = 0; i < TEXTURE_STORAGE_CAPACITY; i++) {
+				if (!s_Properties->textures[i].used) {
+					hasFreeCell = true;
+					freeIndex = i;
+					break;
+				}
+			}
+
+			if (hasFreeCell) {
+				s_Properties->textures[freeIndex].used = true;
+				s_Properties->textures[freeIndex].glHandle = 0;
+				s_Properties->textures[freeIndex].refCount = 1;
+				s_Properties->textures[freeIndex].parent = handle;
+				s_Properties->textures[freeIndex].uv.min = min;
+				s_Properties->textures[freeIndex].uv.max = max;
+				s_Properties->textures[handle - 1].refCount++;
+				// TODO: method for delete region and decrease parent ref count
+
+				resultHandle = freeIndex + 1;
+			}
+		}
+		return resultHandle;
+	}
+
+	PixelFormat Renderer2D::GetTextureFormat(uint16 handle) {
+		return s_Properties->textures[handle - 1].format;
+	}
+
+	void Renderer2D::FillRectangleColor(hpm::Vector2 position, uint16 depth, float32 angle, float32 anchor, hpm::Vector2 size, color32 color) {
+		if (s_Properties->sortBufferLeftUsage != s_Properties->sortBufferRightUsage) {
+			// Has alpha < 1.0f
+			SortKey key = {};
+			key.depth = depth;
+			key.texHandle = 0;
+			if ((color & 0xff000000) == 0xff000000) {
+				s_Properties->drawQueue[s_Properties->drawQueueUsed] = { position, size,  angle, anchor, color, 0 };
+				s_Properties->sortBufferA[s_Properties->sortBufferLeftUsage] = { key, s_Properties->drawQueueUsed};
+				s_Properties->sortBufferLeftUsage++;
+				s_Properties->drawQueueUsed++;
+			}
+			else {
+				s_Properties->drawQueue[s_Properties->drawQueueUsed] = { position, size, angle, anchor, color, 0 };
+				s_Properties->sortBufferA[s_Properties->sortBufferRightUsage] = { key, s_Properties->drawQueueUsed};
+				s_Properties->sortBufferRightUsage--;
+				s_Properties->drawQueueUsed++;
+			}
+		} else {
+			AB_CORE_WARN("Failed to submit rectangle. Draw queue is full");
+		}
+	}
+
+	void Renderer2D::FillRectangleTexture(hpm::Vector2 position, uint16 depth, float32 angle, float32 anchor, hpm::Vector2 size, uint16 textureHandle) {
+		if (s_Properties->sortBufferLeftUsage != s_Properties->sortBufferRightUsage) {
+			uint16 baseTexHandle = GetTextureBaseHandle(s_Properties, textureHandle);
+			SortKey key = {};
+			key.depth = depth;
+			key.texHandle = baseTexHandle;
+			if (GetTextureFormat(baseTexHandle) == PixelFormat::RGB) {
+				s_Properties->drawQueue[s_Properties->drawQueueUsed] = { position, size,  angle, anchor, 0, textureHandle };
+				s_Properties->sortBufferA[s_Properties->sortBufferLeftUsage] = { key, s_Properties->drawQueueUsed};
+				s_Properties->sortBufferLeftUsage++;
+				s_Properties->drawQueueUsed++;
+			}
+			else {
+				s_Properties->drawQueue[s_Properties->drawQueueUsed] = { position, size,  angle, anchor, 0, textureHandle };
+				s_Properties->sortBufferA[s_Properties->sortBufferRightUsage] = { key, s_Properties->drawQueueUsed};
+				s_Properties->sortBufferRightUsage--; 
+				s_Properties->drawQueueUsed++;
+			}
+		}
+		else {
+			AB_CORE_WARN("Failed to submit rectangle. Draw queue is full");
+		}
+	}
+
+	typedef bool32(MergeSortPred)(const SortKey* a, const SortKey* b);
+
+	static void MergeSortV2(SortEntry* buffer, SortEntry* tempBuffer, uint32 beg, uint32 end, MergeSortPred* pred) {
+		if (beg < end) {
+			uint32 mid = beg + (end - beg) / 2;
+			MergeSortV2(buffer, tempBuffer, beg, mid, pred);
+			MergeSortV2(buffer, tempBuffer, mid + 1, end, pred);
+
+			uint32 leftAt = beg;
+			uint32 rightAt = mid + 1;
+			uint32 tempAt = 0;
+			while (leftAt <= mid && rightAt <= end) {
+				AB_CORE_ASSERT(tempAt <= end, "Merge sort error. Buffer owerflow.");
+				if (pred(&buffer[leftAt].key, &buffer[rightAt].key)) {
+					tempBuffer[tempAt] = buffer[leftAt];
+					tempAt++;
+					leftAt++;
+				}
+				else {
+					tempBuffer[tempAt] = buffer[rightAt];
+					tempAt++;
+					rightAt++;
+				}
+			}
+			while (leftAt <= mid) {
+				tempBuffer[tempAt] = buffer[leftAt];
+				tempAt++;
+				leftAt++;
+			}
+			while (rightAt <= end) {
+				tempBuffer[tempAt] = buffer[rightAt];
+				tempAt++;
+				rightAt++;
+			}
+
+			memcpy(&buffer[beg], tempBuffer, sizeof(SortEntry) * (end - beg + 1));
+		}
+	}
+
+	static SortEntry* MergeSortV3(SortEntry* bufferA, SortEntry* bufferB, uint32 beg, uint32 end, MergeSortPred* pred) {
+		SortEntry* targetBuffer = bufferA;
+		if (beg < end) {
+			uint32 mid = beg + (end - beg) / 2;
+			SortEntry* left = MergeSortV3(bufferA, bufferB, beg, mid, pred);
+			SortEntry* right = MergeSortV3(bufferA, bufferB, mid + 1, end, pred);
+
+			targetBuffer = left == bufferA ? bufferB: bufferA;
+
+			uint32 leftAt = beg;
+			uint32 rightAt = mid + 1;
+			uint32 tempAt = beg;
+			while (leftAt <= mid && rightAt <= end) {
+				AB_CORE_ASSERT(tempAt <= end, "Merge sort error. Buffer owerflow.");
+				if (pred(&left[leftAt].key, &right[rightAt].key)) {
+					targetBuffer[tempAt] = left[leftAt];
+					tempAt++;
+					leftAt++;
+				}
+				else {
+					targetBuffer[tempAt] = right[rightAt];
+					tempAt++;
+					rightAt++;
+				}
+			}
+			while (leftAt <= mid) {
+				targetBuffer[tempAt] = left[leftAt];
+				tempAt++;
+				leftAt++;
+			}
+			while (rightAt <= end) {
+				targetBuffer[tempAt] = right[rightAt];
+				tempAt++;
+				rightAt++;
+			}
+		}
+		return targetBuffer;
+	}
+
+#if 0
+	SortEntry* RadixSort(SortEntry* source, SortEntry* dest, uint32  count) {
+		for (uint32 byteIndex = 0; byteIndex < 4; byteIndex++) {
+			uint32 sortKeyOffsets[256] = {};
+
+			for (uint32 i = 0; i < count; i++) {
+				uint32 radixByte = (source[i].key.value >> byteIndex * 8) & 0x000000ff;
+				sortKeyOffsets[radixByte]++; 
+			}
+
+			uint32 total = 0;
+			for (uint32 i = 0; i < 256; i++) {
+				uint32 keyCount = sortKeyOffsets[i];
+				sortKeyOffsets[i] = total;
+				total += keyCount;
+			}
+
+			for (uint32 i = 0; i < count; i++) {
+				uint32 radixByte = (source[i].key.value >> byteIndex * 8) & 0x000000ff;
+				dest[sortKeyOffsets[radixByte]] = source[i];
+				sortKeyOffsets[radixByte]++;
+			}
+
+			SortEntry* tmp = dest;
+			dest = source;
+			source = tmp;
+		}
+		return source;
+	}
+#endif
+
+	inline static bool32 LeftSortPred(const SortKey* a, const SortKey* b) {
+		return a->texHandle < b->texHandle;
+	}
+
+	inline static bool32 RightSortPred(const SortKey* a, const SortKey* b) {
+		return a->value < b->value;
+	}
+
+	SortEntry* SortQueue(Renderer2DProperties* properties) {
+		// NOTE: end is pointing to a last element
+		//auto beg = __rdtsc();
+		SortEntry* ptr = MergeSortV3(properties->sortBufferA, properties->sortBufferB, properties->sortBufferRightUsage + 1, Renderer2D::DRAW_QUEUE_CAPACITY - 1, RightSortPred);
+		SortEntry* sortedBuffer = ptr;
+		if (properties->sortBufferLeftUsage > 1) {
+			SortEntry* bufferB = ptr == properties->sortBufferA ? properties->sortBufferB : properties->sortBufferA;
+			sortedBuffer = MergeSortV3(ptr, bufferB, 0, properties->sortBufferLeftUsage - 1, LeftSortPred);
+		}
+		//uint64 end = __rdtsc();
+		//uint64 elapsed = end - beg;
+
+		//for (uint32 i = 0; i < Renderer2D::DRAW_QUEUE_CAPACITY; i++) {
+		//	PrintString("%u16 %u16 %u32\n", sortedBuffer[i].key.depth, sortedBuffer[i].key.texHandle, sortedBuffer[i].renderQueueIndex);
+		//}
+		//PrintString("Sort time: %u64\n", elapsed);
+		return  sortedBuffer;
+	}
+
+	static void GenVertexData(Renderer2DProperties* properties, SortEntry* entry) {
+		// TODO: is there any elegant way to initialize non POD struct with zeros?
+		UV uv;
+		memset(&uv, 0, sizeof(UV));
+		if (entry->key.texHandle != 0) {
+			// TODO: There are two different handles now. Base handle in a sort entry and region handle in the draw queue
+			uv = GetTextureRegionUV(properties, properties->drawQueue[entry->renderQueueIndex].regionTexHandle);
+		}
+
+		uint32 drawQueueIndex = entry->renderQueueIndex;
+		float32 normalizedDepth = (float32)entry->key.depth / 20.0f;
+
+		float32 sin = hpm::Sin(hpm::ToRadians(properties->drawQueue[drawQueueIndex].angle));
+		float32 cos = hpm::Cos(hpm::ToRadians(properties->drawQueue[drawQueueIndex].angle));
+		float32 invHalfW = (2 / properties->viewSpaceDim.x);
+		float32 invHalfH = (2 / properties->viewSpaceDim.y);
 
 		// rotation			// scale // translation	// ortho projection				   
-		float32 originLBX = (((0 + anchor) * cos - (0 + anchor) * sin) * size.x + position.x) * invHalfW - 1;
-		float32 originLBY = (((0 + anchor) * sin + (0 + anchor) * cos) * size.y + position.y) * invHalfH - 1;
-		float32 originRBX = (((1 + anchor) * cos - (0 + anchor) * sin) * size.x + position.x) * invHalfW - 1;
-		float32 originRBY = (((1 + anchor) * sin + (0 + anchor) * cos) * size.y + position.y) * invHalfH - 1;
-		float32 originRTX = (((1 + anchor) * cos - (1 + anchor) * sin) * size.x + position.x) * invHalfW - 1;
-		float32 originRTY = (((1 + anchor) * sin + (1 + anchor) * cos) * size.y + position.y) * invHalfH - 1;
-		float32 originLTX = (((0 + anchor) * cos - (1 + anchor) * sin) * size.x + position.x) * invHalfW - 1;
-		float32 originLTY = (((0 + anchor) * sin + (1 + anchor) * cos) * size.y + position.y) * invHalfH - 1;
+		float32 originLBX = (((0 + properties->drawQueue[drawQueueIndex].anchor) * cos - (0 + properties->drawQueue[drawQueueIndex].anchor) * sin) * properties->drawQueue[drawQueueIndex].size.x + properties->drawQueue[drawQueueIndex].position.x) * invHalfW - 1;
+		float32 originLBY = (((0 + properties->drawQueue[drawQueueIndex].anchor) * sin + (0 + properties->drawQueue[drawQueueIndex].anchor) * cos) * properties->drawQueue[drawQueueIndex].size.y + properties->drawQueue[drawQueueIndex].position.y) * invHalfH - 1;
+		float32 originRBX = (((1 + properties->drawQueue[drawQueueIndex].anchor) * cos - (0 + properties->drawQueue[drawQueueIndex].anchor) * sin) * properties->drawQueue[drawQueueIndex].size.x + properties->drawQueue[drawQueueIndex].position.x) * invHalfW - 1;
+		float32 originRBY = (((1 + properties->drawQueue[drawQueueIndex].anchor) * sin + (0 + properties->drawQueue[drawQueueIndex].anchor) * cos) * properties->drawQueue[drawQueueIndex].size.y + properties->drawQueue[drawQueueIndex].position.y) * invHalfH - 1;
+		float32 originRTX = (((1 + properties->drawQueue[drawQueueIndex].anchor) * cos - (1 + properties->drawQueue[drawQueueIndex].anchor) * sin) * properties->drawQueue[drawQueueIndex].size.x + properties->drawQueue[drawQueueIndex].position.x) * invHalfW - 1;
+		float32 originRTY = (((1 + properties->drawQueue[drawQueueIndex].anchor) * sin + (1 + properties->drawQueue[drawQueueIndex].anchor) * cos) * properties->drawQueue[drawQueueIndex].size.y + properties->drawQueue[drawQueueIndex].position.y) * invHalfH - 1;
+		float32 originLTX = (((0 + properties->drawQueue[drawQueueIndex].anchor) * cos - (1 + properties->drawQueue[drawQueueIndex].anchor) * sin) * properties->drawQueue[drawQueueIndex].size.x + properties->drawQueue[drawQueueIndex].position.x) * invHalfW - 1;
+		float32 originLTY = (((0 + properties->drawQueue[drawQueueIndex].anchor) * sin + (1 + properties->drawQueue[drawQueueIndex].anchor) * cos) * properties->drawQueue[drawQueueIndex].size.y + properties->drawQueue[drawQueueIndex].position.y) * invHalfH - 1;
 
-		s_Properties->vertexBuffer[s_Properties->vertexCount].x = originLBX;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].y = originLBY;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].color = color;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].u = 0.0f;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].v = 0.0f;
-		s_Properties->vertexCount++;
+
+		properties->vertexBuffer[properties->vertexCount].x = originLBX;
+		properties->vertexBuffer[properties->vertexCount].y = originLBY;
+		properties->vertexBuffer[properties->vertexCount].z = normalizedDepth;
+		properties->vertexBuffer[properties->vertexCount].color = properties->drawQueue[drawQueueIndex].color;
+		properties->vertexBuffer[properties->vertexCount].u = uv.min.x;
+		properties->vertexBuffer[properties->vertexCount].v = uv.min.y;
+		properties->vertexCount++;
 		//right bottom
-		s_Properties->vertexBuffer[s_Properties->vertexCount].x = originRBX;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].y = originRBY;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].color = color;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].u = 1.0f;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].v = 0.0f;
-		s_Properties->vertexCount++;
+		properties->vertexBuffer[properties->vertexCount].x = originRBX;
+		properties->vertexBuffer[properties->vertexCount].y = originRBY;
+		properties->vertexBuffer[properties->vertexCount].z = normalizedDepth;
+		properties->vertexBuffer[properties->vertexCount].color = properties->drawQueue[drawQueueIndex].color;
+		properties->vertexBuffer[properties->vertexCount].u = uv.max.x;
+		properties->vertexBuffer[properties->vertexCount].v = uv.min.y;
+		properties->vertexCount++;
 		//right top
-		s_Properties->vertexBuffer[s_Properties->vertexCount].x = originRTX;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].y = originRTY;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].color = color;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].u = 1.0f;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].v = 1.0f;
-		s_Properties->vertexCount++;
+		properties->vertexBuffer[properties->vertexCount].x = originRTX;
+		properties->vertexBuffer[properties->vertexCount].y = originRTY;
+		properties->vertexBuffer[properties->vertexCount].z = normalizedDepth;
+		properties->vertexBuffer[properties->vertexCount].color = properties->drawQueue[drawQueueIndex].color;
+		properties->vertexBuffer[properties->vertexCount].u = uv.max.x;
+		properties->vertexBuffer[properties->vertexCount].v = uv.max.y;
+		properties->vertexCount++;
 		// left top
-		s_Properties->vertexBuffer[s_Properties->vertexCount].x = originLTX;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].y = originLTY;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].color = color;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].u = 0.0f;
-		s_Properties->vertexBuffer[s_Properties->vertexCount].v = 1.0f;
-		s_Properties->vertexCount++;
+		properties->vertexBuffer[properties->vertexCount].x = originLTX;
+		properties->vertexBuffer[properties->vertexCount].y = originLTY;
+		properties->vertexBuffer[properties->vertexCount].z = normalizedDepth;
+		properties->vertexBuffer[properties->vertexCount].color = properties->drawQueue[drawQueueIndex].color;
+		properties->vertexBuffer[properties->vertexCount].u = uv.min.x;
+		properties->vertexBuffer[properties->vertexCount].v = uv.max.y;
+		properties->vertexCount++;
 
-		s_Properties->indexCount += 6;
+		properties->indexCount += 6;
+	}
+
+	void GenVertexAndBatchBuffers(Renderer2DProperties* properties, SortEntry* sortedBuffer) {
+		uint32 batchCount = 0;
+		for (uint64 i = 0; i < properties->sortBufferLeftUsage; i++) {
+			if (sortedBuffer[i].key.depth < sortedBuffer[Renderer2D::DRAW_QUEUE_CAPACITY - 1].key.depth) {
+				batchCount++;
+				// Check for last sprite
+				if (i + 1 == properties->sortBufferLeftUsage) {
+					properties->batches[properties->batchesUsed].count = batchCount;
+					properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
+
+					properties->batchesUsed++;
+					batchCount = 0;
+				}
+				else {
+					if (sortedBuffer[i].key.texHandle != sortedBuffer[i + 1].key.texHandle) {
+						properties->batches[properties->batchesUsed].count = batchCount;
+						properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
+						properties->batchesUsed++;
+						batchCount = 0;
+					}
+				}
+
+				GenVertexData(properties, &sortedBuffer[i]);
+			}
+		}
+		//batchCount = 0;
+		for (uint64 i = properties->sortBufferRightUsage + 1; i < Renderer2D::DRAW_QUEUE_CAPACITY; i++) {
+			batchCount++;
+			// Check for last sprite
+			if (i + 1 == Renderer2D::DRAW_QUEUE_CAPACITY) {
+				properties->batches[properties->batchesUsed].count = batchCount;
+				properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
+
+				properties->batchesUsed++;
+				batchCount = 0;
+			}
+			else {
+				if (sortedBuffer[i].key.texHandle != sortedBuffer[i + 1].key.texHandle) {
+					properties->batches[properties->batchesUsed].count = batchCount;
+					properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
+					properties->batchesUsed++;
+					batchCount = 0;
+				}
+			}
+
+			GenVertexData(properties, &sortedBuffer[i]);
+		}
+
+		for (uint64 i = 0; i < properties->sortBufferLeftUsage; i++) {
+			if (sortedBuffer[i].key.depth >= sortedBuffer[Renderer2D::DRAW_QUEUE_CAPACITY - 1].key.depth) {
+				batchCount++;
+				// Check for last sprite
+				if (i + 1 == properties->sortBufferLeftUsage) {
+					properties->batches[properties->batchesUsed].count = batchCount;
+					properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
+
+					properties->batchesUsed++;
+					batchCount = 0;
+				}
+				else {
+					if (sortedBuffer[i].key.texHandle != sortedBuffer[i + 1].key.texHandle) {
+						properties->batches[properties->batchesUsed].count = batchCount;
+						properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
+						properties->batchesUsed++;
+						batchCount = 0;
+					}
+				}
+
+				GenVertexData(properties, &sortedBuffer[i]);
+			}
+		}
+	}
+
+	static void ResetRenderState(Renderer2DProperties* properties) {
+		properties->batchesUsed = 0;
+		properties->vertexCount = 0;
+		properties->indexCount = 0;
+		properties->sortBufferLeftUsage = 0;
+		properties->sortBufferRightUsage = Renderer2D::DRAW_QUEUE_CAPACITY - 1;
+		properties->drawQueueUsed = 0;
 	}
 
 	void Renderer2D::Flush() {
+		SortEntry* sortedBuffer = SortQueue(s_Properties);
+		GenVertexAndBatchBuffers(s_Properties, sortedBuffer);
+
 		AB_GLCALL(glClearColor(0.2f, 0.3f, 0.3f, 1.0f));
-		AB_GLCALL(glClear(GL_COLOR_BUFFER_BIT));
+		AB_GLCALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
 		AB_GLCALL(glBindBuffer(GL_ARRAY_BUFFER, s_Properties->GLVBOHandle));
 		AB_GLCALL(glBufferData(GL_ARRAY_BUFFER, sizeof(VertexData) * s_Properties->vertexCount, (void*)s_Properties->vertexBuffer, GL_DYNAMIC_DRAW));
 		AB_GLCALL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s_Properties->GLIBOHandle));
 
 		AB_GLCALL(glEnableVertexAttribArray(0));
-		AB_GLCALL(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), 0));
+		AB_GLCALL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), 0));
 		AB_GLCALL(glEnableVertexAttribArray(1));
-		AB_GLCALL(glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VertexData), (void*)(sizeof(float32) * 2)));
+		AB_GLCALL(glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VertexData), (void*)(sizeof(float32) * 3)));
 		AB_GLCALL(glEnableVertexAttribArray(2));
-		AB_GLCALL(glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)(sizeof(float32) * 2 + sizeof(float) * 1)));
+		AB_GLCALL(glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)(sizeof(float32) * 3 + sizeof(float) * 1)));
 
 		AB_GLCALL(glUseProgram(s_Properties->shaderHandle));
-		AB_GLCALL(glActiveTexture(GL_TEXTURE0));
-		AB_GLCALL(glBindTexture(GL_TEXTURE_2D, s_Properties->textures[0]));
-
 		AB_GLCALL(glUniform1i(glGetUniformLocation(s_Properties->shaderHandle, "tex"), 0));
+		uint32 drawCalls = 0;
+		uint64 verticesDrawn = 0;
+		for (uint64 i = 0; i < s_Properties->batchesUsed; i++) {
+			AB_GLCALL(glUniform1f(glGetUniformLocation(s_Properties->shaderHandle, "useTexture"), s_Properties->batches[i].textureHandle ? 1.0f : 0.0f));
+			AB_GLCALL(glActiveTexture(GL_TEXTURE0));
+			if (s_Properties->batches[i].textureHandle > 0) {
+				AB_GLCALL(glBindTexture(GL_TEXTURE_2D, GetTextureRegionAPIHandle(s_Properties, s_Properties->batches[i].textureHandle)));
+			}
+			
+			AB_GLCALL(glDrawElements(GL_TRIANGLES, 6 * s_Properties->batches[i].count, GL_UNSIGNED_SHORT, (void*)verticesDrawn));
+			drawCalls++;
+			verticesDrawn += 6 * s_Properties->batches[i].count * sizeof(uint16);
+		}
 
-		AB_GLCALL(glDrawElements(GL_TRIANGLES, (GLsizei)s_Properties->indexCount, GL_UNSIGNED_SHORT, 0));
-		//AB_GLCALL(glDrawArrays(GL_TRIANGLES, 0, (GLsizei)g_VertexCount));
-		s_Properties->vertexCount = 0;
-		s_Properties->indexCount = 0;
+		ResetRenderState(s_Properties);
+
+		//system("cls");
+		//AB::PrintString("DC: %u32\n", drawCalls);
 	}
 
 	void _GLInit(Renderer2DProperties* properties) {
@@ -196,11 +659,10 @@ namespace AB {
 		AB_GLCALL(glViewport(0, 0, winWidth, winHeight));
 
 		AB_GLCALL(glGenBuffers(1, &properties->GLVBOHandle));
-		properties->vertexBuffer = (VertexData*)malloc(AB::Renderer2D::VERTEX_BUFFER_SIZE);
-		properties->vertexCount = 0;
 
 		uint16* indices = (uint16*)std::malloc(Renderer2D::INDEX_BUFFER_SIZE * sizeof(uint16));
 		uint16 k = 0;
+		// TODO: IMPORTATNT: This alorithm might work incorrect on different sizes of index buffer
 		for (uint32 i = 0; i < Renderer2D::INDEX_BUFFER_SIZE - 9; i += 6) {
 			indices[i] = k;
 			indices[i + 1] = k + 1;
@@ -215,7 +677,7 @@ namespace AB {
 
 		AB_GLCALL(glGenBuffers(1, &properties->GLIBOHandle));
 		AB_GLCALL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, properties->GLIBOHandle));
-		AB_GLCALL(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint16) * 65536, indices, GL_STATIC_DRAW));
+		AB_GLCALL(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint16) * Renderer2D::INDEX_BUFFER_SIZE, indices, GL_STATIC_DRAW));
 		AB_GLCALL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
 
 		std::free(indices);
@@ -269,8 +731,6 @@ namespace AB {
 
 	void RenderGroupResizeCallback(uint32 width, uint32 height) {
 		if (Renderer2D::s_Properties) {
-			//Renderer2D::s_Properties->viewSpaceDim.x = (float32)width;
-			//Renderer2D::s_Properties->viewSpaceDim.y = (float32)height;
 
 			AB_GLCALL(glViewport(0, 0, width, height));
 		}

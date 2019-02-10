@@ -39,6 +39,15 @@ static GameRenderFn* _GameRender = _GameRenderDummy;
 #define GameUpdate _GameUpdate
 #define GameRender _GameRender
 
+static void _LoadEngineFunctions(AB::Engine* context) {
+	context->fillRectangleTexture	= AB::Renderer2D::FillRectangleTexture;
+	context->fillRectangleColor		= AB::Renderer2D::FillRectangleColor;
+	context->loadTexture			= AB::Renderer2D::LoadTexture;
+	context->freeTexture			= AB::Renderer2D::FreeTexture;
+	context->textureCreateRegion	= AB::Renderer2D::TextureCreateRegion;
+	context->windowSetKeyCallback	= AB::Window::SetKeyCallback;
+}
+
 int main() 
 {
 	AB_CORE_INFO("Aberration engine");
@@ -63,22 +72,24 @@ int main()
 
 	const uint32 gameLibraryPathSize = 280;
 	char gameLibraryPath[gameLibraryPathSize];
-	StringCbPrintfA(gameLibraryPath, gameLibraryPathSize,"%s%s", executableDir, GAME_CODE_DLL_NAME);
+	AB::FormatString(gameLibraryPath, gameLibraryPathSize,"%s%s", executableDir, GAME_CODE_DLL_NAME);
 
 
 	AB::Window::Create("Aberration", 800, 600);
 	AB::Window::EnableVSync(true);
 
 	AB::Renderer2D::Initialize(800, 600);
-	AB::Renderer2D::LoadTexture("A:\\dev\\ab_nonrepo\\test.bmp");
 
 	AB::Engine* engine = (AB::Engine*)std::malloc(sizeof(AB::Engine));
 	memset(engine, 0, sizeof(AB::Engine));
-	engine->drawRectangle = AB::Renderer2D::DrawRectangle;
-	engine->windowSetKeyCallback = AB::Window::SetKeyCallback;
+
+	_LoadEngineFunctions(engine);
 
 	AB::GameContext* gameContext = (AB::GameContext*)std::malloc(sizeof(AB::GameContext));
 	memset(gameContext, 0, sizeof(AB::GameContext));
+
+	AB::UpdateGameCode(gameLibraryPath, executableDir);
+	GameInitialize(engine, gameContext);
 
 	while (AB::Window::IsOpen()) {
 		AB::UpdateGameCode(gameLibraryPath, executableDir);

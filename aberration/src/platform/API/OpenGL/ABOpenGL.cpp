@@ -1,5 +1,4 @@
 #include "ABOpenGL.h"
-#include <stdio.h> // TODO: stop using printf
 
 ABGLProcs _ABOpenGLProcs = {};
 
@@ -433,6 +432,12 @@ namespace AB::GL {
 		uint32 globalVAO;
 		AB_GLCALL(glGenVertexArrays(1, &globalVAO));
 		AB_GLCALL(glBindVertexArray(globalVAO));
+		AB_GLCALL(glEnable(GL_BLEND));
+		AB_GLCALL(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+		AB_GLCALL(glBlendEquation(GL_FUNC_ADD));
+		AB_GLCALL(glEnable(GL_DEPTH_TEST));
+		AB_GLCALL(glDepthMask(GL_FALSE));
+		AB_GLCALL(glDepthFunc(GL_GREATER));
 	}	
 
 	static constexpr uint32 LOG_BUFFER_SIZE = 512;

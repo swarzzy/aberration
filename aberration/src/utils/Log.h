@@ -30,11 +30,11 @@ namespace AB {
 
 #if defined(AB_CONFIG_DISTRIB)
 
-#define _AB_CORE_INFO(format, ...)	do{}while(false)
-#define _AB_CORE_WARN(format, ...)	do{}while(false)
-#define _AB_CORE_ERROR(format, ...)	do{}while(false)
-#define _AB_CORE_FATAL(format, ...)	do{}while(false)
-#define _AB_CORE_ASSERT(format, expr, ...)	do{}while(false)
+#define AB_CORE_INFO(format, ...)	do{}while(false)
+#define AB_CORE_WARN(format, ...)	do{}while(false)
+#define AB_CORE_ERROR(format, ...)	do{}while(false)
+#define AB_CORE_FATAL(format, ...)	do{}while(false)
+#define AB_CORE_ASSERT(format, expr, ...)	do{}while(false)
 
 #else
 

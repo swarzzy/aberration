@@ -58,7 +58,12 @@ namespace AB {
 						if (infoHeader->structSize >= 12) {
 							// Assume that version is above than core so dims are signed
 							BMPInfoHeaderV3Cut* v3c = (BMPInfoHeaderV3Cut*)infoHeader;
-							if (((uint32)(std::abs(v3c->height) * v3c->width)) == (header->size / v3c->bitsPerPixel)) {
+							//
+							// TODO: Check if V3 header actually gives correct representation of data
+							// Size if main header is not equals number of pixels. 
+							//(It also looks like that this size in main header actually not equals file size neither)
+							//
+							//if (((uint32)(std::abs(v3c->height) * v3c->width)) == (header->size / (v3c->bitsPerPixel / 8))) {
 								if (v3c->height < 0) {
 									bottomUp = false;
 									image.height = (uint32)std::abs(v3c->height);
@@ -68,11 +73,11 @@ namespace AB {
 								}
 								image.width = v3c->width;
 								bitsPerPixel = v3c->bitsPerPixel;
-							}
-							AB_CORE_WARN("Failed to load BMP image: %s. Unknown format version", filename);
-							memset(&image, 0, sizeof(Image));
-							AB::DebugFreeFileMemory(data);
-							return image;
+							//}
+							AB_CORE_WARN("WARNING: Unknown version of BMP header in file: %s", filename);
+							//memset(&image, 0, sizeof(Image));
+							//AB::DebugFreeFileMemory(data);
+							//return image;
 
 						}
 						else {
