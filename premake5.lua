@@ -7,7 +7,7 @@ workspace "Aberration"
 	exceptionhandling "Off"
 	rtti "Off"
 	floatingpoint "Fast"
-	functionlevellinking "Off"
+	functionlevellinking "On"
 	language "C++"
 	cppdialect "C++17"
 	systemversion "latest"
@@ -27,7 +27,7 @@ buildDir = "%{cfg.buildcfg}-%{cfg.system}"
 
 filter { "configurations:Debug" }
 	inlining "Disabled"
-	symbols "on"
+	symbols "Full"
 	optimize "off"
 	defines {
 		"AB_CONFIG_DEBUG"
@@ -151,4 +151,29 @@ project "Sandbox"
 	flags {
 		"NoImportLib",
 		"NoImplicitLink"
+	}
+
+group "tools"
+project "FontPreprocessor"
+	location "tools/FontPreprocessor"
+	kind "ConsoleApp"
+	staticruntime "on"
+
+	targetdir ("build/bin/%{buildDir}")
+	objdir ("build/obj/%{buildDir}")
+
+	defines {
+		
+	}
+
+	files {
+		"tools/FontPreprocessor/**.h",
+		"tools/FontPreprocessor/**.cpp",
+	}
+
+	ignoredefaultlibraries { 
+		"gdi32full",
+		"GDI32",
+		"USER32",
+		"user32"
 	}

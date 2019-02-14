@@ -4,9 +4,10 @@
 #include "src/platform/API/OpenGL/ABOpenGL.h"
 #include "src/platform/Window.h"
 #include "src/utils/ImageLoader.h"
+#include "platform/Platform.h"
+
 
 namespace AB {
-
 	const char* VERTEX_SOURCE = R"(
 		#version 330 core
 		layout (location = 0) in vec3 aPos;
@@ -38,6 +39,8 @@ namespace AB {
 			}
 		}
 	)";
+
+	static void _GLInit(Renderer2DProperties* properties);
 
 	struct VertexData {
 		float32 x;
@@ -89,7 +92,23 @@ namespace AB {
 		uint32 renderQueueIndex;
 	};
 
+	struct Glyph {
+		uint16 _reserved;
+		uint16 regionHandle;
+		float32 advance;
+		float32 yOffset;
+	};
+
+	struct Font {
+		uint16 atlasHandle;
+		uint32 atlasWidth;
+		uint32 atlasHeight;
+		uint32 numChars;
+		Glyph glyphs[Renderer2D::FONT_NUMBER_OF_CHARACTERS];
+	};
+
 	struct Renderer2DProperties {
+		// TEMRORARY
 		uint32 GLVBOHandle;
 		uint32 GLIBOHandle;
 		uint32 shaderHandle;
@@ -109,6 +128,10 @@ namespace AB {
 		RectangleData drawQueue[AB::Renderer2D::DRAW_QUEUE_CAPACITY];
 		SortEntry sortBufferA[AB::Renderer2D::DRAW_QUEUE_CAPACITY];
 		SortEntry sortBufferB[AB::Renderer2D::DRAW_QUEUE_CAPACITY];
+		// TEMPORARY: 
+		// TODO: make font storage dynamically grown?
+		uint16 fontsUsed;
+		Font fonts[Renderer2D::FONT_STORAGE_SIZE];
 	};
 
 	// NOTE: Test if return pointer to UV from main texture buffer if faster
@@ -152,7 +175,6 @@ namespace AB {
 		return baseHandle;
 	}
 
-	static void _GLInit(Renderer2DProperties* properties);
 	void Renderer2D::Initialize(uint32 drawableSpaceX, uint32 drawableSpaceY) {
 		if (!s_Properties) {
 			s_Properties = (Renderer2DProperties*)std::malloc(sizeof(Renderer2DProperties));
@@ -163,6 +185,14 @@ namespace AB {
 		}
 		_GLInit(s_Properties);
 		s_Properties->viewSpaceDim = hpm::Vector2((float32)drawableSpaceX, (float32)drawableSpaceY);
+		// TODO: TEMPORARY
+#if defined(AB_PLATFORM_WINDOWS)
+		//LoadFont("a:\\dev\\aberration\\build\\bin\\Debug-windows\\arial.abf");
+		LoadFont("arial.abf");
+
+#else 
+		LoadFont("arial.abf");
+#endif
 	}
 
 	void Renderer2D::Destroy() {
@@ -171,6 +201,130 @@ namespace AB {
 		AB_GLCALL(glDeleteProgram(s_Properties->shaderHandle));
 		std::free(s_Properties);
 		s_Properties = nullptr;
+	}
+
+#define AB_FONT_BITMAP_FORMAT_KEY (uint16)0x1
+
+#pragma pack(push, 1)
+	struct ABFontBitmapHeader {
+		uint16 format;
+		uint32 numChars;
+		uint32 bitmapBeginOffset;
+		uint16 bitmapWidth;
+		uint16 bitmapHeight;
+		//float32 fontAscent;
+		//float32 fontDescent;
+	};
+
+	struct PackedGlyphData {
+		uint16 minX;
+		uint16 minY;
+		uint16 maxX;
+		uint16 maxY;
+		float32 yOffset;
+		float32 advance;
+	};
+#pragma pack(pop)
+
+	uint16 Renderer2D::LoadFont(const char* filepath) {
+		uint16 resultHandle = 0;
+		if (s_Properties->fontsUsed < FONT_STORAGE_SIZE) {
+			uint16 storageIndex = s_Properties->fontsUsed;
+			uint32 bytes = 0;
+			// TODO: read only header at the beginning
+			byte* fileData = (byte*)AB::DebugReadFile(filepath, &bytes);
+			if (fileData && bytes) {
+				ABFontBitmapHeader* header = (ABFontBitmapHeader*)fileData;
+
+				AB_CORE_ASSERT(header->numChars < FONT_NUMBER_OF_CHARACTERS, "Too many glyphs in font!");
+
+				if (header->format == AB_FONT_BITMAP_FORMAT_KEY) {
+
+					byte* bitmap = fileData + header->bitmapBeginOffset;
+					uint64 bitmapSize = header->bitmapWidth * header->bitmapHeight;
+					// TODO: Allocation!!!
+					byte* bitmapRGBA = (byte*)std::malloc(bitmapSize * sizeof(byte) * 4);
+
+					for (uint64 i = 0; i < bitmapSize; i++) {
+						uint32* g = (uint32*)bitmapRGBA;
+						g[i] = bitmap[i] << 24 | bitmap[i] << 16 | bitmap[i] << 8 | bitmap[i];
+					}
+
+					uint16 handle = LoadTextureFromBitmap(PixelFormat::RGBA, header->bitmapWidth, header->bitmapHeight, bitmapRGBA);
+
+					if (handle) {
+
+						PackedGlyphData* glyphs = (PackedGlyphData*)(header + 1);
+
+						for (uint32 i = 0; i < header->numChars; i++) {
+							// NOTE: Unpacking and converting positions ion the bitmap to normalized texture UVs.
+							// This process can be moved to font processor but it will increase 
+							// size of font bitmap file.
+							float32 minX = (float32)(glyphs[i].minX) / header->bitmapWidth;
+							float32 maxY = (float32)(glyphs[i].minY) / header->bitmapHeight;
+							float32 maxX = (float32)(glyphs[i].maxX) / header->bitmapWidth;
+							float32 minY = (float32)(glyphs[i].maxY) / header->bitmapHeight;
+
+							s_Properties->fonts[storageIndex].glyphs[i].advance = glyphs[i].advance;
+							s_Properties->fonts[storageIndex].glyphs[i].yOffset = glyphs[i].yOffset;
+							s_Properties->fonts[storageIndex].atlasWidth = header->bitmapWidth;
+							s_Properties->fonts[storageIndex].atlasHeight = header->bitmapHeight;
+							s_Properties->fonts[storageIndex].numChars = header->numChars;
+							s_Properties->fonts[storageIndex].atlasHandle = handle;
+
+							uint16 regionHandle = TextureCreateRegion(handle, hpm::Vector2(minX, minY), hpm::Vector2(maxX, maxY));
+							if (regionHandle) {
+								// All success!
+								resultHandle = storageIndex + 1;
+								s_Properties->fonts[storageIndex].glyphs[i].regionHandle = regionHandle;
+							}
+							else {
+								// failed to create region
+								AB_CORE_ERROR("Missing character \"%c\" when creating font atlas.", (char)i);
+								s_Properties->fonts[storageIndex].glyphs[i].regionHandle = 0;
+							}
+						}
+					}
+					else {
+						AB_CORE_ERROR("Failed to load font. Failed to create font atlas. File: %s", filepath);
+					}
+					std::free(bitmapRGBA);
+				}
+				else {
+					AB_CORE_ERROR("Failed to load font. Wrong file format. File: %s", filepath);
+				}
+				AB::DebugFreeFileMemory(fileData);
+			}
+			else {
+				AB_CORE_ERROR("Failed to load font. Can not open file: %s", filepath);
+			}
+		}
+		return resultHandle;
+	}
+
+	void Renderer2D::DebugDrawString(hpm::Vector2 position, float32 scale, const char* string) {
+		// TODO: This is all temporary
+		// Here are gonna be direct submission to a drawQueue and sortBuffer
+		float32 advance = position.x;
+		Font* font = &s_Properties->fonts[DEFAULT_FONT_HANDLE - 1];
+		for (uint32 at = 0; string[at]; at++) {
+			// TODO: Standartize this - 32 thing with ASCII
+			// Maybe just associate every glyph with ASCII code in font processor
+			// and resolve all glyphs when loading font
+			Glyph* glyph = &font->glyphs[(uint32)string[at] - 32];
+			UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
+			float32 width = (uv.max.x - uv.min.x) * font->atlasWidth * scale;
+			float32 height = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
+			float32 yOffset = glyph->yOffset * scale;
+
+			FillRectangleTexture(
+				hpm::Vector2(advance, position.y - yOffset), 
+				10, 0, 0, 
+				hpm::Vector2(width, height), 
+				glyph->regionHandle
+			);
+			advance += glyph->advance * scale;
+		}
 	}
 
 	uint16 Renderer2D::LoadTexture(const char* filepath) {
@@ -224,8 +378,9 @@ namespace AB {
 				s_Properties->textures[freeIndex].uv.min = hpm::Vector2(0.0f, 0.0f);
 				s_Properties->textures[freeIndex].uv.max = hpm::Vector2(1.0f, 1.0f);
 				s_Properties->textures[freeIndex].parent = 0;
-
-				resultHandle = freeIndex;
+				
+				// NOTE: Increasing handle by one in order to use 0 value as invalid handle;
+				resultHandle = freeIndex + 1;
 	
 				DeleteBitmap(image.bitmap);
 			}
@@ -235,8 +390,73 @@ namespace AB {
 		} else {
 			AB_CORE_ERROR("Failed to load texture. No more space for textures!. Storage capacity: %u16", TEXTURE_STORAGE_CAPACITY);
 		}
-		// NOTE: Increasing handle by one in order to use 0 value as invalid handle;
-		return resultHandle + 1;
+		return resultHandle;
+	}
+
+	uint16 Renderer2D::LoadTextureFromBitmap(PixelFormat format, uint32 width, uint32 height, const byte* bitmap) {
+		uint16 resultHandle = 0;
+
+		if (bitmap) {
+			bool32 hasFreeCell = false;
+			uint16 freeIndex = 0;
+			for (uint32 i = 0; i < TEXTURE_STORAGE_CAPACITY; i++) {
+				if (!s_Properties->textures[i].used) {
+					hasFreeCell = true;
+					freeIndex = i;
+					break;
+				}
+			}
+
+			if (hasFreeCell) {
+				GLuint texHandle;
+				uint32 glGormat = GL_RED;
+				uint32 glInternalFormat = GL_RED;
+				switch (format) {
+				case PixelFormat::RGB: {
+					glGormat = GL_RGB;
+					glInternalFormat = GL_RGB8;
+				} break;
+				case PixelFormat::RGBA: {
+					glGormat = GL_RGBA;
+					glInternalFormat = GL_RGBA8;
+				} break;
+				case PixelFormat::RED: {
+					glGormat = GL_RED;
+					glInternalFormat = GL_R8;
+				} break;
+				default: {
+					// TODO: FIX THIS
+					AB_CORE_ERROR("Wrong image format");
+				} break;
+				}
+
+				AB_GLCALL(glGenTextures(1, &texHandle));
+				AB_GLCALL(glBindTexture(GL_TEXTURE_2D, texHandle));
+
+				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
+				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+				AB_GLCALL(glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, width, height, 0, glGormat, GL_UNSIGNED_BYTE, bitmap));
+
+				AB_GLCALL(glBindTexture(GL_TEXTURE_2D, 0));
+
+				s_Properties->textures[freeIndex].used = true;
+				s_Properties->textures[freeIndex].refCount = 1;
+				s_Properties->textures[freeIndex].glHandle = texHandle;
+				s_Properties->textures[freeIndex].format = format;
+				s_Properties->textures[freeIndex].uv.min = hpm::Vector2(0.0f, 0.0f);
+				s_Properties->textures[freeIndex].uv.max = hpm::Vector2(1.0f, 1.0f);
+				s_Properties->textures[freeIndex].parent = 0;
+				
+				// NOTE: Increasing handle by one in order to use 0 value as invalid handle;
+				resultHandle = freeIndex + 1;
+			}
+			else {
+				AB_CORE_ERROR("Failed to load texture. No more space for textures!. Storage capacity: %u16", TEXTURE_STORAGE_CAPACITY);
+			}
+		}
+		return resultHandle;
 	}
 
 	void Renderer2D::FreeTexture(uint16 handle) {
@@ -648,8 +868,8 @@ namespace AB {
 
 		ResetRenderState(s_Properties);
 
-		//system("cls");
-		//AB::PrintString("DC: %u32\n", drawCalls);
+		system("cls");
+		AB::PrintString("DC: %u32\n", drawCalls);
 	}
 
 	void _GLInit(Renderer2DProperties* properties) {

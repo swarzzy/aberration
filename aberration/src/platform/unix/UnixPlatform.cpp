@@ -15,17 +15,15 @@ const char* GAME_CODE_DLL_NAME = "libSandbox.so";
 const char* TEMP_GAME_CODE_DLL_NAME = "libSandbox_temp.so";
 
 static void _GameInitializeDummy(AB::Engine* engine, AB::GameContext* gameContext) {
-	// TODO: fix Log.h include loop
-	//AB_CORE_ERROR("Failed to update game. No game code loaded");
+	AB_CORE_ERROR("Failed to update game. No game code loaded");
 }
 
 static void _GameUpdateDummy(AB::Engine* engine, AB::GameContext* gameContext) {
-	// TODO: fix Log.h include loop
-	//AB_CORE_ERROR("Failed to update game. No game code loaded");
+	AB_CORE_ERROR("Failed to update game. No game code loaded");
 }
 
 static void _GameRenderDummy(AB::Engine* engine, AB::GameContext* gameContext) {
-	//AB_CORE_ERROR("Failed to render game. No game code loaded");
+	AB_CORE_ERROR("Failed to render game. No game code loaded");
 }
 
 static GameInitializeFn* _GameInitialize = _GameInitializeDummy;
@@ -43,6 +41,7 @@ static void _LoadEngineFunctions(AB::Engine* context) {
 	context->freeTexture = AB::Renderer2D::FreeTexture;
 	context->textureCreateRegion = AB::Renderer2D::TextureCreateRegion;
 	context->windowSetKeyCallback = AB::Window::SetKeyCallback;
+	context->debugDrawString = AB::Renderer2D::DebugDrawString;
 }
 
 int main()
@@ -76,7 +75,6 @@ int main()
 	AB::Window::EnableVSync(true);
 
 	AB::Renderer2D::Initialize(800, 600);
-	AB::Renderer2D::LoadTexture("A:\\dev\\ab_nonrepo\\test.bmp");
 
 	AB::Engine* engine = (AB::Engine*)std::malloc(sizeof(AB::Engine));
 	memset(engine, 0, sizeof(AB::Engine));

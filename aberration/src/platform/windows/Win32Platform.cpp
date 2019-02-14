@@ -18,17 +18,15 @@ const char* TEMP_GAME_CODE_DLL_NAME = "Sandbox_temp.dll";
 #endif
 
 static void _GameInitializeDummy(AB::Engine* engine, AB::GameContext* gameContext) {
-	// TODO: fix Log.h include loop
-	//AB_CORE_ERROR("Failed to update game. No game code loaded");
+	AB_CORE_ERROR("Failed to update game. No game code loaded");
 }
 
 static void _GameUpdateDummy(AB::Engine* engine, AB::GameContext* gameContext) {
-	// TODO: fix Log.h include loop
-	//AB_CORE_ERROR("Failed to update game. No game code loaded");
+	AB_CORE_ERROR("Failed to update game. No game code loaded");
 }
 
 static void _GameRenderDummy(AB::Engine* engine, AB::GameContext* gameContext) {
-	//AB_CORE_ERROR("Failed to render game. No game code loaded");
+	AB_CORE_ERROR("Failed to render game. No game code loaded");
 }
 
 static GameInitializeFn* _GameInitialize = _GameInitializeDummy;
@@ -46,6 +44,7 @@ static void _LoadEngineFunctions(AB::Engine* context) {
 	context->freeTexture			= AB::Renderer2D::FreeTexture;
 	context->textureCreateRegion	= AB::Renderer2D::TextureCreateRegion;
 	context->windowSetKeyCallback	= AB::Window::SetKeyCallback;
+	context->debugDrawString		= AB::Renderer2D::DebugDrawString;
 }
 
 int main() 
@@ -201,6 +200,8 @@ namespace AB {
 		datetime.milliseconds = time.wMilliseconds;
 	}
 
+
+	// TODO: set bytesRead to zero if reading failed
 	void* DebugReadFile(const char* filename, uint32* bytesRead) {
 		void* bitmap = nullptr;
 		LARGE_INTEGER fileSize = {0};

@@ -20,6 +20,7 @@ extern "C" {
 	ABERRATION_ENTRY void GameUpdate(AB::Engine* engine, AB::GameContext* gameContext) {
 		uint16 reg = engine->textureCreateRegion(gameContext->texHandle2, { 0.0, 0.0 }, { 0.8, 0.8 });
 		uint16 reg1 = engine->textureCreateRegion(gameContext->texHandle2, { 0.0, 0.0 }, { 0.2, 0.2 });
+		engine->debugDrawString(hpm::Vector2(250, 200), 0.7, "Rendered string");
 
 		engine->fillRectangleColor({ 100, 100 }, 10, 0, 0, { 100, 100 }, 0x3900ff00);
 		engine->fillRectangleTexture({ 150, 150 }, 5, 0, 0, { 100, 100 }, gameContext->texHandle1);

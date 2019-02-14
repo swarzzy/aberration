@@ -5,7 +5,8 @@ namespace AB {
 
 	enum class PixelFormat : uint32 {
 		RGB = 0,
-		RGBA
+		RGBA,
+		RED
 	};
 
 	struct Image {

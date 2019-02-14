@@ -1,4 +1,5 @@
 #pragma once
+// TODO: Not include this on msvc
 #include <cstdint>
 // Aberration basic sized types
 // Integers
@@ -15,6 +16,9 @@ typedef unsigned __int64	uint64; // unsigned long long (size_t)
 
 typedef uint32				bool32;
 typedef unsigned char		uchar;
+// TODO: Is that actually fixed at 8 bit on all machines?
+typedef char*						char8;
+typedef unsigned char		uchar8;
 
 #undef byte // Defined as unsigned char in rpcndr.h
 typedef unsigned __int8		byte;
@@ -33,6 +37,8 @@ typedef uint64_t	uint64;	// unsigned long long (size_t)
 
 typedef uint32			bool32;
 typedef unsigned char	uchar;
+typedef char*						char8;
+typedef unsigned char		uchar8;
 
 #undef byte // Defined as unsigned char in rpcndr.h
 typedef uint8_t		byte;

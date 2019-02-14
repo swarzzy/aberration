@@ -26,6 +26,7 @@ _build/
 _build_msvc/
 _build_clang/
 _build_clang_linux/
+_msbuild.bat
 
 
 #Binaries and libs

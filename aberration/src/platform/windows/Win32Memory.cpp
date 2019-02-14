@@ -19,7 +19,7 @@ namespace AB::internal {
 		CurrentAllocations++;
 		TotalUsedMemory += size;
 		TotalAllocations++;
-		
+
 		uint64 actualSize = size + sizeof(uint64);
 		byte* block = static_cast<byte*>(AB_ALLOC_PROC(actualSize));
 		if (block == nullptr)
@@ -86,7 +86,7 @@ namespace AB {
 		MEMORYSTATUSEX status;
 		status.dwLength = sizeof(MEMORYSTATUSEX);
 		GlobalMemoryStatusEx(&status);
-		
+
 		info.memoryLoad = status.dwMemoryLoad;
 		info.totalPhys = status.ullTotalPhys;
 		info.availablePhys = status.ullAvailPhys;

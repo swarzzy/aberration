@@ -4,3 +4,7 @@
 
 ### Win32Platform ###
 -- Fix path to game library in LoadLibrary
+
+-- Set bytes read to zero at the beginning of DebugReadFile function
+
+-- Delete dependencies folder
