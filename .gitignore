@@ -3,6 +3,7 @@ obj/
 build/
 Makefile
 deprecated
+.clang-complete
 
 # CLion
 cmake-build-debug/

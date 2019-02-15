@@ -72,7 +72,7 @@ bool32 DebugWriteFile(const char* filename, void* data, uint32 dataSize) {
 	return false;
 }
 
-#elif defined(AB_PALTFORM_LINUX)
+#elif defined(AB_PLATFORM_LINUX)
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -313,10 +313,16 @@ static CommandLineArgs ParseCommandLineArgs(int argc, char** argv) {
 #pragma pack(push, 1)
 struct ABFontBitmapHeader {
 	uint16 format;
-	uint32 numChars;
+	float32 heightInPixels;
+	uint32 firstCodePoint;
+	uint32 numCodepoints;
 	uint32 bitmapBeginOffset;
+	uint32 kernTableOffset;
+	float32 lineAdvance;
+	float32 scaleFactor;
 	uint16 bitmapWidth;
 	uint16 bitmapHeight;
+	//float32 
 	//float32 fontAscent;
 	//float32 fontDescent;
 };
@@ -326,6 +332,7 @@ struct PackedGlyphData {
 	uint16 minY;
 	uint16 maxX;
 	uint16 maxY;
+	float32 xOffset;
 	float32 yOffset;
 	float32 advance;
 };
@@ -341,17 +348,19 @@ int main(int argc, char** argv) {
 	    byte* fileData = (byte*)DebugReadFile(args.filepath, &bytesRead);
 	    if (fileData && bytesRead) {
 			uint32 bitmapSize = sizeof(byte) * args.width * args.height;
-			uint32 bitmapOffset = sizeof(ABFontBitmapHeader) + sizeof(PackedGlyphData) * args.numChars;
-			uint32 fileSize = bitmapOffset + bitmapSize;
+			uint32 kernTableSize = sizeof(int16) * args.numChars * args.numChars;
+			uint32 bitmapOffset = sizeof(ABFontBitmapHeader) + sizeof(PackedGlyphData) * args.numChars + kernTableSize;
+			uint32 kernTableOffset = sizeof(ABFontBitmapHeader) + sizeof(PackedGlyphData) * args.numChars;
+			uint32 fileSize = bitmapOffset + bitmapSize + kernTableSize;
 			byte* outFileData = (byte*)std::malloc(fileSize);
 			if (outFileData) {
 				byte* bitmap = outFileData + bitmapOffset;
 
-				//stbtt_fontinfo font;
-				//int fontIndex = stbtt_GetFontOffsetForIndex(fileData, 0);
+				stbtt_fontinfo font;
+				int fontIndex = stbtt_GetFontOffsetForIndex(fileData, 0);
 				// NOTE: Initialization isn't needed for stbtt_BakeFontBitmap
 				// It's used only for getting metrics
-				//if (stbtt_InitFont(&font, fileData, fontIndex)) {
+				if (stbtt_InitFont(&font, fileData, fontIndex)) {
 
 					stbtt_bakedchar* characters = (stbtt_bakedchar*)std::malloc(sizeof(stbtt_bakedchar) * args.numChars);
 					result = stbtt_BakeFontBitmap(
@@ -366,38 +375,52 @@ int main(int argc, char** argv) {
 						characters
 					);
 
+#if 0
 					// Flip bitmap vertically
-					//for (uint64 i = 0; i < (bitmapSize / 2); i++) {
-					//	uint64 j = bitmapSize - i - 1;
-					//	byte tmp = bitmap[j];
-					//	bitmap[j] = bitmap[i];
-					//	bitmap[i] = tmp;
-					//}
-					//
-					//// Flip bitmap horizontally
-					//for (uint64 i = 0; i < bitmapSize; i += args.width) {
-					//	uint64 k = i + args.width - 1;
-					//	for (uint64 j = i; j < (i + args.width / 2); j++) {
-					//		byte tmp = bitmap[k];
-					//		bitmap[k] = bitmap[j];
-					//		bitmap[j] = tmp;
-					//		k--;
-					//	}
-					//}
-
-					//float32 scaleFactor = stbtt_ScaleForPixelHeight(&font, (float32)args.fontHeight);
+					for (uint64 i = 0; i < (bitmapSize / 2); i++) {
+						uint64 j = bitmapSize - i - 1;
+						byte tmp = bitmap[j];
+						bitmap[j] = bitmap[i];
+						bitmap[i] = tmp;
+					}
+					
+					// Flip bitmap horizontally
+					for (uint64 i = 0; i < bitmapSize; i += args.width) {
+						uint64 k = i + args.width - 1;
+						for (uint64 j = i; j < (i + args.width / 2); j++) {
+							byte tmp = bitmap[k];
+							bitmap[k] = bitmap[j];
+							bitmap[j] = tmp;
+							k--;
+						}
+					}
+#endif									
 					//
 					//int ascent = 0;
 					//int descent = 0;
-					//int lineGap = 0;
-					//stbtt_GetFontVMetrics(&font, &ascent, &descent, &lineGap);
+					
+
+					float32 scaleFactor = stbtt_ScaleForPixelHeight(&font, (float32)args.fontHeight);
+
+					int ascent = 0;
+					int descent = 0;
+					int lineGap = 0;
+					stbtt_GetFontVMetrics(&font, &ascent, &descent, &lineGap);
+
+					float32 lineAdvance = (ascent - descent + lineGap) * scaleFactor;
 
 					ABFontBitmapHeader* header = (ABFontBitmapHeader*)outFileData;
 					header->format = AB_FONT_BITMAP_FORMAT_KEY;
-					header->numChars = args.numChars;
+					// FIXME: Bad conversion
+					header->heightInPixels = (float32)args.fontHeight;
+					header->firstCodePoint = args.firstChar;
+					header->numCodepoints = args.numChars;
 					header->bitmapBeginOffset = bitmapOffset;
 					header->bitmapWidth = args.width;
 					header->bitmapHeight = args.height;
+					header->kernTableOffset = kernTableOffset;
+					header->scaleFactor = scaleFactor;
+					header->lineAdvance = lineAdvance;
 					//header->fontAscent = ascent * scaleFactor;
 					//header->fontDescent = descent * scaleFactor;
 					header++;
@@ -406,21 +429,34 @@ int main(int argc, char** argv) {
 					for (int32 i = 0; i < args.numChars; i++) {
 						// NOTE: Shuffling y because an atlas is top-down pixel order
 						// but engine uses down-to-up pixel order
-						glyph[i].minX = characters[i].x0;
-						glyph[i].minY = characters[i].y1;
-						glyph[i].maxX = characters[i].x1;
-						glyph[i].maxY = characters[i].y0;
-						glyph[i].yOffset = characters[i].yoff;
-						glyph[i].advance = characters[i].xadvance;
-						//glyph++;
+						glyph->minX = characters[i].x0;
+						glyph->minY = characters[i].y1;
+						glyph->maxX = characters[i].x1;
+						glyph->maxY = characters[i].y0;
+						glyph->xOffset = characters[i].xoff;
+						glyph->yOffset = characters[i].yoff;
+						//printf("%d, %c, %f\n", i, (char)(i + 32), characters[i].xadvance);
+						glyph->advance = characters[i].xadvance;
+						glyph++;
+					}
+
+					int16 * kernTableFileAt = (int16*)glyph;
+					// NOTE: Array indexing order : numChars * first + second
+					for (int32 i = args.firstChar; i < args.numChars + args.firstChar; i++) {
+						for (int32 j = args.firstChar; j < args.numChars + args.firstChar; j++) {
+							int32 first = i - args.firstChar;
+							int32 second = j - args.firstChar;
+							//printf("%u %c %c %d\n",(uint32)(args.numChars * first + second), (char)i, (char)j, stbtt_GetCodepointKernAdvance(&font, i, j));
+							kernTableFileAt[args.numChars * first + second] = (int16)stbtt_GetCodepointKernAdvance(&font, i, j);
+						}
 					}
 
 					//assert((byte*)glyph == (byte*)(outFileData + bitmapOffset));
 
 					DebugWriteFile(args.filename, outFileData, (uint32)fileSize);
-				//} else {
-				//	printf("Failed to load font from file: %s", args.filename);
-				//}
+				} else {
+					printf("Failed to load font from file: %s", args.filename);
+				}
 			}
 	    }
 	}

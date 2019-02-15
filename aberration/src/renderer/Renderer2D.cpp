@@ -6,7 +6,6 @@
 #include "src/utils/ImageLoader.h"
 #include "platform/Platform.h"
 
-
 namespace AB {
 	const char* VERTEX_SOURCE = R"(
 		#version 330 core
@@ -96,15 +95,22 @@ namespace AB {
 		uint16 _reserved;
 		uint16 regionHandle;
 		float32 advance;
-		float32 yOffset;
+		float32 xBearing;
+		float32 yBearing;
 	};
 
 	struct Font {
 		uint16 atlasHandle;
 		uint32 atlasWidth;
 		uint32 atlasHeight;
-		uint32 numChars;
-		Glyph glyphs[Renderer2D::FONT_NUMBER_OF_CHARACTERS];
+		float32 lineAdvance;
+		float32 heightInPixels;
+		uint32 firstCodepoint;
+		uint32 numCodepoints;
+		// NOTE: Needed only for kerning
+		float32 scaleFactor;
+		int16 kernTable[Renderer2D::FONT_MAX_CODEPOINTS * Renderer2D::FONT_MAX_CODEPOINTS];
+		Glyph glyphs[Renderer2D::FONT_MAX_CODEPOINTS];
 	};
 
 	struct Renderer2DProperties {
@@ -187,8 +193,8 @@ namespace AB {
 		s_Properties->viewSpaceDim = hpm::Vector2((float32)drawableSpaceX, (float32)drawableSpaceY);
 		// TODO: TEMPORARY
 #if defined(AB_PLATFORM_WINDOWS)
-		//LoadFont("a:\\dev\\aberration\\build\\bin\\Debug-windows\\arial.abf");
-		LoadFont("arial.abf");
+		LoadFont("a:\\dev\\aberration\\build\\bin\\Debug-windows\\arial.abf");
+		//LoadFont("arial.abf");
 
 #else 
 		LoadFont("arial.abf");
@@ -208,12 +214,15 @@ namespace AB {
 #pragma pack(push, 1)
 	struct ABFontBitmapHeader {
 		uint16 format;
-		uint32 numChars;
+		float32 heightInPixels;
+		uint32 firstCodepoint;
+		uint32 numCodepoints;
 		uint32 bitmapBeginOffset;
+		uint32 kernTableOffset;
+		float32 lineAdvance;
+		float32 scaleFactor;
 		uint16 bitmapWidth;
 		uint16 bitmapHeight;
-		//float32 fontAscent;
-		//float32 fontDescent;
 	};
 
 	struct PackedGlyphData {
@@ -221,10 +230,14 @@ namespace AB {
 		uint16 minY;
 		uint16 maxX;
 		uint16 maxY;
-		float32 yOffset;
+		float32 xBearing;
+		float32 yBearing;
 		float32 advance;
 	};
 #pragma pack(pop)
+
+#define AB_KERN_TAB_INDEX(numChars, ch1, ch2) (numChars * (ch1 - 32) * (ch2 - 32))
+
 
 	uint16 Renderer2D::LoadFont(const char* filepath) {
 		uint16 resultHandle = 0;
@@ -236,10 +249,10 @@ namespace AB {
 			if (fileData && bytes) {
 				ABFontBitmapHeader* header = (ABFontBitmapHeader*)fileData;
 
-				AB_CORE_ASSERT(header->numChars < FONT_NUMBER_OF_CHARACTERS, "Too many glyphs in font!");
+				AB_CORE_ASSERT(header->numCodepoints <= FONT_MAX_CODEPOINTS, "Too many glyphs in font!");
 
 				if (header->format == AB_FONT_BITMAP_FORMAT_KEY) {
-
+										
 					byte* bitmap = fileData + header->bitmapBeginOffset;
 					uint64 bitmapSize = header->bitmapWidth * header->bitmapHeight;
 					// TODO: Allocation!!!
@@ -254,9 +267,16 @@ namespace AB {
 
 					if (handle) {
 
+						// NOTE: Unpacking kerning table
+						uint32 kernTabSize = header->numCodepoints * header->numCodepoints;
+						int16* kernTabFileAt = (int16*)(fileData + header->kernTableOffset);
+						for (uint32 i = 0; i < kernTabSize; i++) {
+							s_Properties->fonts[storageIndex].kernTable[i] = kernTabFileAt[i];
+						}
+
 						PackedGlyphData* glyphs = (PackedGlyphData*)(header + 1);
 
-						for (uint32 i = 0; i < header->numChars; i++) {
+						for (uint32 i = 0; i < header->numCodepoints; i++) {
 							// NOTE: Unpacking and converting positions ion the bitmap to normalized texture UVs.
 							// This process can be moved to font processor but it will increase 
 							// size of font bitmap file.
@@ -266,10 +286,15 @@ namespace AB {
 							float32 minY = (float32)(glyphs[i].maxY) / header->bitmapHeight;
 
 							s_Properties->fonts[storageIndex].glyphs[i].advance = glyphs[i].advance;
-							s_Properties->fonts[storageIndex].glyphs[i].yOffset = glyphs[i].yOffset;
+							s_Properties->fonts[storageIndex].glyphs[i].xBearing = glyphs[i].xBearing;
+							s_Properties->fonts[storageIndex].glyphs[i].yBearing = glyphs[i].yBearing;
 							s_Properties->fonts[storageIndex].atlasWidth = header->bitmapWidth;
 							s_Properties->fonts[storageIndex].atlasHeight = header->bitmapHeight;
-							s_Properties->fonts[storageIndex].numChars = header->numChars;
+							s_Properties->fonts[storageIndex].heightInPixels = header->heightInPixels;
+							s_Properties->fonts[storageIndex].scaleFactor = header->scaleFactor;
+							s_Properties->fonts[storageIndex].lineAdvance = header->lineAdvance;
+							s_Properties->fonts[storageIndex].firstCodepoint = header->firstCodepoint;
+							s_Properties->fonts[storageIndex].numCodepoints = header->numCodepoints;
 							s_Properties->fonts[storageIndex].atlasHandle = handle;
 
 							uint16 regionHandle = TextureCreateRegion(handle, hpm::Vector2(minX, minY), hpm::Vector2(maxX, maxY));
@@ -302,28 +327,74 @@ namespace AB {
 		return resultHandle;
 	}
 
-	void Renderer2D::DebugDrawString(hpm::Vector2 position, float32 scale, const char* string) {
+	inline static float32 _GetPairHorizontalAdvance(Renderer2DProperties* properties, uint16 fontHandle, char ch1, char ch2) {
+		float32 advance = 0.0f;
+		// TODO: Font getter
+		Font* font = &properties->fonts[fontHandle - 1];
+		int32 codepointIndex1 = (int32)ch1 - font->firstCodepoint;
+		int32 codepointIndex2 = (int32)ch2 - font->firstCodepoint;
+		if (codepointIndex1 >= 0) {
+			Glyph* glyph = &font->glyphs[codepointIndex1];
+			advance += glyph->advance;
+			if (codepointIndex2 >= 0) {
+				advance += font->kernTable[font->numCodepoints * codepointIndex1 + codepointIndex2] * font->scaleFactor;
+			}
+		}
+		return advance;
+	}
+
+	void Renderer2D::DebugDrawString(hpm::Vector2 position, float32 size, const char* string) {
 		// TODO: This is all temporary
 		// Here are gonna be direct submission to a drawQueue and sortBuffer
-		float32 advance = position.x;
+		float32 xAdvance = position.x;
+		float32 yAdvance = position.y;
+		// TODO: check if font is not loaded
 		Font* font = &s_Properties->fonts[DEFAULT_FONT_HANDLE - 1];
+		float32 scale = size / font->heightInPixels;
+		bool32 stringBegin = true;
 		for (uint32 at = 0; string[at]; at++) {
-			// TODO: Standartize this - 32 thing with ASCII
-			// Maybe just associate every glyph with ASCII code in font processor
-			// and resolve all glyphs when loading font
-			Glyph* glyph = &font->glyphs[(uint32)string[at] - 32];
-			UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
-			float32 width = (uv.max.x - uv.min.x) * font->atlasWidth * scale;
-			float32 height = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
-			float32 yOffset = glyph->yOffset * scale;
+			if (string[at] == '\n') {
+				yAdvance -= font->lineAdvance * scale;
+				xAdvance = position.x;
+				stringBegin = true;
+			} else {
+				int32 currentCodepoint = (int32)string[at] - font->firstCodepoint;
+				if (currentCodepoint >= 0 && (uint32)currentCodepoint < font->numCodepoints) {
+					Glyph* glyph = &font->glyphs[currentCodepoint];
+					UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
 
-			FillRectangleTexture(
-				hpm::Vector2(advance, position.y - yOffset), 
-				10, 0, 0, 
-				hpm::Vector2(width, height), 
-				glyph->regionHandle
-			);
-			advance += glyph->advance * scale;
+					float32 width = (uv.max.x - uv.min.x) * font->atlasWidth * scale;
+					float32 height = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
+					float32 xPosition = stringBegin ? xAdvance : xAdvance + glyph->xBearing * scale;
+					float32 yPosition = yAdvance - glyph->yBearing * scale;
+
+					FillRectangleTexture(
+						hpm::Vector2(xPosition, yPosition),
+						10, 0, 0,
+						hpm::Vector2(width, height),
+						glyph->regionHandle
+					);
+
+					stringBegin = false;
+
+					char nextChar = '\0';
+					if (string[at + 1] != '\n') {
+						nextChar = string[at + 1];
+					}
+					// NOTE: at + 1 is safe because on last iteration we are not going over the bounds of the array
+					// We just accessing \0
+					xAdvance += scale * _GetPairHorizontalAdvance(s_Properties, DEFAULT_FONT_HANDLE, string[at], nextChar);
+				} else {
+					FillRectangleColor(
+						hpm::Vector2(xAdvance, yAdvance),
+						10, 0, 0,
+						hpm::Vector2(size - (size / 2), size),
+						0xffffffff
+					);
+					xAdvance += size - (size / 2);
+					//yAdvance += size;
+				}
+			}
 		}
 	}
 
@@ -603,7 +674,7 @@ namespace AB {
 			uint32 rightAt = mid + 1;
 			uint32 tempAt = beg;
 			while (leftAt <= mid && rightAt <= end) {
-				AB_CORE_ASSERT(tempAt <= end, "Merge sort error. Buffer owerflow.");
+				AB_CORE_ASSERT(tempAt <= end, "Merge sort error. Buffer overflow.");
 				if (pred(&left[leftAt].key, &right[rightAt].key)) {
 					targetBuffer[tempAt] = left[leftAt];
 					tempAt++;
@@ -671,6 +742,10 @@ namespace AB {
 	SortEntry* SortQueue(Renderer2DProperties* properties) {
 		// NOTE: end is pointing to a last element
 		//auto beg = __rdtsc();
+		// TODO: Copying the buffer because merge sort desn't. So if merge sort returns buffer B
+		// then there is no left-side part of the queue.
+		// Maybe just copy while sorting (MergeSortV2) more efficient?
+		memcpy(properties->sortBufferB, properties->sortBufferA, Renderer2D::DRAW_QUEUE_CAPACITY * sizeof(SortEntry));
 		SortEntry* ptr = MergeSortV3(properties->sortBufferA, properties->sortBufferB, properties->sortBufferRightUsage + 1, Renderer2D::DRAW_QUEUE_CAPACITY - 1, RightSortPred);
 		SortEntry* sortedBuffer = ptr;
 		if (properties->sortBufferLeftUsage > 1) {
@@ -683,7 +758,7 @@ namespace AB {
 		//for (uint32 i = 0; i < Renderer2D::DRAW_QUEUE_CAPACITY; i++) {
 		//	PrintString("%u16 %u16 %u32\n", sortedBuffer[i].key.depth, sortedBuffer[i].key.texHandle, sortedBuffer[i].renderQueueIndex);
 		//}
-		//PrintString("Sort time: %u64\n", elapsed);
+		//PrintString("Renderables: %u16\n", properties->drawQueueUsed);
 		return  sortedBuffer;
 	}
 
@@ -868,8 +943,8 @@ namespace AB {
 
 		ResetRenderState(s_Properties);
 
-		system("cls");
-		AB::PrintString("DC: %u32\n", drawCalls);
+		//system("cls");
+		//AB::PrintString("DC: %u32\n", drawCalls);
 	}
 
 	void _GLInit(Renderer2DProperties* properties) {

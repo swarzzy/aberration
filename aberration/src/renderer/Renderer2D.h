@@ -18,11 +18,11 @@ namespace AB {
 		~Renderer2D() {};
 		// TODO: Move tis into .cpp
 
-		static constexpr uint64 DRAW_QUEUE_CAPACITY = 64;
+		static constexpr uint64 DRAW_QUEUE_CAPACITY = 512;
 		static constexpr uint64 INDEX_BUFFER_SIZE = DRAW_QUEUE_CAPACITY * 6;
-		static constexpr uint16 TEXTURE_STORAGE_CAPACITY = 128;
+		static constexpr uint16 TEXTURE_STORAGE_CAPACITY = 256;
 		static constexpr uint16 FONT_STORAGE_SIZE = 1;
-		static constexpr uint64 FONT_NUMBER_OF_CHARACTERS = 256;
+		static constexpr uint64 FONT_MAX_CODEPOINTS = 96;
 		static constexpr uint16 DEFAULT_FONT_HANDLE = 1;
 
 		static void Initialize(uint32 drawableSpaceX, uint32 drawableSpaceY);
