@@ -1,6 +1,7 @@
 #pragma once
 #include "src/ABHeader.h"
 #include "src/platform/Input.h"
+#include <hypermath.h>
 
 #if defined(AB_PLATFORM_WINDOWS)
 #define ABERRATION_ENTRY __declspec(dllexport)
@@ -24,6 +25,7 @@ namespace AB {
 	typedef void(ABRendererFillRectangleColorFn)(hpm::Vector2 position, uint16 depth, float32 angle, float32 anchor, hpm::Vector2 size, color32 color);
 	typedef void(ABRendererFillRectangleTextureFn)(hpm::Vector2 position, uint16 depth, float32 angle, float32 anchor, hpm::Vector2 size, uint16 textureHandle);
 	typedef void(ABDebugDrawStringFn)(hpm::Vector2 position, float32 scale, const char* string);
+	typedef hpm::Rectangle(ABGetStringBoundingRectFn)(float32 height, const char* string);
 	typedef uint16(ABRendererLoadTextureFn)(const char* filepath);
 	typedef void(ABRendererFreeTextureFn)(uint16 handle);
 	typedef uint16(ABRendererTextureCreateRegion)(uint16 handle, hpm::Vector2 min, hpm::Vector2 max);
@@ -33,6 +35,7 @@ namespace AB {
 		ABRendererFillRectangleColorFn* fillRectangleColor;
 		ABRendererFillRectangleTextureFn* fillRectangleTexture;
 		ABDebugDrawStringFn* debugDrawString;
+		ABGetStringBoundingRectFn* getStringBoundingRect;
 		ABRendererLoadTextureFn* loadTexture;
 		ABRendererFreeTextureFn* freeTexture;
 		ABWindowSetKeyCallbackFn* windowSetKeyCallback;

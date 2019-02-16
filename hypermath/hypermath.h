@@ -139,6 +139,11 @@ namespace hpm {
 		Vector4() {}
 	};
 
+	struct Rectangle {
+		Vector2 min;
+		Vector2 max;
+	};
+
 	union Matrix4 {
 		Vector4 columns[4];
 		float32 data[16];

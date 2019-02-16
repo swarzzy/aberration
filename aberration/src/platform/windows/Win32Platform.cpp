@@ -45,6 +45,7 @@ static void _LoadEngineFunctions(AB::Engine* context) {
 	context->textureCreateRegion	= AB::Renderer2D::TextureCreateRegion;
 	context->windowSetKeyCallback	= AB::Window::SetKeyCallback;
 	context->debugDrawString		= AB::Renderer2D::DebugDrawString;
+	context->getStringBoundingRect	= AB::Renderer2D::GetStringBoundingRect;
 }
 
 int main() 

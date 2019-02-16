@@ -4,6 +4,7 @@
 
 namespace hpm {
 	union Vector2;
+	struct Rectangle;
 }
 
 namespace AB {
@@ -29,7 +30,8 @@ namespace AB {
 		static void Destroy();
 		
 		static uint16 LoadFont(const char* filepath);
-		static void DebugDrawString(hpm::Vector2 position, float32 scale, const char* string);
+		static void DebugDrawString(hpm::Vector2 position, float32 height, const char* string);
+		static hpm::Rectangle GetStringBoundingRect(float32 height, const char* string);
 		static uint16 LoadTexture(const char* filepath);
 		// TODO: Make enum for texture formats
 		static uint16 LoadTextureFromBitmap(PixelFormat format, uint32 width, uint32 height, const byte* bitmap);
