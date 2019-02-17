@@ -308,13 +308,12 @@ static CommandLineArgs ParseCommandLineArgs(int argc, char** argv) {
     return parameters;
 }
 
-#define AB_FONT_BITMAP_FORMAT_KEY (uint16)0x1
+#define AB_FONT_BITMAP_FORMAT_KEY (uint16)0x1234
 
 #pragma pack(push, 1)
 struct ABFontBitmapHeader {
 	uint16 format;
 	float32 heightInPixels;
-	uint32 firstCodePoint;
 	uint32 numCodepoints;
 	uint32 bitmapBeginOffset;
 	uint32 kernTableOffset;
@@ -322,12 +321,10 @@ struct ABFontBitmapHeader {
 	float32 scaleFactor;
 	uint16 bitmapWidth;
 	uint16 bitmapHeight;
-	//float32 
-	//float32 fontAscent;
-	//float32 fontDescent;
 };
 
 struct PackedGlyphData {
+	uint32 unicodeCodepoint;
 	uint16 minX;
 	uint16 minY;
 	uint16 maxX;
@@ -338,7 +335,146 @@ struct PackedGlyphData {
 };
 #pragma pack(pop)
 
+#define zero_array(begin, array_count) (memset(begin, 0, sizeof(begin) * array_count))
+#define zero_memory(begin) (memset(begin, 0, sizeof(begin)))
+#define zero_allocate(type, count) ((type*)memset(malloc(sizeof(type) * count), 0, sizeof(type) * count))
+
 int main(int argc, char** argv) {
+	CommandLineArgs args = ParseCommandLineArgs(argc, argv);
+	uint32 bytesRead = 0;
+#if defined(AB_PLATFORM_WINDOWS)
+	const char* path = "c:\\windows\\fonts\\arial.ttf";
+#else
+	const char* path = nullptr;
+#endif
+	if (args.filepath) {
+		path = args.filepath;
+	}
+	byte* fileData = (byte*)DebugReadFile(path, &bytesRead);
+
+	if (fileData) {
+		float32 fontSize = 32;
+		uint32 cyrillicNumChars = 0x044f - 0x0410 + 1;
+		uint32 asciiNumChars = 96;
+		uint32 totalNumChars = cyrillicNumChars + asciiNumChars;
+
+		// | header | glyph data | kerning table | bitmap |
+		uint32 bitmapWidth = 512;
+		uint32 bitmapSize = sizeof(byte) * bitmapWidth * bitmapWidth;
+		uint32 kernTableSize = sizeof(int16) * totalNumChars * totalNumChars;
+		uint32 bitmapOffset = sizeof(ABFontBitmapHeader) + sizeof(PackedGlyphData) * totalNumChars + kernTableSize;
+		uint32 glyphDataSize = sizeof(PackedGlyphData) * totalNumChars;
+		uint32 kernTableOffset = sizeof(ABFontBitmapHeader) + sizeof(PackedGlyphData) * totalNumChars;
+		uint32 fileSize = sizeof(ABFontBitmapHeader) + glyphDataSize + kernTableSize + bitmapSize;
+
+		byte* out = zero_allocate(byte, fileSize);
+
+		byte* bitmap = out + bitmapOffset;
+
+		stbtt_fontinfo font;
+		int fontIndex = stbtt_GetFontOffsetForIndex(fileData, 0);
+		stbtt_pack_context context;
+		//stbtt_PackSetOversampling(&context, 2, 2);
+		stbtt_PackBegin(&context, bitmap, bitmapWidth, bitmapWidth, 0, 1, nullptr);
+
+		stbtt_packedchar* ASCIIChars = {};
+		stbtt_packedchar* cyrillicChars = {};
+
+		ASCIIChars = zero_allocate(stbtt_packedchar, asciiNumChars);
+		cyrillicChars = zero_allocate(stbtt_packedchar, asciiNumChars);
+
+		stbtt_pack_range ranges[2];
+		memset(ranges, 0, sizeof(stbtt_pack_range) * 2);
+
+		ranges[0].font_size = fontSize;
+		ranges[0].first_unicode_codepoint_in_range = 32;
+		ranges[0].num_chars = asciiNumChars;
+		ranges[0].chardata_for_range = ASCIIChars;
+
+		ranges[1].font_size = fontSize;
+		ranges[1].first_unicode_codepoint_in_range = 0x0410;
+		ranges[1].num_chars = cyrillicNumChars;
+		ranges[1].chardata_for_range = cyrillicChars;
+
+		stbtt_PackFontRanges(&context, fileData, fontIndex, ranges, 2);
+
+		stbtt_PackEnd(&context);
+
+		stbtt_InitFont(&font, fileData, fontIndex);
+		float32 scaleFactor = stbtt_ScaleForPixelHeight(&font, fontSize);
+
+		int ascent = 0;
+		int descent = 0;
+		int lineGap = 0;
+		stbtt_GetFontVMetrics(&font, &ascent, &descent, &lineGap);
+		float32 lineAdvance = (ascent - descent + lineGap) * scaleFactor;
+
+		ABFontBitmapHeader* header = (ABFontBitmapHeader*)out;
+		header->format = AB_FONT_BITMAP_FORMAT_KEY;
+		header->scaleFactor = scaleFactor;
+		header->bitmapBeginOffset = bitmapOffset;
+		header->bitmapHeight = bitmapWidth;
+		header->bitmapWidth = bitmapWidth;
+		header->heightInPixels = fontSize;
+		header->kernTableOffset = kernTableOffset;
+		header->lineAdvance = lineAdvance;
+		header->numCodepoints = totalNumChars;
+		header++;
+
+		PackedGlyphData* glyph = (PackedGlyphData*)header;
+		PackedGlyphData* glyphDataBegin = (PackedGlyphData*)header;
+
+
+		uint32 unicodeCodepoint = 32;
+		for (uint32 i = 0; i < asciiNumChars; i++) {
+			// NOTE: Shuffling y because an atlas is top-down pixel order
+			// but engine uses down-to-up pixel order
+			glyph->unicodeCodepoint = unicodeCodepoint;
+			glyph->minX = ASCIIChars[i].x0;
+			glyph->minY = ASCIIChars[i].y1;
+			glyph->maxX = ASCIIChars[i].x1;
+			glyph->maxY = ASCIIChars[i].y0;
+			glyph->xOffset = ASCIIChars[i].xoff;
+			glyph->yOffset = ASCIIChars[i].yoff;
+			glyph->advance = ASCIIChars[i].xadvance;
+			unicodeCodepoint++;
+			glyph++;
+		}
+
+		unicodeCodepoint = 0x0410;
+		for (uint32 i = 0; i < cyrillicNumChars; i++) {
+			glyph->unicodeCodepoint = unicodeCodepoint;
+			glyph->minX = cyrillicChars[i].x0;
+			glyph->minY = cyrillicChars[i].y1;
+			glyph->maxX = cyrillicChars[i].x1;
+			glyph->maxY = cyrillicChars[i].y0;
+			glyph->xOffset = cyrillicChars[i].xoff;
+			glyph->yOffset = cyrillicChars[i].yoff;
+			glyph->advance = cyrillicChars[i].xadvance;
+			unicodeCodepoint++;
+			glyph++;
+		}
+
+		int16 * kernTableFile = (int16*)glyph;
+		int16 * kernTableFileAt = (int16*)glyph;
+
+
+		// NOTE: Array indexing order : numChars * first + second
+		for (uint32 i = 0; i < totalNumChars; i++) {
+			for (uint32 j = 0; j < totalNumChars; j++) {
+				uint32 first = glyphDataBegin[i].unicodeCodepoint;
+				uint32 second = glyphDataBegin[j].unicodeCodepoint;
+				kernTableFile[asciiNumChars * i + j] = (int16)stbtt_GetCodepointKernAdvance(&font, first, second);
+				kernTableFileAt++;
+			}
+		}
+		assert((byte*)kernTableFileAt == (byte*)(out + bitmapOffset));
+
+		DebugWriteFile("arial.abf", out, (uint32)fileSize);
+	}
+}
+
+#if 0
 	int result = 0;
 	CommandLineArgs args = ParseCommandLineArgs(argc, argv);
 	if (args.isHelpQuery) {
@@ -347,12 +483,17 @@ int main(int argc, char** argv) {
 	    uint32 bytesRead = 0;
 	    byte* fileData = (byte*)DebugReadFile(args.filepath, &bytesRead);
 	    if (fileData && bytesRead) {
+			//
+			uint32 cyrillicNumChars = 0x044f - 0x0410;
+			//
 			uint32 bitmapSize = sizeof(byte) * args.width * args.height;
-			uint32 kernTableSize = sizeof(int16) * args.numChars * args.numChars;
-			uint32 bitmapOffset = sizeof(ABFontBitmapHeader) + sizeof(PackedGlyphData) * args.numChars + kernTableSize;
-			uint32 kernTableOffset = sizeof(ABFontBitmapHeader) + sizeof(PackedGlyphData) * args.numChars;
+			uint32 kernTableSize = sizeof(int16) * (args.numChars + cyrillicNumChars) * (args.numChars + cyrillicNumChars);
+			uint32 bitmapOffset = sizeof(ABFontBitmapHeader) + sizeof(PackedGlyphData) * (args.numChars + cyrillicNumChars) + kernTableSize;
+			uint32 kernTableOffset = sizeof(ABFontBitmapHeader) + sizeof(PackedGlyphData) * (args.numChars + cyrillicNumChars);
 			uint32 fileSize = bitmapOffset + bitmapSize + kernTableSize;
 			byte* outFileData = (byte*)std::malloc(fileSize);
+			memset(outFileData, 0, fileSize);
+			//zero_array(outFileData, fileSize);
 			if (outFileData) {
 				byte* bitmap = outFileData + bitmapOffset;
 
@@ -362,18 +503,53 @@ int main(int argc, char** argv) {
 				// It's used only for getting metrics
 				if (stbtt_InitFont(&font, fileData, fontIndex)) {
 
-					stbtt_bakedchar* characters = (stbtt_bakedchar*)std::malloc(sizeof(stbtt_bakedchar) * args.numChars);
-					result = stbtt_BakeFontBitmap(
-						(byte*)fileData,
+					stbtt_pack_context context;
+					result = stbtt_PackBegin(
+						&context, 
+						bitmap, 
+						args.width, 
+						args.height, 
 						0,
-						(float)args.fontHeight,
-						bitmap,
-						args.width,
-						args.height,
-						args.firstChar,
-						args.numChars,
-						characters
+						1,
+						nullptr
 					);
+					stbtt_packedchar* ASCIIChars = {};
+					stbtt_packedchar* cyrillicChars = {};
+
+					
+					ASCIIChars = (stbtt_packedchar*)malloc(sizeof(stbtt_packedchar) * args.numChars);
+					cyrillicChars = (stbtt_packedchar*)malloc(sizeof(stbtt_packedchar) * cyrillicNumChars);
+
+					stbtt_pack_range ranges[2];
+					//zero_array(ranges, 2);
+					memset(ranges, 0, sizeof(stbtt_pack_range) * 2);
+
+					ranges[0].font_size = (float32)args.fontHeight;
+					ranges[0].first_unicode_codepoint_in_range = args.firstChar;
+					ranges[0].num_chars = args.numChars;
+					ranges[0].chardata_for_range = ASCIIChars;
+
+					ranges[1].font_size = (float32)args.fontHeight;
+					ranges[1].first_unicode_codepoint_in_range = 0x0410;
+					ranges[1].num_chars = cyrillicNumChars;
+					ranges[1].chardata_for_range = cyrillicChars;
+					stbtt_PackFontRanges(&context, fileData, fontIndex, ranges, 2);
+
+					stbtt_PackEnd(&context);
+
+
+					//stbtt_bakedchar* characters = (stbtt_bakedchar*)std::malloc(sizeof(stbtt_bakedchar) * args.numChars);
+					//result = stbtt_BakeFontBitmap(
+					//	(byte*)fileData,
+					//	0,
+					//	(float)args.fontHeight,
+					//	bitmap,
+					//	args.width,
+					//	args.height,
+					//	args.firstChar,
+					//	args.numChars,
+					//	characters
+					//);
 
 #if 0
 					// Flip bitmap vertically
@@ -413,8 +589,8 @@ int main(int argc, char** argv) {
 					header->format = AB_FONT_BITMAP_FORMAT_KEY;
 					// FIXME: Bad conversion
 					header->heightInPixels = (float32)args.fontHeight;
-					header->firstCodePoint = args.firstChar;
-					header->numCodepoints = args.numChars;
+					//header->firstCodePoint = args.firstChar;
+					header->numCodepoints = args.numChars + cyrillicNumChars;
 					header->bitmapBeginOffset = bitmapOffset;
 					header->bitmapWidth = args.width;
 					header->bitmapHeight = args.height;
@@ -426,19 +602,41 @@ int main(int argc, char** argv) {
 					header++;
 					PackedGlyphData* glyph = (PackedGlyphData*)header;
 					// Packing PackedGlyphData array
+					int32 unicodeCodepoint = args.firstChar;
 					for (int32 i = 0; i < args.numChars; i++) {
 						// NOTE: Shuffling y because an atlas is top-down pixel order
 						// but engine uses down-to-up pixel order
-						glyph->minX = characters[i].x0;
-						glyph->minY = characters[i].y1;
-						glyph->maxX = characters[i].x1;
-						glyph->maxY = characters[i].y0;
-						glyph->xOffset = characters[i].xoff;
-						glyph->yOffset = characters[i].yoff;
+						glyph->unicodeCodepoint = (wchar_t)unicodeCodepoint;
+						glyph->minX = ASCIIChars[i].x0;
+						glyph->minY = ASCIIChars[i].y1;
+						glyph->maxX = ASCIIChars[i].x1;
+						glyph->maxY = ASCIIChars[i].y0;
+						glyph->xOffset = ASCIIChars[i].xoff;
+						glyph->yOffset = ASCIIChars[i].yoff;
 						//printf("%d, %c, %f\n", i, (char)(i + 32), characters[i].xadvance);
-						glyph->advance = characters[i].xadvance;
+						glyph->advance = ASCIIChars[i].xadvance;
+						unicodeCodepoint++;
 						glyph++;
 					}
+
+					unicodeCodepoint = 0x0410;
+					//
+					for (uint32 i = 0; i < cyrillicNumChars; i++) {
+						// NOTE: Shuffling y because an atlas is top-down pixel order
+						// but engine uses down-to-up pixel order
+						glyph->unicodeCodepoint = (wchar_t)unicodeCodepoint;
+						glyph->minX = cyrillicChars[i].x0;
+						glyph->minY = cyrillicChars[i].y1;
+						glyph->maxX = cyrillicChars[i].x1;
+						glyph->maxY = cyrillicChars[i].y0;
+						glyph->xOffset = cyrillicChars[i].xoff;
+						glyph->yOffset = cyrillicChars[i].yoff;
+						//printf("%d, %c, %f\n", i, (char)(i + 32), characters[i].xadvance);
+						glyph->advance = cyrillicChars[i].xadvance;
+						unicodeCodepoint++;
+						glyph++;
+					}
+					//
 
 					int16 * kernTableFileAt = (int16*)glyph;
 					// NOTE: Array indexing order : numChars * first + second
@@ -465,3 +663,4 @@ int main(int argc, char** argv) {
 	}
   return 0;
 }
+#endif

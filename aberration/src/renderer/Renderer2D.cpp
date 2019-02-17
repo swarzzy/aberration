@@ -100,17 +100,23 @@ namespace AB {
 	};
 
 	struct Font {
+		static constexpr uint32 MAX_UNICODE_CHARACTER = 0x10ffff;
+		static constexpr uint16 UNDEFINED_CODEPOINT = 0xffff;
 		uint16 atlasHandle;
 		uint32 atlasWidth;
 		uint32 atlasHeight;
 		float32 lineAdvance;
 		float32 heightInPixels;
-		uint32 firstCodepoint;
 		uint32 numCodepoints;
 		// NOTE: Needed only for kerning
 		float32 scaleFactor;
 		int16 kernTable[Renderer2D::FONT_MAX_CODEPOINTS * Renderer2D::FONT_MAX_CODEPOINTS];
 		Glyph glyphs[Renderer2D::FONT_MAX_CODEPOINTS];
+		// TODO: Allocate only memory we use
+		// MAX_USED_CODEPOINT
+		uint16 unicodeLookupTable[MAX_UNICODE_CHARACTER];
+		uint16 GetGlyphIndex(wchar_t unicodeCodepoint);
+		float32 GetPairHorizontalAdvanceUnscaled(uint16 glyphIndex1, uint16 glyphIndex2);
 	};
 
 	struct Renderer2DProperties {
@@ -209,13 +215,12 @@ namespace AB {
 		s_Properties = nullptr;
 	}
 
-#define AB_FONT_BITMAP_FORMAT_KEY (uint16)0x1
+#define AB_FONT_BITMAP_FORMAT_KEY (uint16)0x1234
 
 #pragma pack(push, 1)
 	struct ABFontBitmapHeader {
 		uint16 format;
 		float32 heightInPixels;
-		uint32 firstCodepoint;
 		uint32 numCodepoints;
 		uint32 bitmapBeginOffset;
 		uint32 kernTableOffset;
@@ -226,6 +231,7 @@ namespace AB {
 	};
 
 	struct PackedGlyphData {
+		uint32 unicodeCodepoint;
 		uint16 minX;
 		uint16 minY;
 		uint16 maxX;
@@ -235,9 +241,6 @@ namespace AB {
 		float32 advance;
 	};
 #pragma pack(pop)
-
-#define AB_KERN_TAB_INDEX(numChars, ch1, ch2) (numChars * (ch1 - 32) * (ch2 - 32))
-
 
 	uint16 Renderer2D::LoadFont(const char* filepath) {
 		uint16 resultHandle = 0;
@@ -273,7 +276,7 @@ namespace AB {
 						for (uint32 i = 0; i < kernTabSize; i++) {
 							s_Properties->fonts[storageIndex].kernTable[i] = kernTabFileAt[i];
 						}
-
+						memset(s_Properties->fonts[storageIndex].unicodeLookupTable, Font::UNDEFINED_CODEPOINT, Font::MAX_UNICODE_CHARACTER);
 						PackedGlyphData* glyphs = (PackedGlyphData*)(header + 1);
 
 						for (uint32 i = 0; i < header->numCodepoints; i++) {
@@ -293,9 +296,12 @@ namespace AB {
 							s_Properties->fonts[storageIndex].heightInPixels = header->heightInPixels;
 							s_Properties->fonts[storageIndex].scaleFactor = header->scaleFactor;
 							s_Properties->fonts[storageIndex].lineAdvance = header->lineAdvance;
-							s_Properties->fonts[storageIndex].firstCodepoint = header->firstCodepoint;
 							s_Properties->fonts[storageIndex].numCodepoints = header->numCodepoints;
 							s_Properties->fonts[storageIndex].atlasHandle = handle;
+
+							uint32 unicodeCodepoint = glyphs[i].unicodeCodepoint;
+							// NOTE: Store glyph index + 1 in order to threat 0 as empty character
+							s_Properties->fonts[storageIndex].unicodeLookupTable[unicodeCodepoint] = i;
 
 							uint16 regionHandle = TextureCreateRegion(handle, hpm::Vector2(minX, minY), hpm::Vector2(maxX, maxY));
 							if (regionHandle) {
@@ -327,38 +333,43 @@ namespace AB {
 		return resultHandle;
 	}
 
-	inline static float32 _GetPairHorizontalAdvance(Renderer2DProperties* properties, uint16 fontHandle, char ch1, char ch2) {
+	inline float32 Font::GetPairHorizontalAdvanceUnscaled(uint16 glyphIndex1, uint16 glyphIndex2) {
 		float32 advance = 0.0f;
-		// TODO: Font getter
-		Font* font = &properties->fonts[fontHandle - 1];
-		int32 codepointIndex1 = (int32)ch1 - font->firstCodepoint;
-		int32 codepointIndex2 = (int32)ch2 - font->firstCodepoint;
-		if (codepointIndex1 >= 0) {
-			Glyph* glyph = &font->glyphs[codepointIndex1];
+		// TODO: Check is character actually in here
+		if (glyphIndex1 != Font::UNDEFINED_CODEPOINT && glyphIndex2 != Font::UNDEFINED_CODEPOINT) {
+			Glyph* glyph = &glyphs[glyphIndex1];
 			advance += glyph->advance;
-			if (codepointIndex2 >= 0) {
-				advance += font->kernTable[font->numCodepoints * codepointIndex1 + codepointIndex2] * font->scaleFactor;
+			if (glyphIndex2 >= 0) {
+				advance += kernTable[numCodepoints * glyphIndex1 + glyphIndex2] * scaleFactor;
 			}
+		} else if (glyphIndex1 != Font::UNDEFINED_CODEPOINT) {
+			Glyph* glyph = &glyphs[glyphIndex1];
+
+			advance += glyph->advance;
 		}
 		return advance;
 	}
 
-	void Renderer2D::DebugDrawString(hpm::Vector2 position, float32 height, const char* string) {
+	inline uint16 Font::GetGlyphIndex(wchar_t unicodeCodepoint) {
+		return unicodeLookupTable[(uint32)unicodeCodepoint];
+	}
+
+	void Renderer2D::DebugDrawString(hpm::Vector2 position, float32 fontHeight, const wchar_t* string) {
 		// TODO: This is all temporary
 		// Here are gonna be direct submission to a drawQueue and sortBuffer
 		if (string) {
 			// TODO: check if font is not loaded
 			Font* font = &s_Properties->fonts[DEFAULT_FONT_HANDLE - 1];
-			float32 scale = height / font->heightInPixels;
+			float32 scale = fontHeight / font->heightInPixels;
 			bool32 stringBegin = true;
 
 			// Checking first string
 			float32 yFirstLineMaxAscent = 0.0f;
-
-			for (uint32 at = 0; string[at] != '\n'; at++) {
-				int32 currentCodepoint = (int32)string[at] - font->firstCodepoint;
-				if (currentCodepoint >= 0 && (uint32)currentCodepoint < font->numCodepoints) {
-					Glyph* glyph = &font->glyphs[currentCodepoint];
+			
+			for (uint32 at = 0; string[at] != '\n' && string[at] != '\0'; at++) {
+				uint16 glyphIndex = font->GetGlyphIndex(string[at]);
+				if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
+					Glyph* glyph = &font->glyphs[glyphIndex];
 					UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
 
 					float32 glyphHeight = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
@@ -366,7 +377,7 @@ namespace AB {
 					float32 ascent = glyphHeight - descent;
 					yFirstLineMaxAscent = yFirstLineMaxAscent > ascent ? ascent : yFirstLineMaxAscent;
 				} else {
-					yFirstLineMaxAscent = yFirstLineMaxAscent > height ? height : yFirstLineMaxAscent;
+					yFirstLineMaxAscent = yFirstLineMaxAscent > fontHeight ? fontHeight : yFirstLineMaxAscent;
 				}
 			}
 
@@ -379,48 +390,50 @@ namespace AB {
 					xAdvance = position.x;
 					stringBegin = true;
 				} else {
-					int32 currentCodepoint = (int32)string[at] - font->firstCodepoint;
-					if (currentCodepoint >= 0 && (uint32)currentCodepoint < font->numCodepoints) {
-						Glyph* glyph = &font->glyphs[currentCodepoint];
-						UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
+					uint16 glyphIndex = font->GetGlyphIndex(string[at]);
+					if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
+						Glyph* glyph = &font->glyphs[glyphIndex];
+						if (string[at] != ' ') {
+							UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
 
-						float32 width = (uv.max.x - uv.min.x) * font->atlasWidth * scale;
-						float32 height = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
-						float32 xPosition = stringBegin ? xAdvance : xAdvance + glyph->xBearing * scale;
-						float32 yPosition = yAdvance - glyph->yBearing * scale;
+							float32 width = (uv.max.x - uv.min.x) * font->atlasWidth * scale;
+							float32 height = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
+							float32 xPosition = stringBegin ? xAdvance : xAdvance + glyph->xBearing * scale;
+							float32 yPosition = yAdvance - glyph->yBearing * scale;
 
-						FillRectangleTexture(
-							hpm::Vector2(xPosition, yPosition),
-							10, 0, 0,
-							hpm::Vector2(width, height),
-							glyph->regionHandle
-						);
-
+							FillRectangleTexture(
+								hpm::Vector2(xPosition, yPosition),
+								10, 0, 0,
+								hpm::Vector2(width, height),
+								glyph->regionHandle
+							);
+						}
 						stringBegin = false;
 
-						char nextChar = '\0';
-						if (string[at + 1] != '\n') {
-							nextChar = string[at + 1];
+						uint16 nextGlyphIndex = Font::UNDEFINED_CODEPOINT;
+						if (string[at + 1] != '\n' && string[at + 1] != '\0') {
+							nextGlyphIndex = font->GetGlyphIndex(string[at + 1]);;
 						}
 						// NOTE: at + 1 is safe because on last iteration we are not going over the bounds of the array
 						// We just accessing \0
-						xAdvance += scale * _GetPairHorizontalAdvance(s_Properties, DEFAULT_FONT_HANDLE, string[at], nextChar);
+						xAdvance += scale * font->GetPairHorizontalAdvanceUnscaled(glyphIndex, nextGlyphIndex);
 					}
 					else {
+						float32 xPosition = stringBegin ? xAdvance : xAdvance + fontHeight / 2;
 						FillRectangleColor(
-							hpm::Vector2(xAdvance, yAdvance),
+							hpm::Vector2(xPosition, yAdvance),
 							10, 0, 0,
-							hpm::Vector2(height - (height / 2), height),
+							hpm::Vector2(fontHeight - (fontHeight / 2), fontHeight),
 							0xffffffff
 						);
-						xAdvance += height - (height / 2);
+						xAdvance += fontHeight - (fontHeight / 2);
 					}
 				}
 			}
 		}
 	}
 
-	hpm::Rectangle Renderer2D::GetStringBoundingRect(float32 height, const char* string) {
+	hpm::Rectangle Renderer2D::GetStringBoundingRect(float32 height, const wchar_t* string) {
 		hpm::Rectangle rect;
 		memset(&rect, 0, sizeof(hpm::Rectangle));
 		if (string) {
@@ -435,9 +448,9 @@ namespace AB {
 
 			uint32 firstStringAt = 0;
 			while (string[firstStringAt] != '\n' && string[firstStringAt] != '\0') {
-				int32 currentCodepoint = (int32)string[firstStringAt] - font->firstCodepoint;
-				if (currentCodepoint >= 0 && (uint32)currentCodepoint < font->numCodepoints) {
-					Glyph* glyph = &font->glyphs[currentCodepoint];
+				uint16 glyphIndex = font->GetGlyphIndex(string[firstStringAt]);;
+				if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
+					Glyph* glyph = &font->glyphs[glyphIndex];
 					UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
 
 					float32 glyphHeight = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
@@ -446,11 +459,11 @@ namespace AB {
 					firstLineMaxAscent = firstLineMaxAscent > ascent ? ascent : firstLineMaxAscent;
 					maxLineDescent = maxLineDescent > descent ? descent : maxLineDescent;
 
-					char nextChar = '\0';
-					if (string[firstStringAt + 1] != '\n') {
-						nextChar = string[firstStringAt + 1];
+					uint16 nextGlyphIndex = Font::UNDEFINED_CODEPOINT;
+					if (string[firstStringAt + 1] != '\n' && string[firstStringAt + 1] != '\0') {
+						nextGlyphIndex = font->GetGlyphIndex(string[firstStringAt + 1]);
 					}
-					xMaxAdvance += scale * _GetPairHorizontalAdvance(s_Properties, DEFAULT_FONT_HANDLE, string[firstStringAt], nextChar);
+					xMaxAdvance += scale * font->GetPairHorizontalAdvanceUnscaled(glyphIndex, nextGlyphIndex);
 
 					firstStringAt++;
 				} else {
@@ -472,19 +485,20 @@ namespace AB {
 						xAdvance = 0.0f;
 					}
 					else {
-						int32 currentCodepoint = (int32)string[at] - font->firstCodepoint;
-						if (currentCodepoint >= 0 && (uint32)currentCodepoint < font->numCodepoints) {
-							Glyph* glyph = &font->glyphs[currentCodepoint];
+						uint16 glyphIndex = font->GetGlyphIndex(string[at]);;
+						if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
+							Glyph* glyph = &font->glyphs[glyphIndex];
 							UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
 							float32 glyphHeight = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
 							float32 descent = glyphHeight - glyph->yBearing * scale;
 							maxLineDescent = maxLineDescent > descent ? descent : maxLineDescent;
 
-							char nextChar = '\0';
-							if (string[at + 1] != '\n') {
-								nextChar = string[at + 1];
+							uint16 nextGlyphIndex = Font::UNDEFINED_CODEPOINT;
+							if (string[at + 1] != '\n' && string[at + 1] != '\0') {
+								nextGlyphIndex = font->GetGlyphIndex(string[at + 1]);;
 							}
-							xAdvance += scale * _GetPairHorizontalAdvance(s_Properties, DEFAULT_FONT_HANDLE, string[at], nextChar);
+							xAdvance += scale * font->GetPairHorizontalAdvanceUnscaled(glyphIndex, nextGlyphIndex);
+
 							xMaxAdvance = xMaxAdvance < xAdvance ? xAdvance : xMaxAdvance;
 						}
 						else {

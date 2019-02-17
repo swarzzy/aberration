@@ -19,19 +19,19 @@ namespace AB {
 		~Renderer2D() {};
 		// TODO: Move tis into .cpp
 
-		static constexpr uint64 DRAW_QUEUE_CAPACITY = 512;
+		static constexpr uint64 DRAW_QUEUE_CAPACITY = 1024;
 		static constexpr uint64 INDEX_BUFFER_SIZE = DRAW_QUEUE_CAPACITY * 6;
 		static constexpr uint16 TEXTURE_STORAGE_CAPACITY = 256;
 		static constexpr uint16 FONT_STORAGE_SIZE = 1;
-		static constexpr uint64 FONT_MAX_CODEPOINTS = 96;
+		static constexpr uint64 FONT_MAX_CODEPOINTS = 500;
 		static constexpr uint16 DEFAULT_FONT_HANDLE = 1;
 
 		static void Initialize(uint32 drawableSpaceX, uint32 drawableSpaceY);
 		static void Destroy();
 		
 		static uint16 LoadFont(const char* filepath);
-		static void DebugDrawString(hpm::Vector2 position, float32 height, const char* string);
-		static hpm::Rectangle GetStringBoundingRect(float32 height, const char* string);
+		static void DebugDrawString(hpm::Vector2 position, float32 height, const wchar_t* string);
+		static hpm::Rectangle GetStringBoundingRect(float32 height, const wchar_t* string);
 		static uint16 LoadTexture(const char* filepath);
 		// TODO: Make enum for texture formats
 		static uint16 LoadTextureFromBitmap(PixelFormat format, uint32 width, uint32 height, const byte* bitmap);

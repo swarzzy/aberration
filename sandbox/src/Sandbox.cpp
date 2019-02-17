@@ -15,11 +15,29 @@ extern "C" {
 			}
 		});
 	}
-
 	ABERRATION_ENTRY void GameUpdate(AB::Engine* engine, AB::GameContext* gameContext) {
 		uint16 reg = engine->textureCreateRegion(gameContext->texHandle2, { 0.0, 0.0 }, { 0.8, 0.8 });
 		uint16 reg1 = engine->textureCreateRegion(gameContext->texHandle2, { 0.0, 0.0 }, { 0.2, 0.2 });
-		const char* str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed\ndo eiusmod tempor incididunt ut labore et dolore magna\nnaliqua.Ut enim ad minim veniam, quis nostrud exercitation ullamco\nlaboris nisi ut aliquip ex ea commodo consequat.Duis aute irure\ndolor in reprehenderit in voluptate velit esse cillum dolore\neu fugiat nulla pariatur.Excepteur sint occaecat cupidatat\nnon proident, sunt in culpa qui officia deserunt mollit\nnim id est laborum.";
+#if 0
+		const wchar_t* str = LR"(Но немногие захватили эту горстку и превратили ее в орудие присвоения
+продуктов труда, постоянно из года в год возобновляемых подавляющей массой людей.
+Этим объясняется чрезвычайная важность такого орудия для этих немногих...
+Около трети национального годового продукта отнимается теперь у производителей в виде
+общественных налогов и непроизводительно потребляется людьми, которые
+не дают за это никакого эквивалента, т.е.
+ничего такого, что имело бы значение эквивалента для производителей...
+Толпа изумленно смотрит на накопленные массы, особенно, если они
+сконцентрированы в руках немногих.)";
+#else
+		const wchar_t* str = LR"(Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed
+do eiusmod tempor incididunt ut labore et dolore magna
+naliqua.Ut enim ad minim veniam, quis nostrud exercitation ullamco
+laboris nisi ut aliquip ex ea commodo consequat.Duis aute irure
+dolor in reprehenderit in voluptate velit esse cillum dolore
+eu fugiat nulla pariatur.Excepteur sint occaecat cupidatat
+non proident, sunt in culpa qui officia deserunt mollit
+nim id est laborum.)";
+#endif
 		hpm::Vector2 p(10, 500);
 		engine->debugDrawString(p, 20.0, str);
 		hpm::Rectangle rect;
