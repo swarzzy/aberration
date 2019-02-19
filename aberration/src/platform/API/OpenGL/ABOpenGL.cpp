@@ -362,6 +362,19 @@ static const char* procNames[AB_OPENGL_FUNCTIONS_COUNT] = {
 	"glVertexAttribP4uiv",
 };
 
+ABGLExtensionsProcs _ABOpenGLExtProcs = {};
+
+static const char* EXTprocNames[AB_OPENGL_EXTENSIONS_FUNCTIONS_COUNT] = {
+	"glGetSubroutineUniformLocation",
+	"glGetSubroutineIndex",
+	"glGetActiveSubroutineUniformiv",
+	"glGetActiveSubroutineUniformName",
+	"glGetActiveSubroutineName",
+	"glUniformSubroutinesuiv",
+	"glGetUniformSubroutineuiv",
+	"glGetProgramStageiv"
+};
+
 #if defined(AB_PLATFORM_WINDOWS)
 #include <Windows.h>
 
@@ -394,6 +407,66 @@ bool32 AB::GL::LoadFunctions() {
 		return success;
 }
 
+bool32 AB::GL::LoadExtensions() {
+	bool32 result = false;
+	GLint numExtensions;
+	GLCall(glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions));
+	bool32 gpu_shader5_supported = false;
+	bool32 shader_subroutine_supported = false;
+	for (int32 i = 0; i < numExtensions; i++) {
+		const GLubyte* extensionsString;
+		GLCall(extensionsString = glGetStringi(GL_EXTENSIONS, i));
+		if (strcmp((const char*)extensionsString, "GL_ARB_gpu_shader5") == 0) {
+			gpu_shader5_supported = true;
+		}
+		if (strcmp((const char*)extensionsString, "GL_ARB_shader_subroutine") == 0) {
+			shader_subroutine_supported = true;
+		}
+	}	
+
+	// NOTE: This retrieves pointers from wglGetProcAddress 
+
+	if (gpu_shader5_supported) {
+		if (shader_subroutine_supported) {
+			for (unsigned int i = 0; i < AB_OPENGL_EXTENSIONS_FUNCTIONS_COUNT; i++) {
+				_ABOpenGLExtProcs.procs[i] = wglGetProcAddress(EXTprocNames[i]);
+				if (_ABOpenGLExtProcs.procs[i] == 0 ||
+					_ABOpenGLExtProcs.procs[i] == (void*)0x1 ||
+					_ABOpenGLExtProcs.procs[i] == (void*)0x2 ||
+					_ABOpenGLExtProcs.procs[i] == (void*)0x3 ||
+					_ABOpenGLExtProcs.procs[i] == (void*)-1)
+				{
+					DWORD sdsd = GetLastError();
+					PrintString("%u32", sdsd);
+					if (!g_dllHandle) {
+						g_dllHandle = LoadLibrary("opengl32.dll");
+					}
+					if (g_dllHandle) {
+						_ABOpenGLExtProcs.procs[i] = (AB_GLFUNCPTR)GetProcAddress(g_dllHandle, EXTprocNames[i]);
+						if (_ABOpenGLExtProcs.procs[i]) {
+							result = true;
+						} else {
+							result = false;
+						}
+					}
+					else {
+						_ABOpenGLExtProcs.procs[i] = NULL;
+					}
+					if (_ABOpenGLExtProcs.procs[i] == NULL) {
+						AB_CORE_ERROR("ERROR: Failed to load OpenGL EXT procedure: %s\n", EXTprocNames[i]);
+					}
+				} else {
+					result = true;
+				}
+			}
+		}
+			
+	} else {
+		AB_CORE_ERROR("Failed to load: ARB_gpu_shader5 extension. Extension isn't supported.");
+	}
+	return result;
+}
+
 #elif defined(AB_PLATFORM_LINUX)
 #include <dlfcn.h>
 
@@ -409,19 +482,40 @@ bool32 AB::GL::LoadFunctions() {
 		glXGetProcAddress = (def_glXGetProcAddress*)dlsym(libgl, "glXGetProcAddress");
 		if (!glXGetProcAddress)
 			return 0;
-		// TODO: Should dlclose be here?
 	}
 
 	bool32 success = 1;
 	for (unsigned int i = 0; i < AB_OPENGL_FUNCTIONS_COUNT; i++) {
 		_ABOpenGLProcs.procs[i] = (AB_GLFUNCPTR)glXGetProcAddress((const uchar*)procNames[i]);
 		if (_ABOpenGLProcs.procs[i] == NULL) {
-			// TODO:  get pid of printf
 			AB_CORE_ERROR("ERROR: Failed to load OpenGL procedure: %s\n", procNames[i]);
 			success = 0;
 		}
 	}
 	return success;
+}
+
+bool32 AB::GL::LoadExtensions() {
+	bool32 result = true;
+	if (!glXGetProcAddress) {
+		void* libgl = dlopen("libGL.so.1", RTLD_LAZY | RTLD_LOCAL);
+		if (!libgl)
+			return 0;
+		glXGetProcAddress = (def_glXGetProcAddress*)dlsym(libgl, "glXGetProcAddress");
+		if (!glXGetProcAddress) {
+			result = false;
+			return 0;
+		}
+	}
+
+	for (unsigned int i = 0; i < AB_OPENGL_EXTENSIONS_FUNCTIONS_COUNT; i++) {
+		_ABOpenGLExtProcs.procs[i] = (AB_GLFUNCPTR)glXGetProcAddress((const uchar*)EXTprocNames[i]);
+		if (_ABOpenGLExtProcs.procs[i] == NULL) {
+			AB_CORE_ERROR("ERROR: Failed to load OpenGL procedure: %s\n", EXTprocNames[i]);
+			result = false;
+		}
+	}
+	return result;
 }
 
 #endif
@@ -440,7 +534,9 @@ namespace AB::GL {
 		AB_GLCALL(glDepthFunc(GL_GREATER));
 	}	
 
-	static constexpr uint32 LOG_BUFFER_SIZE = 512;
+	// TODO: Message almost always takes just patr of the buffer
+	// So it needs some counter for written chars
+	static constexpr uint32 LOG_BUFFER_SIZE = 256;
 	static char g_LogBuffer[LOG_BUFFER_SIZE];
 
 	AB_API void _ClearErrorQueue() {
@@ -462,13 +558,6 @@ namespace AB::GL {
 		default: {error = "UNKNOWN_ERROR"; } break;
 		}
 
-		/*if (size < 256) {
-			if (size >= 16)
-				buffer = "BUFFER OVERFLOW";
-			else
-				*buffer = '\0';
-		}*/
-		// TODO: This is actually unsafe
 		FormatString(g_LogBuffer, LOG_BUFFER_SIZE, "A error caused by OpenGL call. Error: %s, code: %i32.", error, errorCode);
 		return true;
 	}

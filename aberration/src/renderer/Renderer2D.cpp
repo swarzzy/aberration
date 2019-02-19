@@ -7,7 +7,7 @@
 #include "platform/Platform.h"
 
 namespace AB {
-	const char* VERTEX_SOURCE = R"(
+	const char* SPRITE_VERTEX_SOURCE = R"(
 		#version 330 core
 		layout (location = 0) in vec3 aPos;
 		layout (location = 1) in vec4 aColor;
@@ -22,20 +22,37 @@ namespace AB {
 		}
 	)";
 
-	const char* FRAGMENT_SOURCE = R"(
+	const char* SPRITE_FRAGMENT_SOURCE = R"(
 		#version 330 core
+		#extension GL_ARB_shader_subroutine : enable
+		
+		subroutine vec4 FetchPixelType();
+		subroutine uniform FetchPixelType FetchPixel;
+		
 		out vec4 FragColor;
 		in vec4 v_Color;
 		in vec2 v_UV;
-		uniform sampler2D tex;
-		uniform float useTexture;
+		uniform sampler2D sys_Texture;
+		
+		subroutine(FetchPixelType)
+		vec4 FetchPixelTexture() {
+			return texture(sys_Texture, v_UV);
+		}
+
+		subroutine(FetchPixelType)
+		vec4 FetchPixelSolid() {
+			return v_Color;
+		}
+
+		subroutine(FetchPixelType)
+		vec4 FetchPixelGlyph() {
+			vec4 texColor = texture(sys_Texture, v_UV);
+			return vec4(v_Color.r, v_Color.g, v_Color.b, texColor.r * v_Color.a);
+		}
+
 		void main()
 		{
-			if (useTexture > 0.4) {
-				FragColor = texture(tex, v_UV);
-			} else {
-				FragColor = v_Color;
-			}
+			FragColor = FetchPixel();
 		}
 	)";
 
@@ -50,9 +67,16 @@ namespace AB {
 		float32 v;
 	};
 
+	enum class DrawableType : uint16 {
+		Textured = 0,
+		Glyph,
+		SolidColor
+	};
+
 	struct BatchData {
 		uint32 count;
-		uint32 textureHandle;
+		uint16 textureHandle;
+		DrawableType type;
 	};
 
 	struct RectangleData {
@@ -62,6 +86,7 @@ namespace AB {
 		float32 anchor;
 		uint32 color;
 		uint16 regionTexHandle;
+		DrawableType type;
 	};
 
 	struct UV {
@@ -124,6 +149,11 @@ namespace AB {
 		uint32 GLVBOHandle;
 		uint32 GLIBOHandle;
 		uint32 shaderHandle;
+		GLuint subroutineGlyphIndex;
+		GLuint subroutineSolidIndex;
+		GLuint subroutineTextureIndex;
+		GLuint uniformSamplerIndex;
+
 		hpm::Vector2 viewSpaceDim;
 		uint64 vertexCount;
 		uint64 indexCount;
@@ -208,9 +238,9 @@ namespace AB {
 	}
 
 	void Renderer2D::Destroy() {
-		AB_GLCALL(glDeleteBuffers(1, &s_Properties->GLVBOHandle));
-		AB_GLCALL(glDeleteBuffers(1, &s_Properties->GLIBOHandle));
-		AB_GLCALL(glDeleteProgram(s_Properties->shaderHandle));
+		GLCall(glDeleteBuffers(1, &s_Properties->GLVBOHandle));
+		GLCall(glDeleteBuffers(1, &s_Properties->GLIBOHandle));
+		GLCall(glDeleteProgram(s_Properties->shaderHandle));
 		std::free(s_Properties);
 		s_Properties = nullptr;
 	}
@@ -258,15 +288,8 @@ namespace AB {
 										
 					byte* bitmap = fileData + header->bitmapBeginOffset;
 					uint64 bitmapSize = header->bitmapWidth * header->bitmapHeight;
-					// TODO: Allocation!!!
-					byte* bitmapRGBA = (byte*)std::malloc(bitmapSize * sizeof(byte) * 4);
 
-					for (uint64 i = 0; i < bitmapSize; i++) {
-						uint32* g = (uint32*)bitmapRGBA;
-						g[i] = bitmap[i] << 24 | bitmap[i] << 16 | bitmap[i] << 8 | bitmap[i];
-					}
-
-					uint16 handle = LoadTextureFromBitmap(PixelFormat::RGBA, header->bitmapWidth, header->bitmapHeight, bitmapRGBA);
+					uint16 handle = LoadTextureFromBitmap(PixelFormat::RED, header->bitmapWidth, header->bitmapHeight, bitmap);
 
 					if (handle) {
 
@@ -299,6 +322,7 @@ namespace AB {
 							s_Properties->fonts[storageIndex].numCodepoints = header->numCodepoints;
 							s_Properties->fonts[storageIndex].atlasHandle = handle;
 
+
 							uint32 unicodeCodepoint = glyphs[i].unicodeCodepoint;
 							// NOTE: Store glyph index + 1 in order to threat 0 as empty character
 							s_Properties->fonts[storageIndex].unicodeLookupTable[unicodeCodepoint] = i;
@@ -319,7 +343,6 @@ namespace AB {
 					else {
 						AB_CORE_ERROR("Failed to load font. Failed to create font atlas. File: %s", filepath);
 					}
-					std::free(bitmapRGBA);
 				}
 				else {
 					AB_CORE_ERROR("Failed to load font. Wrong file format. File: %s", filepath);
@@ -354,82 +377,96 @@ namespace AB {
 		return unicodeLookupTable[(uint32)unicodeCodepoint];
 	}
 
-	void Renderer2D::DebugDrawString(hpm::Vector2 position, float32 fontHeight, const wchar_t* string) {
+	void Renderer2D::DebugDrawString(hpm::Vector2 position, float32 fontHeight, color32 color, const wchar_t* string) {
 		// TODO: This is all temporary
 		// Here are gonna be direct submission to a drawQueue and sortBuffer
 		if (string) {
-			// TODO: check if font is not loaded
 			Font* font = &s_Properties->fonts[DEFAULT_FONT_HANDLE - 1];
-			float32 scale = fontHeight / font->heightInPixels;
-			bool32 stringBegin = true;
+			// TODO: check if font is not loaded
+			// This is actually doesn't work for now
+			if (font) {
+				float32 scale = fontHeight / font->heightInPixels;
+				bool32 stringBegin = true;
 
-			// Checking first string
-			float32 yFirstLineMaxAscent = 0.0f;
-			
-			for (uint32 at = 0; string[at] != '\n' && string[at] != '\0'; at++) {
-				uint16 glyphIndex = font->GetGlyphIndex(string[at]);
-				if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
-					Glyph* glyph = &font->glyphs[glyphIndex];
-					UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
+				// Checking first string
+				float32 yFirstLineMaxAscent = 0.0f;
 
-					float32 glyphHeight = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
-					float32 descent = glyphHeight - glyph->yBearing * scale;
-					float32 ascent = glyphHeight - descent;
-					yFirstLineMaxAscent = yFirstLineMaxAscent > ascent ? ascent : yFirstLineMaxAscent;
-				} else {
-					yFirstLineMaxAscent = yFirstLineMaxAscent > fontHeight ? fontHeight : yFirstLineMaxAscent;
-				}
-			}
-
-			float32 xAdvance = position.x;
-			float32 yAdvance = position.y + yFirstLineMaxAscent;
-
-			for (uint32 at = 0; string[at]; at++) {
-				if (string[at] == '\n') {
-					yAdvance -= font->lineAdvance * scale;
-					xAdvance = position.x;
-					stringBegin = true;
-				} else {
+				for (uint32 at = 0; string[at] != '\n' && string[at] != '\0'; at++) {
 					uint16 glyphIndex = font->GetGlyphIndex(string[at]);
 					if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
 						Glyph* glyph = &font->glyphs[glyphIndex];
-						if (string[at] != ' ') {
-							UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
+						UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
 
-							float32 width = (uv.max.x - uv.min.x) * font->atlasWidth * scale;
-							float32 height = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
-							float32 xPosition = stringBegin ? xAdvance : xAdvance + glyph->xBearing * scale;
-							float32 yPosition = yAdvance - glyph->yBearing * scale;
-
-							FillRectangleTexture(
-								hpm::Vector2(xPosition, yPosition),
-								10, 0, 0,
-								hpm::Vector2(width, height),
-								glyph->regionHandle
-							);
-						}
-						stringBegin = false;
-
-						uint16 nextGlyphIndex = Font::UNDEFINED_CODEPOINT;
-						if (string[at + 1] != '\n' && string[at + 1] != '\0') {
-							nextGlyphIndex = font->GetGlyphIndex(string[at + 1]);;
-						}
-						// NOTE: at + 1 is safe because on last iteration we are not going over the bounds of the array
-						// We just accessing \0
-						xAdvance += scale * font->GetPairHorizontalAdvanceUnscaled(glyphIndex, nextGlyphIndex);
+						float32 glyphHeight = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
+						float32 descent = glyphHeight - glyph->yBearing * scale;
+						float32 ascent = glyphHeight - descent;
+						yFirstLineMaxAscent = yFirstLineMaxAscent > ascent ? ascent : yFirstLineMaxAscent;
 					}
 					else {
-						float32 xPosition = stringBegin ? xAdvance : xAdvance + fontHeight / 2;
-						FillRectangleColor(
-							hpm::Vector2(xPosition, yAdvance),
-							10, 0, 0,
-							hpm::Vector2(fontHeight - (fontHeight / 2), fontHeight),
-							0xffffffff
-						);
-						xAdvance += fontHeight - (fontHeight / 2);
+						yFirstLineMaxAscent = yFirstLineMaxAscent > fontHeight ? fontHeight : yFirstLineMaxAscent;
 					}
 				}
-			}
+
+				float32 xAdvance = position.x;
+				float32 yAdvance = position.y + yFirstLineMaxAscent;
+
+				for (uint32 at = 0; string[at]; at++) {
+					if (string[at] == '\n') {
+						yAdvance -= font->lineAdvance * scale;
+						xAdvance = position.x;
+						stringBegin = true;
+					}
+					else {
+						uint16 glyphIndex = font->GetGlyphIndex(string[at]);
+						if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
+							Glyph* glyph = &font->glyphs[glyphIndex];
+							if (string[at] != ' ') {
+								UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
+
+								float32 width = (uv.max.x - uv.min.x) * font->atlasWidth * scale;
+								float32 height = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
+								float32 xPosition = stringBegin ? xAdvance : xAdvance + glyph->xBearing * scale;
+								float32 yPosition = yAdvance - glyph->yBearing * scale;
+
+
+								hpm::Vector2 quadPos = { xPosition, yPosition };
+								hpm::Vector2 quadSize = { width, height };
+								if (s_Properties->sortBufferLeftUsage != s_Properties->sortBufferRightUsage) {
+									SortKey key = {};
+									key.depth = 10;
+									key.texHandle = GetTextureBaseHandle(s_Properties, glyph->regionHandle);
+									s_Properties->drawQueue[s_Properties->drawQueueUsed] = { quadPos, quadSize, 0, 0, color, glyph->regionHandle, DrawableType::Glyph };
+									s_Properties->sortBufferA[s_Properties->sortBufferRightUsage] = { key, s_Properties->drawQueueUsed };
+									s_Properties->sortBufferRightUsage--;
+									s_Properties->drawQueueUsed++;
+								}
+								else {
+									AB_CORE_WARN("Failed to submit rectangle. Draw queue is full");
+								}
+							}
+							stringBegin = false;
+
+							uint16 nextGlyphIndex = Font::UNDEFINED_CODEPOINT;
+							if (string[at + 1] != '\n' && string[at + 1] != '\0') {
+								nextGlyphIndex = font->GetGlyphIndex(string[at + 1]);;
+							}
+							// NOTE: at + 1 is safe because on last iteration we are not going over the bounds of the array
+							// We just accessing \0
+							xAdvance += scale * font->GetPairHorizontalAdvanceUnscaled(glyphIndex, nextGlyphIndex);
+						}
+						else {
+							float32 xPosition = stringBegin ? xAdvance : xAdvance + fontHeight / 2;
+							FillRectangleColor(
+								hpm::Vector2(xPosition, yAdvance),
+								10, 0, 0,
+								hpm::Vector2(fontHeight - (fontHeight / 2), fontHeight),
+								0xffffffff
+							);
+							xAdvance += fontHeight - (fontHeight / 2);
+						}
+					}
+				}
+			} // font not foud
 		}
 	}
 
@@ -437,85 +474,90 @@ namespace AB {
 		hpm::Rectangle rect;
 		memset(&rect, 0, sizeof(hpm::Rectangle));
 		if (string) {
-			// TODO: check if font is not loaded
 			Font* font = &s_Properties->fonts[DEFAULT_FONT_HANDLE - 1];
-			float32 scale = height / font->heightInPixels;
-			
-			float32 xMaxAdvance = 0.0f;
-			// Checking first string
-			float32 firstLineMaxAscent = 0.0f;
-			float32 maxLineDescent = 0.0f;
+			// TODO: check if font is not loaded
+			// This is actually doesn't work for now
+			if (font) {
+				float32 scale = height / font->heightInPixels;
 
-			uint32 firstStringAt = 0;
-			while (string[firstStringAt] != '\n' && string[firstStringAt] != '\0') {
-				uint16 glyphIndex = font->GetGlyphIndex(string[firstStringAt]);;
-				if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
-					Glyph* glyph = &font->glyphs[glyphIndex];
-					UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
+				float32 xMaxAdvance = 0.0f;
+				// Checking first string
+				float32 firstLineMaxAscent = 0.0f;
+				float32 maxLineDescent = 0.0f;
 
-					float32 glyphHeight = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
-					float32 descent = glyphHeight - glyph->yBearing * scale;
-					float32 ascent = glyphHeight - descent;
-					firstLineMaxAscent = firstLineMaxAscent > ascent ? ascent : firstLineMaxAscent;
-					maxLineDescent = maxLineDescent > descent ? descent : maxLineDescent;
+				uint32 firstStringAt = 0;
+				while (string[firstStringAt] != '\n' && string[firstStringAt] != '\0') {
+					uint16 glyphIndex = font->GetGlyphIndex(string[firstStringAt]);;
+					if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
+						Glyph* glyph = &font->glyphs[glyphIndex];
+						UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
 
-					uint16 nextGlyphIndex = Font::UNDEFINED_CODEPOINT;
-					if (string[firstStringAt + 1] != '\n' && string[firstStringAt + 1] != '\0') {
-						nextGlyphIndex = font->GetGlyphIndex(string[firstStringAt + 1]);
-					}
-					xMaxAdvance += scale * font->GetPairHorizontalAdvanceUnscaled(glyphIndex, nextGlyphIndex);
+						float32 glyphHeight = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
+						float32 descent = glyphHeight - glyph->yBearing * scale;
+						float32 ascent = glyphHeight - descent;
+						firstLineMaxAscent = firstLineMaxAscent > ascent ? ascent : firstLineMaxAscent;
+						maxLineDescent = maxLineDescent > descent ? descent : maxLineDescent;
 
-					firstStringAt++;
-				} else {
-					firstLineMaxAscent = firstLineMaxAscent > height ? height : firstLineMaxAscent;
-					firstStringAt++;
-				}
-			}
+						uint16 nextGlyphIndex = Font::UNDEFINED_CODEPOINT;
+						if (string[firstStringAt + 1] != '\n' && string[firstStringAt + 1] != '\0') {
+							nextGlyphIndex = font->GetGlyphIndex(string[firstStringAt + 1]);
+						}
+						xMaxAdvance += scale * font->GetPairHorizontalAdvanceUnscaled(glyphIndex, nextGlyphIndex);
 
-			if (string[firstStringAt + 1] != '\0') {
-				float32 xAdvance = 0.0f;
-				float32 yAdvance = 0.0f + firstLineMaxAscent;
-				maxLineDescent = 0.0f;
-
-				for (uint32 at = firstStringAt + 1; string[at]; at++) {
-					if (string[at] == '\n') {
-						yAdvance -= font->lineAdvance * scale;
-						xMaxAdvance = xMaxAdvance < xAdvance ? xAdvance : xMaxAdvance;
-						maxLineDescent = 0.0f;
-						xAdvance = 0.0f;
+						firstStringAt++;
 					}
 					else {
-						uint16 glyphIndex = font->GetGlyphIndex(string[at]);;
-						if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
-							Glyph* glyph = &font->glyphs[glyphIndex];
-							UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
-							float32 glyphHeight = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
-							float32 descent = glyphHeight - glyph->yBearing * scale;
-							maxLineDescent = maxLineDescent > descent ? descent : maxLineDescent;
-
-							uint16 nextGlyphIndex = Font::UNDEFINED_CODEPOINT;
-							if (string[at + 1] != '\n' && string[at + 1] != '\0') {
-								nextGlyphIndex = font->GetGlyphIndex(string[at + 1]);;
-							}
-							xAdvance += scale * font->GetPairHorizontalAdvanceUnscaled(glyphIndex, nextGlyphIndex);
-
-							xMaxAdvance = xMaxAdvance < xAdvance ? xAdvance : xMaxAdvance;
-						}
-						else {
-							xAdvance += height - (height / 2);
-							xMaxAdvance = xMaxAdvance < xAdvance ? xAdvance : xMaxAdvance;
-						}
+						firstLineMaxAscent = firstLineMaxAscent > height ? height : firstLineMaxAscent;
+						firstStringAt++;
 					}
 				}
-				rect.max.x = xMaxAdvance;
-				rect.max.y = yAdvance - (font->lineAdvance * scale) + maxLineDescent;
-			} else {
-				float32 newLineAdvance = 0.0f;
-				if (string[firstStringAt] == '\n') {
-					newLineAdvance = font->lineAdvance * scale;
+
+				if (string[firstStringAt] != '\0') {
+					float32 xAdvance = 0.0f;
+					float32 yAdvance = 0.0f + firstLineMaxAscent;
+					maxLineDescent = 0.0f;
+
+					for (uint32 at = firstStringAt + 1; string[at]; at++) {
+						if (string[at] == '\n') {
+							yAdvance -= font->lineAdvance * scale;
+							xMaxAdvance = xMaxAdvance < xAdvance ? xAdvance : xMaxAdvance;
+							maxLineDescent = 0.0f;
+							xAdvance = 0.0f;
+						}
+						else {
+							uint16 glyphIndex = font->GetGlyphIndex(string[at]);;
+							if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
+								Glyph* glyph = &font->glyphs[glyphIndex];
+								UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
+								float32 glyphHeight = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
+								float32 descent = glyphHeight - glyph->yBearing * scale;
+								maxLineDescent = maxLineDescent > descent ? descent : maxLineDescent;
+
+								uint16 nextGlyphIndex = Font::UNDEFINED_CODEPOINT;
+								if (string[at + 1] != '\n' && string[at + 1] != '\0') {
+									nextGlyphIndex = font->GetGlyphIndex(string[at + 1]);;
+								}
+								xAdvance += scale * font->GetPairHorizontalAdvanceUnscaled(glyphIndex, nextGlyphIndex);
+
+								xMaxAdvance = xMaxAdvance < xAdvance ? xAdvance : xMaxAdvance;
+							}
+							else {
+								xAdvance += height - (height / 2);
+								xMaxAdvance = xMaxAdvance < xAdvance ? xAdvance : xMaxAdvance;
+							}
+						}
+					}
+					rect.max.x = xMaxAdvance;
+					rect.max.y = yAdvance - (font->lineAdvance * scale) + maxLineDescent;
 				}
-				rect.max.x = xMaxAdvance;
-				rect.max.y = firstLineMaxAscent + maxLineDescent - newLineAdvance;
+				else {
+					float32 newLineAdvance = 0.0f;
+					if (string[firstStringAt] == '\n') {
+						newLineAdvance = font->lineAdvance * scale;
+					}
+					rect.max.x = xMaxAdvance;
+					rect.max.y = firstLineMaxAscent + maxLineDescent - newLineAdvance;
+				}
 			}
 		}
 		return rect;
@@ -554,16 +596,16 @@ namespace AB {
 					AB_CORE_ERROR("Wrong image format");
 				} break;
 				}
-				AB_GLCALL(glGenTextures(1, &texHandle));
-				AB_GLCALL(glBindTexture(GL_TEXTURE_2D, texHandle));
+				GLCall(glGenTextures(1, &texHandle));
+				GLCall(glBindTexture(GL_TEXTURE_2D, texHandle));
 
-				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
-				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-				AB_GLCALL(glTexImage2D(GL_TEXTURE_2D, 0, inFormat, image.width, image.height, 0, format, GL_UNSIGNED_BYTE, image.bitmap));
+				GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
+				GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+				GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+				GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+				GLCall(glTexImage2D(GL_TEXTURE_2D, 0, inFormat, image.width, image.height, 0, format, GL_UNSIGNED_BYTE, image.bitmap));
 
-				AB_GLCALL(glBindTexture(GL_TEXTURE_2D, 0));
+				GLCall(glBindTexture(GL_TEXTURE_2D, 0));
 
 				s_Properties->textures[freeIndex].used = true;
 				s_Properties->textures[freeIndex].refCount = 1;
@@ -624,16 +666,16 @@ namespace AB {
 				} break;
 				}
 
-				AB_GLCALL(glGenTextures(1, &texHandle));
-				AB_GLCALL(glBindTexture(GL_TEXTURE_2D, texHandle));
+				GLCall(glGenTextures(1, &texHandle));
+				GLCall(glBindTexture(GL_TEXTURE_2D, texHandle));
 
-				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
-				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-				AB_GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-				AB_GLCALL(glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, width, height, 0, glGormat, GL_UNSIGNED_BYTE, bitmap));
+				GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
+				GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+				GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+				GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+				GLCall(glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, width, height, 0, glGormat, GL_UNSIGNED_BYTE, bitmap));
 
-				AB_GLCALL(glBindTexture(GL_TEXTURE_2D, 0));
+				GLCall(glBindTexture(GL_TEXTURE_2D, 0));
 
 				s_Properties->textures[freeIndex].used = true;
 				s_Properties->textures[freeIndex].refCount = 1;
@@ -658,7 +700,7 @@ namespace AB {
 			uint16 index = handle - 1;
 			s_Properties->textures[index].refCount--;
 			if (s_Properties->textures[index].refCount == 0) {
-				AB_GLCALL(glDeleteTextures(1, &s_Properties->textures[handle].glHandle));
+				GLCall(glDeleteTextures(1, &s_Properties->textures[handle].glHandle));
 				s_Properties->textures[index].used = false;
 			}
 		}
@@ -705,13 +747,13 @@ namespace AB {
 			key.depth = depth;
 			key.texHandle = 0;
 			if ((color & 0xff000000) == 0xff000000) {
-				s_Properties->drawQueue[s_Properties->drawQueueUsed] = { position, size,  angle, anchor, color, 0 };
+				s_Properties->drawQueue[s_Properties->drawQueueUsed] = { position, size,  angle, anchor, color, 0, DrawableType::SolidColor };
 				s_Properties->sortBufferA[s_Properties->sortBufferLeftUsage] = { key, s_Properties->drawQueueUsed};
 				s_Properties->sortBufferLeftUsage++;
 				s_Properties->drawQueueUsed++;
 			}
 			else {
-				s_Properties->drawQueue[s_Properties->drawQueueUsed] = { position, size, angle, anchor, color, 0 };
+				s_Properties->drawQueue[s_Properties->drawQueueUsed] = { position, size, angle, anchor, color, 0, DrawableType::SolidColor };
 				s_Properties->sortBufferA[s_Properties->sortBufferRightUsage] = { key, s_Properties->drawQueueUsed};
 				s_Properties->sortBufferRightUsage--;
 				s_Properties->drawQueueUsed++;
@@ -728,13 +770,13 @@ namespace AB {
 			key.depth = depth;
 			key.texHandle = baseTexHandle;
 			if (GetTextureFormat(baseTexHandle) == PixelFormat::RGB) {
-				s_Properties->drawQueue[s_Properties->drawQueueUsed] = { position, size,  angle, anchor, 0, textureHandle };
+				s_Properties->drawQueue[s_Properties->drawQueueUsed] = { position, size,  angle, anchor, 0, textureHandle, DrawableType::Textured };
 				s_Properties->sortBufferA[s_Properties->sortBufferLeftUsage] = { key, s_Properties->drawQueueUsed};
 				s_Properties->sortBufferLeftUsage++;
 				s_Properties->drawQueueUsed++;
 			}
 			else {
-				s_Properties->drawQueue[s_Properties->drawQueueUsed] = { position, size,  angle, anchor, 0, textureHandle };
+				s_Properties->drawQueue[s_Properties->drawQueueUsed] = { position, size,  angle, anchor, 0, textureHandle, DrawableType::Textured };
 				s_Properties->sortBufferA[s_Properties->sortBufferRightUsage] = { key, s_Properties->drawQueueUsed};
 				s_Properties->sortBufferRightUsage--; 
 				s_Properties->drawQueueUsed++;
@@ -885,38 +927,38 @@ namespace AB {
 		return  sortedBuffer;
 	}
 
-	static void GenVertexData(Renderer2DProperties* properties, SortEntry* entry) {
+	static void GenVertexData(Renderer2DProperties* properties, RectangleData* rect, int16 depth) {
 		// TODO: is there any elegant way to initialize non POD struct with zeros?
 		UV uv;
 		memset(&uv, 0, sizeof(UV));
-		if (entry->key.texHandle != 0) {
+		// NOTE: It's just a bit faster to not call this function if handle is 0
+		if (rect->regionTexHandle != 0) {
 			// TODO: There are two different handles now. Base handle in a sort entry and region handle in the draw queue
-			uv = GetTextureRegionUV(properties, properties->drawQueue[entry->renderQueueIndex].regionTexHandle);
+			uv = GetTextureRegionUV(properties, rect->regionTexHandle);
 		}
 
-		uint32 drawQueueIndex = entry->renderQueueIndex;
-		float32 normalizedDepth = (float32)entry->key.depth / 20.0f;
+		float32 normalizedDepth = (float32)depth / 20.0f;
 
-		float32 sin = hpm::Sin(hpm::ToRadians(properties->drawQueue[drawQueueIndex].angle));
-		float32 cos = hpm::Cos(hpm::ToRadians(properties->drawQueue[drawQueueIndex].angle));
+		float32 sin = hpm::Sin(hpm::ToRadians(rect->angle));
+		float32 cos = hpm::Cos(hpm::ToRadians(rect->angle));
 		float32 invHalfW = (2 / properties->viewSpaceDim.x);
 		float32 invHalfH = (2 / properties->viewSpaceDim.y);
 
 		// rotation			// scale // translation	// ortho projection				   
-		float32 originLBX = (((0 + properties->drawQueue[drawQueueIndex].anchor) * cos - (0 + properties->drawQueue[drawQueueIndex].anchor) * sin) * properties->drawQueue[drawQueueIndex].size.x + properties->drawQueue[drawQueueIndex].position.x) * invHalfW - 1;
-		float32 originLBY = (((0 + properties->drawQueue[drawQueueIndex].anchor) * sin + (0 + properties->drawQueue[drawQueueIndex].anchor) * cos) * properties->drawQueue[drawQueueIndex].size.y + properties->drawQueue[drawQueueIndex].position.y) * invHalfH - 1;
-		float32 originRBX = (((1 + properties->drawQueue[drawQueueIndex].anchor) * cos - (0 + properties->drawQueue[drawQueueIndex].anchor) * sin) * properties->drawQueue[drawQueueIndex].size.x + properties->drawQueue[drawQueueIndex].position.x) * invHalfW - 1;
-		float32 originRBY = (((1 + properties->drawQueue[drawQueueIndex].anchor) * sin + (0 + properties->drawQueue[drawQueueIndex].anchor) * cos) * properties->drawQueue[drawQueueIndex].size.y + properties->drawQueue[drawQueueIndex].position.y) * invHalfH - 1;
-		float32 originRTX = (((1 + properties->drawQueue[drawQueueIndex].anchor) * cos - (1 + properties->drawQueue[drawQueueIndex].anchor) * sin) * properties->drawQueue[drawQueueIndex].size.x + properties->drawQueue[drawQueueIndex].position.x) * invHalfW - 1;
-		float32 originRTY = (((1 + properties->drawQueue[drawQueueIndex].anchor) * sin + (1 + properties->drawQueue[drawQueueIndex].anchor) * cos) * properties->drawQueue[drawQueueIndex].size.y + properties->drawQueue[drawQueueIndex].position.y) * invHalfH - 1;
-		float32 originLTX = (((0 + properties->drawQueue[drawQueueIndex].anchor) * cos - (1 + properties->drawQueue[drawQueueIndex].anchor) * sin) * properties->drawQueue[drawQueueIndex].size.x + properties->drawQueue[drawQueueIndex].position.x) * invHalfW - 1;
-		float32 originLTY = (((0 + properties->drawQueue[drawQueueIndex].anchor) * sin + (1 + properties->drawQueue[drawQueueIndex].anchor) * cos) * properties->drawQueue[drawQueueIndex].size.y + properties->drawQueue[drawQueueIndex].position.y) * invHalfH - 1;
+		float32 originLBX = (((0 + rect->anchor) * cos - (0 + rect->anchor) * sin) * rect->size.x + rect->position.x) * invHalfW - 1;
+		float32 originLBY = (((0 + rect->anchor) * sin + (0 + rect->anchor) * cos) * rect->size.y + rect->position.y) * invHalfH - 1;
+		float32 originRBX = (((1 + rect->anchor) * cos - (0 + rect->anchor) * sin) * rect->size.x + rect->position.x) * invHalfW - 1;
+		float32 originRBY = (((1 + rect->anchor) * sin + (0 + rect->anchor) * cos) * rect->size.y + rect->position.y) * invHalfH - 1;
+		float32 originRTX = (((1 + rect->anchor) * cos - (1 + rect->anchor) * sin) * rect->size.x + rect->position.x) * invHalfW - 1;
+		float32 originRTY = (((1 + rect->anchor) * sin + (1 + rect->anchor) * cos) * rect->size.y + rect->position.y) * invHalfH - 1;
+		float32 originLTX = (((0 + rect->anchor) * cos - (1 + rect->anchor) * sin) * rect->size.x + rect->position.x) * invHalfW - 1;
+		float32 originLTY = (((0 + rect->anchor) * sin + (1 + rect->anchor) * cos) * rect->size.y + rect->position.y) * invHalfH - 1;
 
 
 		properties->vertexBuffer[properties->vertexCount].x = originLBX;
 		properties->vertexBuffer[properties->vertexCount].y = originLBY;
 		properties->vertexBuffer[properties->vertexCount].z = normalizedDepth;
-		properties->vertexBuffer[properties->vertexCount].color = properties->drawQueue[drawQueueIndex].color;
+		properties->vertexBuffer[properties->vertexCount].color = rect->color;
 		properties->vertexBuffer[properties->vertexCount].u = uv.min.x;
 		properties->vertexBuffer[properties->vertexCount].v = uv.min.y;
 		properties->vertexCount++;
@@ -924,7 +966,7 @@ namespace AB {
 		properties->vertexBuffer[properties->vertexCount].x = originRBX;
 		properties->vertexBuffer[properties->vertexCount].y = originRBY;
 		properties->vertexBuffer[properties->vertexCount].z = normalizedDepth;
-		properties->vertexBuffer[properties->vertexCount].color = properties->drawQueue[drawQueueIndex].color;
+		properties->vertexBuffer[properties->vertexCount].color = rect->color;
 		properties->vertexBuffer[properties->vertexCount].u = uv.max.x;
 		properties->vertexBuffer[properties->vertexCount].v = uv.min.y;
 		properties->vertexCount++;
@@ -932,7 +974,7 @@ namespace AB {
 		properties->vertexBuffer[properties->vertexCount].x = originRTX;
 		properties->vertexBuffer[properties->vertexCount].y = originRTY;
 		properties->vertexBuffer[properties->vertexCount].z = normalizedDepth;
-		properties->vertexBuffer[properties->vertexCount].color = properties->drawQueue[drawQueueIndex].color;
+		properties->vertexBuffer[properties->vertexCount].color = rect->color;
 		properties->vertexBuffer[properties->vertexCount].u = uv.max.x;
 		properties->vertexBuffer[properties->vertexCount].v = uv.max.y;
 		properties->vertexCount++;
@@ -940,7 +982,7 @@ namespace AB {
 		properties->vertexBuffer[properties->vertexCount].x = originLTX;
 		properties->vertexBuffer[properties->vertexCount].y = originLTY;
 		properties->vertexBuffer[properties->vertexCount].z = normalizedDepth;
-		properties->vertexBuffer[properties->vertexCount].color = properties->drawQueue[drawQueueIndex].color;
+		properties->vertexBuffer[properties->vertexCount].color = rect->color;
 		properties->vertexBuffer[properties->vertexCount].u = uv.min.x;
 		properties->vertexBuffer[properties->vertexCount].v = uv.max.y;
 		properties->vertexCount++;
@@ -954,9 +996,11 @@ namespace AB {
 			if (sortedBuffer[i].key.depth < sortedBuffer[Renderer2D::DRAW_QUEUE_CAPACITY - 1].key.depth) {
 				batchCount++;
 				// Check for last sprite
+				RectangleData* rect = &properties->drawQueue[sortedBuffer[i].renderQueueIndex];
 				if (i + 1 == properties->sortBufferLeftUsage) {
 					properties->batches[properties->batchesUsed].count = batchCount;
 					properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
+					properties->batches[properties->batchesUsed].type = rect->type;
 
 					properties->batchesUsed++;
 					batchCount = 0;
@@ -965,21 +1009,27 @@ namespace AB {
 					if (sortedBuffer[i].key.texHandle != sortedBuffer[i + 1].key.texHandle) {
 						properties->batches[properties->batchesUsed].count = batchCount;
 						properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
+						properties->batches[properties->batchesUsed].type = rect->type;
+
 						properties->batchesUsed++;
 						batchCount = 0;
 					}
 				}
 
-				GenVertexData(properties, &sortedBuffer[i]);
+				GenVertexData(properties, rect, sortedBuffer[i].key.depth);
 			}
 		}
 		//batchCount = 0;
 		for (uint64 i = properties->sortBufferRightUsage + 1; i < Renderer2D::DRAW_QUEUE_CAPACITY; i++) {
 			batchCount++;
 			// Check for last sprite
+			RectangleData* rect = &properties->drawQueue[sortedBuffer[i].renderQueueIndex];
 			if (i + 1 == Renderer2D::DRAW_QUEUE_CAPACITY) {
 				properties->batches[properties->batchesUsed].count = batchCount;
+				// NOTE: This is base handle
 				properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
+				properties->batches[properties->batchesUsed].type = rect->type;
+
 
 				properties->batchesUsed++;
 				batchCount = 0;
@@ -987,22 +1037,28 @@ namespace AB {
 			else {
 				if (sortedBuffer[i].key.texHandle != sortedBuffer[i + 1].key.texHandle) {
 					properties->batches[properties->batchesUsed].count = batchCount;
+					// NOTE: This is base handle
 					properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
+					properties->batches[properties->batchesUsed].type = rect->type;
+
 					properties->batchesUsed++;
 					batchCount = 0;
 				}
 			}
 
-			GenVertexData(properties, &sortedBuffer[i]);
+			GenVertexData(properties, rect, sortedBuffer[i].key.depth);
 		}
 
 		for (uint64 i = 0; i < properties->sortBufferLeftUsage; i++) {
 			if (sortedBuffer[i].key.depth >= sortedBuffer[Renderer2D::DRAW_QUEUE_CAPACITY - 1].key.depth) {
 				batchCount++;
 				// Check for last sprite
+				RectangleData* rect = &properties->drawQueue[sortedBuffer[i].renderQueueIndex];
 				if (i + 1 == properties->sortBufferLeftUsage) {
 					properties->batches[properties->batchesUsed].count = batchCount;
+					// NOTE: This is base handle
 					properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
+					properties->batches[properties->batchesUsed].type = rect->type;
 
 					properties->batchesUsed++;
 					batchCount = 0;
@@ -1010,13 +1066,16 @@ namespace AB {
 				else {
 					if (sortedBuffer[i].key.texHandle != sortedBuffer[i + 1].key.texHandle) {
 						properties->batches[properties->batchesUsed].count = batchCount;
+						// NOTE: This is base handle
 						properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
+						properties->batches[properties->batchesUsed].type = rect->type;
+
 						properties->batchesUsed++;
 						batchCount = 0;
 					}
 				}
 
-				GenVertexData(properties, &sortedBuffer[i]);
+				GenVertexData(properties, rect, sortedBuffer[i].key.depth);
 			}
 		}
 	}
@@ -1034,34 +1093,42 @@ namespace AB {
 		SortEntry* sortedBuffer = SortQueue(s_Properties);
 		GenVertexAndBatchBuffers(s_Properties, sortedBuffer);
 
-		AB_GLCALL(glClearColor(0.2f, 0.3f, 0.3f, 1.0f));
-		AB_GLCALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+		GLCall(glClearColor(0.2f, 0.3f, 0.3f, 1.0f));
+		GLCall(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
-		AB_GLCALL(glBindBuffer(GL_ARRAY_BUFFER, s_Properties->GLVBOHandle));
-		AB_GLCALL(glBufferData(GL_ARRAY_BUFFER, sizeof(VertexData) * s_Properties->vertexCount, (void*)s_Properties->vertexBuffer, GL_DYNAMIC_DRAW));
-		AB_GLCALL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s_Properties->GLIBOHandle));
+		GLCall(glBindBuffer(GL_ARRAY_BUFFER, s_Properties->GLVBOHandle));
+		GLCall(glBufferData(GL_ARRAY_BUFFER, sizeof(VertexData) * s_Properties->vertexCount, (void*)s_Properties->vertexBuffer, GL_DYNAMIC_DRAW));
+		GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s_Properties->GLIBOHandle));
 
-		AB_GLCALL(glEnableVertexAttribArray(0));
-		AB_GLCALL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), 0));
-		AB_GLCALL(glEnableVertexAttribArray(1));
-		AB_GLCALL(glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VertexData), (void*)(sizeof(float32) * 3)));
-		AB_GLCALL(glEnableVertexAttribArray(2));
-		AB_GLCALL(glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)(sizeof(float32) * 3 + sizeof(float) * 1)));
+		GLCall(glEnableVertexAttribArray(0));
+		GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), 0));
+		GLCall(glEnableVertexAttribArray(1));
+		GLCall(glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VertexData), (void*)(sizeof(float32) * 3)));
+		GLCall(glEnableVertexAttribArray(2));
+		GLCall(glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)(sizeof(float32) * 3 + sizeof(float) * 1)));
+		
+		// Always using 0 slot
+		GLCall(glActiveTexture(GL_TEXTURE0));
+		GLCall(glUniform1i(s_Properties->uniformSamplerIndex, 0));
 
-		AB_GLCALL(glUseProgram(s_Properties->shaderHandle));
-		AB_GLCALL(glUniform1i(glGetUniformLocation(s_Properties->shaderHandle, "tex"), 0));
 		uint32 drawCalls = 0;
 		uint64 verticesDrawn = 0;
 		for (uint64 i = 0; i < s_Properties->batchesUsed; i++) {
-			AB_GLCALL(glUniform1f(glGetUniformLocation(s_Properties->shaderHandle, "useTexture"), s_Properties->batches[i].textureHandle ? 1.0f : 0.0f));
-			AB_GLCALL(glActiveTexture(GL_TEXTURE0));
-			if (s_Properties->batches[i].textureHandle > 0) {
-				AB_GLCALL(glBindTexture(GL_TEXTURE_2D, GetTextureRegionAPIHandle(s_Properties, s_Properties->batches[i].textureHandle)));
+			BatchData* batch = &s_Properties->batches[i];
+			if (batch->type == DrawableType::Textured) {
+				GLCall(glUniformSubroutinesuivARB(GL_FRAGMENT_SHADER, 1, &s_Properties->subroutineTextureIndex));
+				if (batch->textureHandle > 0) {
+					GLCall(glBindTexture(GL_TEXTURE_2D, GetTextureRegionAPIHandle(s_Properties, batch->textureHandle)));
+				}
+			} else if (batch->type == DrawableType::Glyph) {
+				GLCall(glUniformSubroutinesuivARB(GL_FRAGMENT_SHADER, 1, &s_Properties->subroutineGlyphIndex));
+				GLCall(glBindTexture(GL_TEXTURE_2D, GetTextureRegionAPIHandle(s_Properties, batch->textureHandle)));
+			} else if (batch->type == DrawableType::SolidColor) {
+				GLCall(glUniformSubroutinesuivARB(GL_FRAGMENT_SHADER, 1, &s_Properties->subroutineSolidIndex));
 			}
-			
-			AB_GLCALL(glDrawElements(GL_TRIANGLES, 6 * s_Properties->batches[i].count, GL_UNSIGNED_SHORT, (void*)verticesDrawn));
-			drawCalls++;
-			verticesDrawn += 6 * s_Properties->batches[i].count * sizeof(uint16);
+				GLCall(glDrawElements(GL_TRIANGLES, 6 * s_Properties->batches[i].count, GL_UNSIGNED_SHORT, (void*)verticesDrawn));
+				drawCalls++;
+				verticesDrawn += 6 * s_Properties->batches[i].count * sizeof(uint16);
 		}
 
 		ResetRenderState(s_Properties);
@@ -1074,9 +1141,9 @@ namespace AB {
 		uint32 winWidth;
 		uint32 winHeight;
 		Window::GetSize(winWidth, winHeight);
-		AB_GLCALL(glViewport(0, 0, winWidth, winHeight));
+		GLCall(glViewport(0, 0, winWidth, winHeight));
 
-		AB_GLCALL(glGenBuffers(1, &properties->GLVBOHandle));
+		GLCall(glGenBuffers(1, &properties->GLVBOHandle));
 
 		uint16* indices = (uint16*)std::malloc(Renderer2D::INDEX_BUFFER_SIZE * sizeof(uint16));
 		uint16 k = 0;
@@ -1093,64 +1160,71 @@ namespace AB {
 		indices[Renderer2D::INDEX_BUFFER_SIZE - 1] = k;
 		indices[Renderer2D::INDEX_BUFFER_SIZE - 2] = k + 1;
 
-		AB_GLCALL(glGenBuffers(1, &properties->GLIBOHandle));
-		AB_GLCALL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, properties->GLIBOHandle));
-		AB_GLCALL(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint16) * Renderer2D::INDEX_BUFFER_SIZE, indices, GL_STATIC_DRAW));
-		AB_GLCALL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+		GLCall(glGenBuffers(1, &properties->GLIBOHandle));
+		GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, properties->GLIBOHandle));
+		GLCall(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint16) * Renderer2D::INDEX_BUFFER_SIZE, indices, GL_STATIC_DRAW));
+		GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
 
 		std::free(indices);
 
-		int32 vertexShader;
-		AB_GLCALL(vertexShader = glCreateShader(GL_VERTEX_SHADER));
-		AB_GLCALL(glShaderSource(vertexShader, 1, &VERTEX_SOURCE, 0));
-		AB_GLCALL(glCompileShader(vertexShader));
+		int32 spriteVertexShader;
+		GLCall(spriteVertexShader = glCreateShader(GL_VERTEX_SHADER));
+		GLCall(glShaderSource(spriteVertexShader, 1, &SPRITE_VERTEX_SOURCE, 0));
+		GLCall(glCompileShader(spriteVertexShader));
 
-		int32 fragmentShader;
-		AB_GLCALL(fragmentShader = glCreateShader(GL_FRAGMENT_SHADER));
-		AB_GLCALL(glShaderSource(fragmentShader, 1, &FRAGMENT_SOURCE, 0));
-		AB_GLCALL(glCompileShader(fragmentShader));
+		int32 spritefragmentShader;
+		GLCall(spritefragmentShader = glCreateShader(GL_FRAGMENT_SHADER));
+		GLCall(glShaderSource(spritefragmentShader, 1, &SPRITE_FRAGMENT_SOURCE, 0));
+		GLCall(glCompileShader(spritefragmentShader));
 
 		int32 result = 0;
-		AB_GLCALL(glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &result));
+		GLCall(glGetShaderiv(spriteVertexShader, GL_COMPILE_STATUS, &result));
 		if (!result) {
 			int32 logLen;
-			AB_GLCALL(glGetShaderiv(vertexShader, GL_INFO_LOG_LENGTH, &logLen));
+			GLCall(glGetShaderiv(spriteVertexShader, GL_INFO_LOG_LENGTH, &logLen));
 			char* message = (char*)alloca(logLen);
-			AB_GLCALL(glGetShaderInfoLog(vertexShader, logLen, NULL, message));
+			GLCall(glGetShaderInfoLog(spriteVertexShader, logLen, NULL, message));
 			AB_CORE_FATAL("Shader compilation error:\n%s", message);
 		};
 
-		AB_GLCALL(glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &result));
+		GLCall(glGetShaderiv(spritefragmentShader, GL_COMPILE_STATUS, &result));
 		if (!result) {
 			int32 logLen;
-			AB_GLCALL(glGetShaderiv(fragmentShader, GL_INFO_LOG_LENGTH, &logLen));
+			GLCall(glGetShaderiv(spritefragmentShader, GL_INFO_LOG_LENGTH, &logLen));
 			char* message = (char*)alloca(logLen);
-			AB_GLCALL(glGetShaderInfoLog(fragmentShader, logLen, NULL, message));
+			GLCall(glGetShaderInfoLog(spritefragmentShader, logLen, NULL, message));
 			AB_CORE_FATAL("Shader compilation error:\n%s", message);
 		};
 
-		AB_GLCALL(properties->shaderHandle = glCreateProgram());
-		AB_GLCALL(glAttachShader(properties->shaderHandle, vertexShader));
-		AB_GLCALL(glAttachShader(properties->shaderHandle, fragmentShader));
-		AB_GLCALL(glLinkProgram(properties->shaderHandle));
-		AB_GLCALL(glGetProgramiv(properties->shaderHandle, GL_LINK_STATUS, &result));
+		GLCall(properties->shaderHandle = glCreateProgram());
+		GLCall(glAttachShader(properties->shaderHandle, spriteVertexShader));
+		GLCall(glAttachShader(properties->shaderHandle, spritefragmentShader));
+		GLCall(glLinkProgram(properties->shaderHandle));
+		GLCall(glGetProgramiv(properties->shaderHandle, GL_LINK_STATUS, &result));
 		if (!result) {
 			int32 logLen;
-			AB_GLCALL(glGetProgramiv(properties->shaderHandle, GL_INFO_LOG_LENGTH, &logLen));
+			GLCall(glGetProgramiv(properties->shaderHandle, GL_INFO_LOG_LENGTH, &logLen));
 			char* message = (char*)alloca(logLen);
-			AB_GLCALL(glGetProgramInfoLog(properties->shaderHandle, logLen, 0, message));
+			GLCall(glGetProgramInfoLog(properties->shaderHandle, logLen, 0, message));
 			AB_CORE_FATAL("Shader compilation error:\n%s", message);
 		}
 
-		AB_GLCALL(glDeleteShader(vertexShader));
-		AB_GLCALL(glDeleteShader(fragmentShader));
+		GLCall(glDeleteShader(spriteVertexShader));
+		GLCall(glDeleteShader(spritefragmentShader));
+
+		GLCall(glUseProgram(properties->shaderHandle));
+		GLCall(properties->subroutineTextureIndex = glGetSubroutineIndexARB(properties->shaderHandle, GL_FRAGMENT_SHADER, "FetchPixelTexture"));
+		GLCall(properties->subroutineGlyphIndex = glGetSubroutineIndexARB(properties->shaderHandle, GL_FRAGMENT_SHADER, "FetchPixelGlyph"));
+		GLCall(properties->subroutineSolidIndex = glGetSubroutineIndexARB(properties->shaderHandle, GL_FRAGMENT_SHADER, "FetchPixelSolid"));
+
+		GLCall(properties->uniformSamplerIndex = glGetUniformLocation(properties->shaderHandle, "sys_Texture"));
 	}
 
 
 	void RenderGroupResizeCallback(uint32 width, uint32 height) {
 		if (Renderer2D::s_Properties) {
 
-			AB_GLCALL(glViewport(0, 0, width, height));
+			GLCall(glViewport(0, 0, width, height));
 		}
 	}
 }

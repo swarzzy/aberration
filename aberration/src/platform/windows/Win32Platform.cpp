@@ -17,6 +17,11 @@ const char* TEMP_GAME_CODE_DLL_NAME = "Sandbox_temp.dll";
 # error Unsupported compiler
 #endif
 
+namespace AB {
+	static void UpdateGameCode(const char* libraryFullPath, const char* libraryDir);
+	static void UnloadGameCode(const char* libraryDir);
+}
+
 static void _GameInitializeDummy(AB::Engine* engine, AB::GameContext* gameContext) {
 	AB_CORE_ERROR("Failed to update game. No game code loaded");
 }
@@ -48,14 +53,14 @@ static void _LoadEngineFunctions(AB::Engine* context) {
 	context->getStringBoundingRect	= AB::Renderer2D::GetStringBoundingRect;
 }
 
-int main() 
+int main()
 {
 	AB_CORE_INFO("Aberration engine");
 	const uint32 executablePathBufferSize = 256;
 	const uint32 executableDirBufferSize = 256;
 	char executablePath[executablePathBufferSize];
 	char executableDir[executableDirBufferSize];
-	
+
 	uint32 executablePathStrSize = 0;
 	if (!AB::GetExecutablePath(executablePath, executablePathBufferSize, &executablePathStrSize)) {
 		// TODO: Handle this. THIS SHOULD NOT BE in distribution build
@@ -91,14 +96,39 @@ int main()
 	AB::UpdateGameCode(gameLibraryPath, executableDir);
 	GameInitialize(engine, gameContext);
 
+	LARGE_INTEGER fequrency;
+	LARGE_INTEGER currentTime;
+	LARGE_INTEGER prevTime;
+	prevTime.QuadPart = 0;
+	QueryPerformanceFrequency(&fequrency);
+	uint64 frameTime = 0;
+
 	while (AB::Window::IsOpen()) {
+		AB::Renderer2D::FillRectangleColor({ 25, 560 }, 10, 0, 0, { 225, 40 }, 0xee2e271e);
+		AB::Renderer2D::FillRectangleColor({ 0, 560 }, 10, 0, 0, { 25, 40 }, 0xff01a8ff);
+		char buffer[16];
+		wchar_t wbuffer[16];
+		AB::FormatString(buffer, 16, "%3u64 ms | 0 dc", frameTime);
+		mbstowcs(wbuffer, buffer, 16);
+		hpm::Rectangle strr = AB::Renderer2D::GetStringBoundingRect(20.0, wbuffer);
+		float32 h = (40 + strr.max.y) / 2;
+		AB::Renderer2D::DebugDrawString({ 35, 600 - h }, 20.0, 0xffffffff, wbuffer);
+
+
 		AB::UpdateGameCode(gameLibraryPath, executableDir);
 		GameUpdate(engine, gameContext);
 		GameRender(engine, gameContext);
+
 		AB::Renderer2D::Flush();
 		AB::Window::PollEvents();
 		AB::Window::SwapBuffers();
-		
+
+		QueryPerformanceCounter(&currentTime);
+		LARGE_INTEGER elapsed;
+		elapsed.QuadPart = currentTime.QuadPart - prevTime.QuadPart;
+		frameTime = (elapsed.QuadPart * 1000) / fequrency.QuadPart;
+		prevTime.QuadPart = currentTime.QuadPart;
+		//AB::PrintString("%u64\n", frameTime);
 	}
 	AB::UnloadGameCode(executableDir);
 	return 0;
@@ -109,7 +139,7 @@ namespace AB {
 	static HMODULE g_GameCodeDLL = nullptr;
 	uint64 g_LastWriteTime = 0;
 
-	void UpdateGameCode(const char* libraryFullPath, const char* libraryDir) {
+	static void UpdateGameCode(const char* libraryFullPath, const char* libraryDir) {
 		WIN32_FIND_DATA findData;
 		HANDLE findHandle = FindFirstFile(libraryFullPath, &findData);
 		if (findHandle != INVALID_HANDLE_VALUE) {
@@ -117,7 +147,7 @@ namespace AB {
 			FILETIME fileTime = findData.ftLastWriteTime;
 			uint64 writeTime = ((uint64)0 | fileTime.dwLowDateTime) | ((uint64)0 | fileTime.dwHighDateTime) << 32;
 			if (writeTime != g_LastWriteTime) {
-				
+
 				UnloadGameCode(libraryDir);
 
 				DeleteFile(TEMP_GAME_CODE_DLL_NAME);
@@ -153,7 +183,7 @@ namespace AB {
 		}
 	}
 
-	void UnloadGameCode(const char* libraryDir) {
+	static void UnloadGameCode(const char* libraryDir) {
 		char buff[280];
 		FormatString(buff, 280, "%s%s", libraryDir, TEMP_GAME_CODE_DLL_NAME);
 
@@ -172,6 +202,7 @@ namespace AB {
 		else
 			return true;
 	}
+
 	uint32 DateTime::ToString(char* buffer, uint32 bufferSize) {
 		if (hour < 24 && minute < 60 && seconds < 60) {
 			if (bufferSize >= DATETIME_STRING_SIZE) {

@@ -10,12 +10,15 @@
 // FORWARD DECLARATIONS
 namespace AB::GL {
 	bool32 LoadFunctions();
+	bool32 LoadExtensions();
 	void InitAPI();
 }
 
 namespace AB {
 	extern void RenderGroupResizeCallback(uint32 width, uint32 height);
 }
+
+
 
 // TODO:
 // -- WGL_ARB_framebuffer_sRGB
@@ -382,10 +385,11 @@ namespace AB {
 		AB_CORE_ASSERT(resultDPF, "Failed to initialize OpenGL extended context.");
 		SetPixelFormat(actualWindowDC, actualPixelFormatID, &actualPixelFormat);
 
+		// NOTE: Using compatible profile because for some reason extensions doesn't work on in core profile
 		int contextAttribs[] = {
 			WGL_CONTEXT_MAJOR_VERSION_ARB, OPENGL_MAJOR_VERSION,
 			WGL_CONTEXT_MINOR_VERSION_ARB, OPENGL_MINOR_VERSION,
-			WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+			WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
 			0
 		};
 
@@ -402,6 +406,9 @@ namespace AB {
 
 		bool32 glLoadResult = GL::LoadFunctions();
 		AB_CORE_ASSERT(glLoadResult, "Failed to load OpenGL");
+		bool32 glEXTLoadResult = GL::LoadExtensions();
+		AB_CORE_ASSERT(glEXTLoadResult, "Failed to load OpenGL extensions");
+
 		GL::InitAPI();
 
 		s_WindowProperties->Win32WindowHandle = actualWindowHandle;

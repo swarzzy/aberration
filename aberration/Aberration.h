@@ -1,6 +1,5 @@
 #pragma once
-#include "src/ABHeader.h"
-#include "src/platform/Input.h"
+#include <src/platform/Input.h>
 #include <hypermath.h>
 
 #if defined(AB_PLATFORM_WINDOWS)
@@ -24,7 +23,7 @@ namespace AB {
 
 	typedef void(ABRendererFillRectangleColorFn)(hpm::Vector2 position, uint16 depth, float32 angle, float32 anchor, hpm::Vector2 size, color32 color);
 	typedef void(ABRendererFillRectangleTextureFn)(hpm::Vector2 position, uint16 depth, float32 angle, float32 anchor, hpm::Vector2 size, uint16 textureHandle);
-	typedef void(ABDebugDrawStringFn)(hpm::Vector2 position, float32 scale, const wchar_t* string);
+	typedef void(ABDebugDrawStringFn)(hpm::Vector2 position, float32 scale, color32 color, const wchar_t* string);
 	typedef hpm::Rectangle(ABGetStringBoundingRectFn)(float32 height, const wchar_t* string);
 	typedef uint16(ABRendererLoadTextureFn)(const char* filepath);
 	typedef void(ABRendererFreeTextureFn)(uint16 handle);

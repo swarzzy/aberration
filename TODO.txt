@@ -8,3 +8,7 @@
 -- Set bytes read to zero at the beginning of DebugReadFile function
 
 -- Delete dependencies folder
+
+!!!!!
+-- TEST OPENGL ETTENSIONS ON LINUX WITH NVIDIA
+-- TEST OPENGL EXTENSIONS ON ATI

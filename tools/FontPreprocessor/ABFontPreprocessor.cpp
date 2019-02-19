@@ -343,7 +343,7 @@ int main(int argc, char** argv) {
 	CommandLineArgs args = ParseCommandLineArgs(argc, argv);
 	uint32 bytesRead = 0;
 #if defined(AB_PLATFORM_WINDOWS)
-	const char* path = "c:\\windows\\fonts\\arial.ttf";
+	const char* path = "c:\\windows\\fonts\\SourceCodePro-Regular.ttf";
 #else
 	const char* path = nullptr;
 #endif

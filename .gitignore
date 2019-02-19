@@ -4,6 +4,7 @@ build/
 Makefile
 deprecated
 .clang-complete
+.clang_complete
 
 # CLion
 cmake-build-debug/

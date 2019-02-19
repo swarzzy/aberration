@@ -13,6 +13,7 @@
 // FORWARD DECLARATIONS
 namespace AB::GL {
 	bool32 LoadFunctions();
+	bool32 LoadExtensions();
 	void InitAPI();
 }
 
@@ -523,10 +524,11 @@ namespace AB {
 		bool32 GLXExtensionsLoaded = _GLXLoadExtensions(s_WindowProperties);
 		AB_CORE_ASSERT(GLXExtensionsLoaded, "Failed to load GLX Extensions.");
 
+		// NOTE: Using compatible profile because for some reason extensions doesn't work on in core profile
 		int contextAttribs[] = {
 			GLX_CONTEXT_MAJOR_VERSION_ARB, OPENGL_MAJOR_VERSION,
 			GLX_CONTEXT_MINOR_VERSION_ARB, OPENGL_MINOR_VERSION,
-			GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
+			GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
 			0
 		};
 
@@ -542,6 +544,8 @@ namespace AB {
 
 		bool32 glLoadResult = GL::LoadFunctions();
 		AB_CORE_ASSERT(glLoadResult, "Failed to load OpenGL");
+		bool32 glEXTLoadResult = GL::LoadExtensions();
+		AB_CORE_ASSERT(glLoadResult, "Failed to load OpenGL Extensions");
 		GL::InitAPI();
 
 		// ^^^^ GL context

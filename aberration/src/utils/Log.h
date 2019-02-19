@@ -1,5 +1,5 @@
 #pragma once
-#include "src/ABHeader.h"
+#include "ABHeader.h"
 
 #if defined(AB_PLATFORM_WINDOWS)
 #define AB_DEBUG_BREAK() __debugbreak()
@@ -16,7 +16,7 @@ namespace AB {
 		Info,
 	};
 
-	// If buffer is big enough returns number of characters written (without null terminator), 
+	// If buffer is big enough returns number of characters written (without null terminator),
 	// otherwise returns -1
 	int32 FormatString(char* buffer, uint32 bufferSize, const char* format, ...);
 	void PrintString(const char* format, ...);
@@ -55,7 +55,7 @@ namespace AB {
 #endif
 #endif
 
-//#define AB_CORE_INFO(format, ...) _AB_CORE_INFO(format, __VA_ARGS__) 
+//#define AB_CORE_INFO(format, ...) _AB_CORE_INFO(format, __VA_ARGS__)
 //#define AB_CORE_WARN(format, ...) _AB_CORE_WARN(format, __VA_ARGS__)
 //#define AB_CORE_ERROR(format, ...) _AB_CORE_ERROR(format, __VA_ARGS__)
 //#define AB_CORE_FATAL(format, ...) _AB_CORE_FATAL(format, __VA_ARGS__)
@@ -69,7 +69,7 @@ namespace AB {
 
 namespace AB::Log {
 
-	
+
 
 	void Initialize(LogLevel level);
 	void Message(LogLevel level, const char* file, const char* func, uint32 line, const char* format, ...);
@@ -152,7 +152,7 @@ namespace AB::utils {
 
 
 
-	inline Log::Log(LogLevel level) 
+	inline Log::Log(LogLevel level)
 		: m_LogLevel(level)
 		, m_Filled(0)
 	{}
@@ -196,7 +196,7 @@ namespace AB::utils {
 			//m_Filled += DateTime::DATETIME_STRING_SIZE + 1;
 
 			HandleArgs(std::forward<Args>(args)...);
-			
+
 			switch (level) {
 			case LogLevel::Info: { ConsoleSetColor(ConsoleColor::DarkGreen, ConsoleColor::Black); } break;
 			case LogLevel::Warn: { ConsoleSetColor(ConsoleColor::DarkYellow, ConsoleColor::Black); } break;
@@ -210,7 +210,7 @@ namespace AB::utils {
 			m_Filled = 0;
 		}
 	}
-	
+
 	// Expand args with recursion
 	template <typename Arg>
 	void Log::HandleArgs(Arg&& arg) {
@@ -231,7 +231,7 @@ namespace AB::utils {
 			}
 		}
 	}
-	
+
 	template <typename First, typename... Args>
 	void Log::HandleArgs(First&& first, Args&&... args) {
 		String str = ToString(first);

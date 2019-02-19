@@ -1,5 +1,5 @@
 #pragma once 
-#include "src/ABHeader.h"
+#include "ABHeader.h"
 #include <hypermath.h>
 #include <../Aberration.h>
 
@@ -11,10 +11,6 @@ typedef void(GameRenderFn)(AB::Engine* engine, AB::GameContext* gameContext);
 int main();
 
 namespace AB {
-
-	void UpdateGameCode(const char* libraryFullPath, const char* libraryDir);
-	void UnloadGameCode(const char* libraryDir);
-
 	// If buffer is to small, writes bufferSizeBytes chars, set bytesWritten to bufferSizeBytes and returns false
 	bool32 GetExecutablePath(char* buffer, uint32 bufferSizeBytes, uint32* bytesWritten);
 

@@ -10,6 +10,10 @@
 #include <sys/stat.h>
 #include <dlfcn.h>
 
+namespace AB {
+	static void UpdateGameCode(const char* libraryFullPath, const char* libraryDir);
+	static void UnloadGameCode(const char* libraryDir);
+}
 
 const char* GAME_CODE_DLL_NAME = "libSandbox.so";
 const char* TEMP_GAME_CODE_DLL_NAME = "libSandbox_temp.so";
@@ -106,7 +110,7 @@ namespace AB {
 	static void* g_GameCodeDLL = nullptr;
 	time_t g_LastWriteTime = 0;
 
-	void UpdateGameCode(const char* libraryFullPath, const char* libraryDir) {
+	static void UpdateGameCode(const char* libraryFullPath, const char* libraryDir) {
         char tempLibName[280];
 		struct stat fileAttribs;
 		if (stat(libraryFullPath, &fileAttribs) == 0) {
@@ -152,7 +156,7 @@ namespace AB {
 		}
 	}
 
-	void UnloadGameCode(const char* libraryDir) {
+	static void UnloadGameCode(const char* libraryDir) {
 		char buff[280];
 		AB::FormatString(buff, 280, "%s%s", libraryDir, TEMP_GAME_CODE_DLL_NAME);
 

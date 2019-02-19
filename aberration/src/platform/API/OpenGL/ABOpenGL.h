@@ -1,11 +1,9 @@
 #pragma once
-#include "src/ABHeader.h"
-//#include "src/Common.h"
-//#include "src/Types.h"
+#include "ABHeader.h"
 #include "khrplatform.h"
 #include "src/utils/Log.h"
 
-// Aberration OpenGL header 
+// Aberration OpenGL header
 // Based on glcorearb.h
 
 #if defined(__gl_h_)
@@ -13,13 +11,12 @@
 #endif
 
 namespace AB::GL {
-	// These shouldn`t be exported
-	AB_API void _ClearErrorQueue();
-	AB_API bool32 _PeekError();
-	AB_API void _GetLog(char* buffer, uint64 size);
+	void _ClearErrorQueue();
+	bool32 _PeekError();
+	void _GetLog(char* buffer, uint64 size);
 }
 
-#if !defined(AB_CONFIG_DEBUG)
+#if defined(AB_CONFIG_DEBUG)
 #define _AB_GLCALL(call) \
 	do {\
 		AB::GL::_ClearErrorQueue();\
@@ -31,13 +28,16 @@ namespace AB::GL {
 		}\
 	} while (false)\
 
-#define AB_GLCALL(call) _AB_GLCALL(call)
+#define AB_GLCALL(proc) _AB_GLCALL(proc)
+#define GLCall(proc) _AB_GLCALL(proc)
 #else
-#define AB_GLCALL(call) call
+#define AB_GLCALL(proc) proc
+#define GLCall(proc) proc
 #endif
 
 namespace AB::GL {
 	bool32 LoadFunctions();
+	bool32 LoadExtensions();
 	void InitAPI();
 }
 
@@ -374,7 +374,7 @@ typedef void(*PROC)(void);
 #define GL_SMOOTH_LINE_WIDTH_RANGE                       0x0B22
 #define GL_SMOOTH_LINE_WIDTH_GRANULARITY                 0x0B23
 #define GL_ALIASED_LINE_WIDTH_RANGE                      0x846E
-#define GL_VERSION_1_3 1				                 
+#define GL_VERSION_1_3 1
 #define GL_TEXTURE0                                      0x84C0
 #define GL_TEXTURE1                                      0x84C1
 #define GL_TEXTURE2                                      0x84C2
@@ -1316,7 +1316,51 @@ typedef void            (APIENTRYP PFNGLVERTEXATTRIBP3UIVPROC) (GLuint index, GL
 typedef void            (APIENTRYP PFNGLVERTEXATTRIBP4UIPROC) (GLuint index, GLenum type, GLboolean normalized, GLuint value);
 typedef void            (APIENTRYP PFNGLVERTEXATTRIBP4UIVPROC) (GLuint index, GLenum type, GLboolean normalized, const GLuint *value);
 
+// GL_ARB_gpu_shader5 extension
+#define GEOMETRY_SHADER_INVOCATIONS                      0x887F
+#define MAX_GEOMETRY_SHADER_INVOCATIONS                  0x8E5A
+#define MIN_FRAGMENT_INTERPOLATION_OFFSET                0x8E5B
+#define MAX_FRAGMENT_INTERPOLATION_OFFSET                0x8E5C
+#define FRAGMENT_INTERPOLATION_OFFSET_BITS               0x8E5D
+#define MAX_VERTEX_STREAMS                               0x8E71
+
+// GL_ARB_shader_subroutine
+#define ACTIVE_SUBROUTINES                               0x8DE5
+#define ACTIVE_SUBROUTINE_UNIFORMS                       0x8DE6
+#define ACTIVE_SUBROUTINE_UNIFORM_LOCATIONS              0x8E47
+#define ACTIVE_SUBROUTINE_MAX_LENGTH                     0x8E48
+#define ACTIVE_SUBROUTINE_UNIFORM_MAX_LENGTH             0x8E49
+#define MAX_SUBROUTINES                                  0x8DE7
+#define MAX_SUBROUTINE_UNIFORM_LOCATIONS                 0x8DE8
+#define NUM_COMPATIBLE_SUBROUTINES                       0x8E4A
+#define COMPATIBLE_SUBROUTINES                           0x8E4B
+
+typedef GLint  (APIENTRYP PFNGLGETSUBROUTINEUNIFORMLOCATIONPROC) (GLuint program, GLenum shadertype, const GLchar *name);
+typedef GLuint (APIENTRYP PFNGLGETSUBROUTINEINDEXPROC) (GLuint program, GLenum shadertype, const GLchar *name);
+typedef GLvoid (APIENTRYP PFNGLGETACTIVESUBROUTINEUNIFORMIVPROC) (GLuint program, GLenum shadertype, GLuint index, GLenum pname, GLint *values);
+typedef GLvoid (APIENTRYP PFNGLGETACTIVESUBROUTINEUNIFORMNAMEPROC) (GLuint program, GLenum shadertype, GLuint index, GLsizei bufsize, GLsizei *length, GLchar *name);
+typedef GLvoid (APIENTRYP PFNGLGETACTIVESUBROUTINENAMEPROC) (GLuint program, GLenum shadertype, GLuint index,	GLsizei bufsize, GLsizei *length, GLchar *name);
+typedef GLvoid (APIENTRYP PFNGLUNIFORMSUBROUTINESUIVPROC) (GLenum shadertype, GLsizei count,	const GLuint *indices);
+typedef GLvoid (APIENTRYP PFNGLGETUNIFORMSUBROUTINEUIVPROC) (GLenum shadertype, GLint location,	GLuint *params);
+typedef GLvoid (APIENTRYP PFNGLGETPROGRAMSTAGEIVPROC) (GLuint program, GLenum shadertype, GLenum pname, GLint *values);
+
+
 #define AB_OPENGL_FUNCTIONS_COUNT 345
+#define AB_OPENGL_EXTENSIONS_FUNCTIONS_COUNT 8
+
+union ABGLExtensionsProcs {
+	AB_GLFUNCPTR procs[AB_OPENGL_EXTENSIONS_FUNCTIONS_COUNT];
+	struct {
+		PFNGLGETSUBROUTINEUNIFORMLOCATIONPROC   _glGetSubroutineUniformLocationARB;
+		PFNGLGETSUBROUTINEINDEXPROC             _glGetSubroutineIndexARB;
+		PFNGLGETACTIVESUBROUTINEUNIFORMIVPROC   _glGetActiveSubroutineUniformivARB;
+		PFNGLGETACTIVESUBROUTINEUNIFORMNAMEPROC _glGetActiveSubroutineUniformNameARB;
+		PFNGLGETACTIVESUBROUTINENAMEPROC        _glGetActiveSubroutineNameARB;
+		PFNGLUNIFORMSUBROUTINESUIVPROC          _glUniformSubroutinesuivARB;
+		PFNGLGETUNIFORMSUBROUTINEUIVPROC        _glGetUniformSubroutineuivARB;
+		PFNGLGETPROGRAMSTAGEIVPROC              _glGetProgramStageivARB;
+	};
+};
 
 union ABGLProcs {
 	AB_GLFUNCPTR procs[AB_OPENGL_FUNCTIONS_COUNT];
@@ -1682,6 +1726,17 @@ union ABGLProcs {
 };
 
 extern AB_API ABGLProcs _ABOpenGLProcs;
+extern AB_API ABGLExtensionsProcs _ABOpenGLExtProcs;
+
+// GL_ARB_shader_subroutine
+#define glGetSubroutineUniformLocationARB          _ABOpenGLExtProcs._glGetSubroutineUniformLocationARB
+#define glGetSubroutineIndexARB					   _ABOpenGLExtProcs._glGetSubroutineIndexARB
+#define glGetActiveSubroutineUniformivARB		   _ABOpenGLExtProcs._glGetActiveSubroutineUniformivARB
+#define glGetActiveSubroutineUniformNameARB		   _ABOpenGLExtProcs._glGetActiveSubroutineUniformNameARB
+#define glGetActiveSubroutineNameARB			   _ABOpenGLExtProcs._glGetActiveSubroutineNameARB
+#define glUniformSubroutinesuivARB				   _ABOpenGLExtProcs._glUniformSubroutinesuivARB
+#define glGetUniformSubroutineuivARB			   _ABOpenGLExtProcs._glGetUniformSubroutineuivARB
+#define glGetProgramStageivARB					   _ABOpenGLExtProcs._glGetProgramStageivARB
 
 // OpenGL 1.0
 #define glCullFace					_ABOpenGLProcs._glCullFace

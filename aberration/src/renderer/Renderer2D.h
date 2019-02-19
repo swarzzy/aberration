@@ -1,5 +1,5 @@
 #pragma once
-#include "src/ABHeader.h"
+#include "ABHeader.h"
 #include "utils/ImageLoader.h"
 
 namespace hpm {
@@ -8,7 +8,6 @@ namespace hpm {
 }
 
 namespace AB {
-
 	class AB_API Renderer2D final {
 		AB_DISALLOW_COPY_AND_MOVE(Renderer2D)
 	private:
@@ -30,7 +29,7 @@ namespace AB {
 		static void Destroy();
 		
 		static uint16 LoadFont(const char* filepath);
-		static void DebugDrawString(hpm::Vector2 position, float32 height, const wchar_t* string);
+		static void DebugDrawString(hpm::Vector2 position, float32 height, color32 color, const wchar_t* string);
 		static hpm::Rectangle GetStringBoundingRect(float32 height, const wchar_t* string);
 		static uint16 LoadTexture(const char* filepath);
 		// TODO: Make enum for texture formats
