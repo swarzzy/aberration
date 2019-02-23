@@ -359,9 +359,9 @@ namespace AB {
 		}
 	}
 
-	void Window::GetSize(uint32& width, uint32& height) {
-		width = s_WindowProperties->width;
-		height = s_WindowProperties->height;
+	void Window::GetSize(uint32* width, uint32* height) {
+		*width = s_WindowProperties->width;
+		*height = s_WindowProperties->height;
 	}
 
 	void Window::SetCloseCallback(CloseCallback* func) {
@@ -380,9 +380,9 @@ namespace AB {
 		s_WindowProperties->keyCallback = func;
 	}
 
-	void Window::GetMousePosition(uint32& xPos, uint32& yPos) {
-		xPos = s_WindowProperties->mousePositionX;
-		yPos = s_WindowProperties->mousePositionY;
+	void Window::GetMousePosition(uint32* xPos, uint32* yPos) {
+		*xPos = s_WindowProperties->mousePositionX;
+		*yPos = s_WindowProperties->height - s_WindowProperties->mousePositionY;
 	}
 
 	bool Window::MouseButtonPressed(MouseButton button) {
@@ -524,11 +524,10 @@ namespace AB {
 		bool32 GLXExtensionsLoaded = _GLXLoadExtensions(s_WindowProperties);
 		AB_CORE_ASSERT(GLXExtensionsLoaded, "Failed to load GLX Extensions.");
 
-		// NOTE: Using compatible profile because for some reason extensions doesn't work on in core profile
 		int contextAttribs[] = {
 			GLX_CONTEXT_MAJOR_VERSION_ARB, OPENGL_MAJOR_VERSION,
 			GLX_CONTEXT_MINOR_VERSION_ARB, OPENGL_MINOR_VERSION,
-			GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+			GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
 			0
 		};
 

@@ -8,14 +8,16 @@ namespace hpm {
 }
 
 namespace AB {
-	class AB_API Renderer2D final {
+	struct RendererDebugInfo {
+		uint32 drawCalls;
+		uint32 verticesDrawn;
+	};
+
+	struct AB_API Renderer2D final {
 		AB_DISALLOW_COPY_AND_MOVE(Renderer2D)
-	private:
 		inline static struct Renderer2DProperties* s_Properties = nullptr;
 
-	public:
 		Renderer2D() = delete;
-		~Renderer2D() {};
 		// TODO: Move tis into .cpp
 
 		static constexpr uint64 DRAW_QUEUE_CAPACITY = 1024;
@@ -24,13 +26,21 @@ namespace AB {
 		static constexpr uint16 FONT_STORAGE_SIZE = 1;
 		static constexpr uint64 FONT_MAX_CODEPOINTS = 500;
 		static constexpr uint16 DEFAULT_FONT_HANDLE = 1;
+		static constexpr float64 DEFAULT_MIN_DEPTH = 10;
+		static constexpr float64 DEFAULT_MAX_DEPTH = 0;
 
-		static void Initialize(uint32 drawableSpaceX, uint32 drawableSpaceY);
+		static void Initialize(uint32 drawableSpaceX, uint32 drawableSpaceY, float32 nearp = 10, float32 farp = 0);
 		static void Destroy();
-		
+
+		static bool32 DrawRectangleColorUI(hpm::Vector2 min, hpm::Vector2 max, uint16 depth, float32 angle, float32 anchor, color32 color);
 		static uint16 LoadFont(const char* filepath);
+
+		static void DebugDrawString(hpm::Vector2 position, float32 height, color32 color, const char* string);
 		static void DebugDrawString(hpm::Vector2 position, float32 height, color32 color, const wchar_t* string);
-		static hpm::Rectangle GetStringBoundingRect(float32 height, const wchar_t* string);
+
+		static hpm::Rectangle GetStringBoundingRect(hpm::Vector2 position, float32 height, const char* string);
+		static hpm::Rectangle GetStringBoundingRect(hpm::Vector2 position, float32 height, const wchar_t* string);
+
 		static uint16 LoadTexture(const char* filepath);
 		// TODO: Make enum for texture formats
 		static uint16 LoadTextureFromBitmap(PixelFormat format, uint32 width, uint32 height, const byte* bitmap);

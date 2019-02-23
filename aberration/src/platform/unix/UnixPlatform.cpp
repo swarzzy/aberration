@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <dlfcn.h>
+#include "utils/DebugTools.h"
 
 namespace AB {
 	static void UpdateGameCode(const char* libraryFullPath, const char* libraryDir);
@@ -48,6 +49,11 @@ static void _LoadEngineFunctions(AB::Engine* context) {
 	context->debugDrawString = AB::Renderer2D::DebugDrawString;
 	context->getStringBoundingRect = AB::Renderer2D::GetStringBoundingRect;
 }
+
+static AB::ApplicationProperties* g_AppProperties = nullptr;
+
+static constexpr int64 UPDATE_INTERVAL = 16000;
+static constexpr int64 SECOND_INTERVAL = 1000000;
 
 int main()
 {
@@ -92,14 +98,46 @@ int main()
 	AB::UpdateGameCode(gameLibraryPath, executableDir);
 	GameInitialize(engine, gameContext);
 
+	// TODO: Custom allocator
+	g_AppProperties = (AB::ApplicationProperties*)malloc(sizeof(AB::ApplicationProperties));
+	memset(g_AppProperties, 0, sizeof(AB::ApplicationProperties));
+
+	g_AppProperties->runningTime = AB::GetCurrentRawTime();
+
+	AB::DebugOverlayProperties debugOverlay = {};
+
+	int64 updateTimer = UPDATE_INTERVAL;
+	int64 tickTimer = SECOND_INTERVAL;
+	uint32 updatesSinceLastTick = 0;
+
 	while (AB::Window::IsOpen()) {
-		AB::UpdateGameCode(gameLibraryPath, executableDir);
-		GameUpdate(engine, gameContext);
+		if (tickTimer <= 0) {
+			tickTimer = SECOND_INTERVAL;
+			g_AppProperties->ups = updatesSinceLastTick;
+			updatesSinceLastTick = 0;
+			AB::UpdateDebugOverlay(&debugOverlay);
+		}
+
+		if (updateTimer <= 0) {
+			updateTimer = UPDATE_INTERVAL;
+			updatesSinceLastTick++;
+			AB::UpdateGameCode(gameLibraryPath, executableDir);
+			GameUpdate(engine, gameContext);
+		}
+
+		AB::DrawDebugOverlay(&debugOverlay);
 		GameRender(engine, gameContext);
+
 		AB::Renderer2D::Flush();
 		AB::Window::PollEvents();
 		AB::Window::SwapBuffers();
 
+		int64 currentTime = AB::GetCurrentRawTime();
+		g_AppProperties->frameTime = currentTime - g_AppProperties->runningTime;
+		g_AppProperties->runningTime = currentTime;
+		tickTimer -= g_AppProperties->frameTime;
+		updateTimer -= g_AppProperties->frameTime;
+		g_AppProperties->fps = SECOND_INTERVAL / g_AppProperties->frameTime;
 	}
 	AB::UnloadGameCode(executableDir);
 	return 0;
@@ -182,6 +220,19 @@ namespace AB {
 			*bytesWritten = 0;
 			return  false;
 		}
+	}
+
+	int64 GetCurrentRawTime() {
+		int64 time = 0;
+		struct timespec tp;
+		if (clock_gettime(CLOCK_MONOTONIC_RAW, &tp) == 0) {
+			time = ((int64)tp.tv_sec * 1000000) + ((int64)tp.tv_nsec / 1000);
+		}
+		return time;
+	}
+
+	const ApplicationProperties* GetAppProperties() {
+		return g_AppProperties;
 	}
 
 	uint32 DateTime::ToString(char* buffer, uint32 bufferSize) {

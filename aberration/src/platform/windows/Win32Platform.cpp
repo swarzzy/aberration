@@ -5,6 +5,7 @@
 #include "src/platform/Window.h"
 #include "src/renderer/Renderer2D.h"
 #include "platform/API/OpenGL/ABOpenGL.h"
+#include "utils/DebugTools.h"
 
 // TODO: They are shouldn`t be hardcoded
 #if defined(_MSC_VER)
@@ -53,6 +54,11 @@ static void _LoadEngineFunctions(AB::Engine* context) {
 	context->getStringBoundingRect	= AB::Renderer2D::GetStringBoundingRect;
 }
 
+static AB::ApplicationProperties* g_AppProperties = nullptr;
+
+static constexpr int64 UPDATE_INTERVAL = 16000;
+static constexpr int64 SECOND_INTERVAL = 1000000;
+
 int main()
 {
 	AB_CORE_INFO("Aberration engine");
@@ -96,39 +102,46 @@ int main()
 	AB::UpdateGameCode(gameLibraryPath, executableDir);
 	GameInitialize(engine, gameContext);
 
-	LARGE_INTEGER fequrency;
-	LARGE_INTEGER currentTime;
-	LARGE_INTEGER prevTime;
-	prevTime.QuadPart = 0;
-	QueryPerformanceFrequency(&fequrency);
-	uint64 frameTime = 0;
+	// TODO: Custom allocator
+	g_AppProperties = (AB::ApplicationProperties*)malloc(sizeof(AB::ApplicationProperties));
+	memset(g_AppProperties, 0, sizeof(AB::ApplicationProperties));
+
+	g_AppProperties->runningTime = AB::GetCurrentRawTime();
+
+	AB::DebugOverlayProperties debugOverlay = {};
+
+	int64 updateTimer = UPDATE_INTERVAL;
+	int64 tickTimer = SECOND_INTERVAL;
+	uint32 updatesSinceLastTick = 0;
 
 	while (AB::Window::IsOpen()) {
-		AB::Renderer2D::FillRectangleColor({ 25, 560 }, 10, 0, 0, { 225, 40 }, 0xee2e271e);
-		AB::Renderer2D::FillRectangleColor({ 0, 560 }, 10, 0, 0, { 25, 40 }, 0xff01a8ff);
-		char buffer[16];
-		wchar_t wbuffer[16];
-		AB::FormatString(buffer, 16, "%3u64 ms | 0 dc", frameTime);
-		mbstowcs(wbuffer, buffer, 16);
-		hpm::Rectangle strr = AB::Renderer2D::GetStringBoundingRect(20.0, wbuffer);
-		float32 h = (40 + strr.max.y) / 2;
-		AB::Renderer2D::DebugDrawString({ 35, 600 - h }, 20.0, 0xffffffff, wbuffer);
+		if (tickTimer <= 0) {
+			tickTimer = SECOND_INTERVAL;
+			g_AppProperties->ups = updatesSinceLastTick;
+			updatesSinceLastTick = 0;
+			AB::UpdateDebugOverlay(&debugOverlay);
+		}
 
+		if(updateTimer <= 0) {
+			updateTimer = UPDATE_INTERVAL;
+			updatesSinceLastTick++;
+			AB::UpdateGameCode(gameLibraryPath, executableDir);
+			GameUpdate(engine, gameContext);
+		}
 
-		AB::UpdateGameCode(gameLibraryPath, executableDir);
-		GameUpdate(engine, gameContext);
+		AB::DrawDebugOverlay(&debugOverlay);
 		GameRender(engine, gameContext);
 
 		AB::Renderer2D::Flush();
 		AB::Window::PollEvents();
 		AB::Window::SwapBuffers();
 
-		QueryPerformanceCounter(&currentTime);
-		LARGE_INTEGER elapsed;
-		elapsed.QuadPart = currentTime.QuadPart - prevTime.QuadPart;
-		frameTime = (elapsed.QuadPart * 1000) / fequrency.QuadPart;
-		prevTime.QuadPart = currentTime.QuadPart;
-		//AB::PrintString("%u64\n", frameTime);
+		int64 currentTime = AB::GetCurrentRawTime();
+		g_AppProperties->frameTime = currentTime - g_AppProperties->runningTime;
+		g_AppProperties->runningTime = currentTime;
+		tickTimer -= g_AppProperties->frameTime;
+		updateTimer -= g_AppProperties->frameTime;
+		g_AppProperties->fps = SECOND_INTERVAL / g_AppProperties->frameTime;
 	}
 	AB::UnloadGameCode(executableDir);
 	return 0;
@@ -203,6 +216,25 @@ namespace AB {
 			return true;
 	}
 
+	int64 GetCurrentRawTime() {
+		static LARGE_INTEGER frequency = {};
+		if (!frequency.QuadPart) {
+			QueryPerformanceFrequency(&frequency);
+		}
+
+		int64 time = 0;
+		LARGE_INTEGER currentTime = {};
+		if (QueryPerformanceCounter(&currentTime)) {
+			AB_CORE_ASSERT(currentTime.QuadPart && frequency.QuadPart, "Failed to get values from windows performance counters.");
+			time = (currentTime.QuadPart * 1000000) / frequency.QuadPart;
+		}
+		return  time;
+	}
+
+	const ApplicationProperties* GetAppProperties() {
+		return g_AppProperties;
+	}
+
 	uint32 DateTime::ToString(char* buffer, uint32 bufferSize) {
 		if (hour < 24 && minute < 60 && seconds < 60) {
 			if (bufferSize >= DATETIME_STRING_SIZE) {
@@ -218,7 +250,7 @@ namespace AB {
 		return 1;
 	}
 
-	AB_API void GetLocalTime(DateTime& datetime) {
+	void GetLocalTime(DateTime& datetime) {
 		SYSTEMTIME time;
 		GetLocalTime(&time);
 

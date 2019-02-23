@@ -11,6 +11,7 @@ workspace "Aberration"
 	language "C++"
 	cppdialect "C++17"
 	systemversion "latest"
+
 	--toolset "clang"
 
 
@@ -20,7 +21,7 @@ workspace "Aberration"
 	}
 
 buildDir = "%{cfg.buildcfg}-%{cfg.system}"
-
+debugdir "build/bin/%{buildDir}"
 --filter "toolset:clang"
 	--toolset "clang"
 

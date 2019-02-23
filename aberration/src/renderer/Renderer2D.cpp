@@ -5,6 +5,7 @@
 #include "src/platform/Window.h"
 #include "src/utils/ImageLoader.h"
 #include "platform/Platform.h"
+#include "utils/DebugTools.h"
 
 namespace AB {
 	const char* SPRITE_VERTEX_SOURCE = R"(
@@ -67,16 +68,24 @@ namespace AB {
 		float32 v;
 	};
 
-	enum class DrawableType : uint16 {
+	enum class DrawableType : uint8 {
 		Textured = 0,
 		Glyph,
 		SolidColor
+	};
+
+	enum class DepthTestingMode : uint8 {
+		TestOnly = 0,
+		TestAndWrite,
+		WriteOnly,
+		Disabled
 	};
 
 	struct BatchData {
 		uint32 count;
 		uint16 textureHandle;
 		DrawableType type;
+		DepthTestingMode depthMode;
 	};
 
 	struct RectangleData {
@@ -140,11 +149,13 @@ namespace AB {
 		// TODO: Allocate only memory we use
 		// MAX_USED_CODEPOINT
 		uint16 unicodeLookupTable[MAX_UNICODE_CHARACTER];
-		uint16 GetGlyphIndex(wchar_t unicodeCodepoint);
+		uint16 GetGlyphIndex(uint32 unicodeCodepoint);
 		float32 GetPairHorizontalAdvanceUnscaled(uint16 glyphIndex1, uint16 glyphIndex2);
 	};
 
 	struct Renderer2DProperties {
+		uint32 drawCallCount;
+		uint32 verticesDrawnCount;
 		// TEMRORARY
 		uint32 GLVBOHandle;
 		uint32 GLIBOHandle;
@@ -155,6 +166,8 @@ namespace AB {
 		GLuint uniformSamplerIndex;
 
 		hpm::Vector2 viewSpaceDim;
+		float32 farPlane;
+		float32 nearPlane;
 		uint64 vertexCount;
 		uint64 indexCount;
 		uint16 texturesUsed;
@@ -217,7 +230,7 @@ namespace AB {
 		return baseHandle;
 	}
 
-	void Renderer2D::Initialize(uint32 drawableSpaceX, uint32 drawableSpaceY) {
+	void Renderer2D::Initialize(uint32 drawableSpaceX, uint32 drawableSpaceY, float32 nearp, float32 farp) {
 		if (!s_Properties) {
 			s_Properties = (Renderer2DProperties*)std::malloc(sizeof(Renderer2DProperties));
 			memset(s_Properties, 0, sizeof(Renderer2DProperties));
@@ -226,15 +239,11 @@ namespace AB {
 			AB_CORE_WARN("2D renderer already initialized.");
 		}
 		_GLInit(s_Properties);
-		s_Properties->viewSpaceDim = hpm::Vector2((float32)drawableSpaceX, (float32)drawableSpaceY);
+		s_Properties->viewSpaceDim = hpm::Vector2{ (float32)drawableSpaceX, (float32)drawableSpaceY };
+		s_Properties->nearPlane = nearp;
+		s_Properties->farPlane = farp;
 		// TODO: TEMPORARY
-#if defined(AB_PLATFORM_WINDOWS)
-		LoadFont("a:\\dev\\aberration\\build\\bin\\Debug-windows\\arial.abf");
-		//LoadFont("arial.abf");
-
-#else 
-		LoadFont("arial.abf");
-#endif
+		LoadFont("../../../assets/SourceCodePro.abf");
 	}
 
 	void Renderer2D::Destroy() {
@@ -243,6 +252,26 @@ namespace AB {
 		GLCall(glDeleteProgram(s_Properties->shaderHandle));
 		std::free(s_Properties);
 		s_Properties = nullptr;
+	}
+
+	bool32 Renderer2D::DrawRectangleColorUI(hpm::Vector2 min, hpm::Vector2 max, uint16 depth, float32 angle, float32 anchor, color32 color) {
+		// TODO: THIS is temporary
+		uint32 w;
+		uint32 h;
+		AB::Window::GetSize(&w, &h);
+		uint32 xMouse = 0;
+		uint32 yMouse = 0;
+		Window::GetMousePosition(&xMouse, &yMouse);
+		float32 xMouseInCanvasSpace = (float32)xMouse * (float32)s_Properties->viewSpaceDim.x / w;
+		float32 yMouseInCanvasSpace = (float32)yMouse * (float32)s_Properties->viewSpaceDim.y / h;
+		bool32 intersects = false;
+		if (xMouseInCanvasSpace > min.x && xMouseInCanvasSpace < min.x + max.x &&
+			yMouseInCanvasSpace > min.y && yMouseInCanvasSpace < min.y + max.y) 
+		{
+			intersects = true;
+		}
+		FillRectangleColor(min, depth, angle, anchor, max, color);
+		return intersects;
 	}
 
 #define AB_FONT_BITMAP_FORMAT_KEY (uint16)0x1234
@@ -327,7 +356,7 @@ namespace AB {
 							// NOTE: Store glyph index + 1 in order to threat 0 as empty character
 							s_Properties->fonts[storageIndex].unicodeLookupTable[unicodeCodepoint] = i;
 
-							uint16 regionHandle = TextureCreateRegion(handle, hpm::Vector2(minX, minY), hpm::Vector2(maxX, maxY));
+							uint16 regionHandle = TextureCreateRegion(handle, hpm::Vector2{ minX, minY }, hpm::Vector2{ maxX, maxY });
 							if (regionHandle) {
 								// All success!
 								resultHandle = storageIndex + 1;
@@ -373,15 +402,16 @@ namespace AB {
 		return advance;
 	}
 
-	inline uint16 Font::GetGlyphIndex(wchar_t unicodeCodepoint) {
-		return unicodeLookupTable[(uint32)unicodeCodepoint];
+	inline uint16 Font::GetGlyphIndex(uint32 unicodeCodepoint) {
+		return unicodeLookupTable[unicodeCodepoint];
 	}
 
-	void Renderer2D::DebugDrawString(hpm::Vector2 position, float32 fontHeight, color32 color, const wchar_t* string) {
+	template <typename CharType>
+	static void _DebugDrawStringInternal(Renderer2DProperties* properties, hpm::Vector2 position, float32 fontHeight, color32 color, const CharType* string) {
 		// TODO: This is all temporary
 		// Here are gonna be direct submission to a drawQueue and sortBuffer
 		if (string) {
-			Font* font = &s_Properties->fonts[DEFAULT_FONT_HANDLE - 1];
+			Font* font = &properties->fonts[Renderer2D::DEFAULT_FONT_HANDLE - 1];
 			// TODO: check if font is not loaded
 			// This is actually doesn't work for now
 			if (font) {
@@ -392,10 +422,10 @@ namespace AB {
 				float32 yFirstLineMaxAscent = 0.0f;
 
 				for (uint32 at = 0; string[at] != '\n' && string[at] != '\0'; at++) {
-					uint16 glyphIndex = font->GetGlyphIndex(string[at]);
+					uint16 glyphIndex = font->GetGlyphIndex((uint32)string[at]);
 					if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
 						Glyph* glyph = &font->glyphs[glyphIndex];
-						UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
+						UV uv = GetTextureRegionUV(properties, glyph->regionHandle);
 
 						float32 glyphHeight = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
 						float32 descent = glyphHeight - glyph->yBearing * scale;
@@ -417,11 +447,11 @@ namespace AB {
 						stringBegin = true;
 					}
 					else {
-						uint16 glyphIndex = font->GetGlyphIndex(string[at]);
+						uint16 glyphIndex = font->GetGlyphIndex((uint32)string[at]);
 						if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
 							Glyph* glyph = &font->glyphs[glyphIndex];
 							if (string[at] != ' ') {
-								UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
+								UV uv = GetTextureRegionUV(properties, glyph->regionHandle);
 
 								float32 width = (uv.max.x - uv.min.x) * font->atlasWidth * scale;
 								float32 height = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
@@ -431,14 +461,14 @@ namespace AB {
 
 								hpm::Vector2 quadPos = { xPosition, yPosition };
 								hpm::Vector2 quadSize = { width, height };
-								if (s_Properties->sortBufferLeftUsage != s_Properties->sortBufferRightUsage) {
+								if (properties->sortBufferLeftUsage != properties->sortBufferRightUsage) {
 									SortKey key = {};
 									key.depth = 10;
-									key.texHandle = GetTextureBaseHandle(s_Properties, glyph->regionHandle);
-									s_Properties->drawQueue[s_Properties->drawQueueUsed] = { quadPos, quadSize, 0, 0, color, glyph->regionHandle, DrawableType::Glyph };
-									s_Properties->sortBufferA[s_Properties->sortBufferRightUsage] = { key, s_Properties->drawQueueUsed };
-									s_Properties->sortBufferRightUsage--;
-									s_Properties->drawQueueUsed++;
+									key.texHandle = GetTextureBaseHandle(properties, glyph->regionHandle);
+									properties->drawQueue[properties->drawQueueUsed] = { quadPos, quadSize, 0, 0, color, glyph->regionHandle, DrawableType::Glyph };
+									properties->sortBufferA[properties->sortBufferRightUsage] = { key, properties->drawQueueUsed };
+									properties->sortBufferRightUsage--;
+									properties->drawQueueUsed++;
 								}
 								else {
 									AB_CORE_WARN("Failed to submit rectangle. Draw queue is full");
@@ -448,7 +478,7 @@ namespace AB {
 
 							uint16 nextGlyphIndex = Font::UNDEFINED_CODEPOINT;
 							if (string[at + 1] != '\n' && string[at + 1] != '\0') {
-								nextGlyphIndex = font->GetGlyphIndex(string[at + 1]);;
+								nextGlyphIndex = font->GetGlyphIndex((uint32)string[at + 1]);;
 							}
 							// NOTE: at + 1 is safe because on last iteration we are not going over the bounds of the array
 							// We just accessing \0
@@ -456,10 +486,10 @@ namespace AB {
 						}
 						else {
 							float32 xPosition = stringBegin ? xAdvance : xAdvance + fontHeight / 2;
-							FillRectangleColor(
-								hpm::Vector2(xPosition, yAdvance),
+							Renderer2D::FillRectangleColor(
+								hpm::Vector2{ xPosition, yAdvance },
 								10, 0, 0,
-								hpm::Vector2(fontHeight - (fontHeight / 2), fontHeight),
+								hpm::Vector2{ fontHeight - (fontHeight / 2), fontHeight },
 								0xffffffff
 							);
 							xAdvance += fontHeight - (fontHeight / 2);
@@ -470,11 +500,13 @@ namespace AB {
 		}
 	}
 
-	hpm::Rectangle Renderer2D::GetStringBoundingRect(float32 height, const wchar_t* string) {
+	template <typename CharType>
+	static hpm::Rectangle _GetStringBoundingRectInternal(Renderer2DProperties* properties, hpm::Vector2 position, float32 height, const CharType* string) {
 		hpm::Rectangle rect;
+		// TODO: make vectors POD
 		memset(&rect, 0, sizeof(hpm::Rectangle));
 		if (string) {
-			Font* font = &s_Properties->fonts[DEFAULT_FONT_HANDLE - 1];
+			Font* font = &properties->fonts[Renderer2D::DEFAULT_FONT_HANDLE - 1];
 			// TODO: check if font is not loaded
 			// This is actually doesn't work for now
 			if (font) {
@@ -487,10 +519,10 @@ namespace AB {
 
 				uint32 firstStringAt = 0;
 				while (string[firstStringAt] != '\n' && string[firstStringAt] != '\0') {
-					uint16 glyphIndex = font->GetGlyphIndex(string[firstStringAt]);;
+					uint16 glyphIndex = font->GetGlyphIndex((uint32)string[firstStringAt]);;
 					if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
 						Glyph* glyph = &font->glyphs[glyphIndex];
-						UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
+						UV uv = GetTextureRegionUV(properties, glyph->regionHandle);
 
 						float32 glyphHeight = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
 						float32 descent = glyphHeight - glyph->yBearing * scale;
@@ -500,7 +532,7 @@ namespace AB {
 
 						uint16 nextGlyphIndex = Font::UNDEFINED_CODEPOINT;
 						if (string[firstStringAt + 1] != '\n' && string[firstStringAt + 1] != '\0') {
-							nextGlyphIndex = font->GetGlyphIndex(string[firstStringAt + 1]);
+							nextGlyphIndex = font->GetGlyphIndex((uint32)string[firstStringAt + 1]);
 						}
 						xMaxAdvance += scale * font->GetPairHorizontalAdvanceUnscaled(glyphIndex, nextGlyphIndex);
 
@@ -525,17 +557,17 @@ namespace AB {
 							xAdvance = 0.0f;
 						}
 						else {
-							uint16 glyphIndex = font->GetGlyphIndex(string[at]);;
+							uint16 glyphIndex = font->GetGlyphIndex((uint32)string[at]);;
 							if (glyphIndex != Font::UNDEFINED_CODEPOINT) {
 								Glyph* glyph = &font->glyphs[glyphIndex];
-								UV uv = GetTextureRegionUV(s_Properties, glyph->regionHandle);
+								UV uv = GetTextureRegionUV(properties, glyph->regionHandle);
 								float32 glyphHeight = (uv.min.y - uv.max.y) * font->atlasHeight * scale;
 								float32 descent = glyphHeight - glyph->yBearing * scale;
 								maxLineDescent = maxLineDescent > descent ? descent : maxLineDescent;
 
 								uint16 nextGlyphIndex = Font::UNDEFINED_CODEPOINT;
 								if (string[at + 1] != '\n' && string[at + 1] != '\0') {
-									nextGlyphIndex = font->GetGlyphIndex(string[at + 1]);;
+									nextGlyphIndex = font->GetGlyphIndex((uint32)string[at + 1]);;
 								}
 								xAdvance += scale * font->GetPairHorizontalAdvanceUnscaled(glyphIndex, nextGlyphIndex);
 
@@ -547,20 +579,39 @@ namespace AB {
 							}
 						}
 					}
-					rect.max.x = xMaxAdvance;
-					rect.max.y = yAdvance - (font->lineAdvance * scale) + maxLineDescent;
+					rect.min.x = position.x;
+					rect.max.x = position.x + xMaxAdvance;
+					rect.min.y = position.y + (yAdvance - (font->lineAdvance * scale) + maxLineDescent);
+					rect.max.y = position.y;
 				}
 				else {
 					float32 newLineAdvance = 0.0f;
 					if (string[firstStringAt] == '\n') {
 						newLineAdvance = font->lineAdvance * scale;
 					}
-					rect.max.x = xMaxAdvance;
-					rect.max.y = firstLineMaxAscent + maxLineDescent - newLineAdvance;
+					rect.min.x = position.x;
+					rect.max.x = position.x + xMaxAdvance;
+					rect.min.y = position.y + (firstLineMaxAscent + maxLineDescent - newLineAdvance);
+					rect.max.y = position.y;
 				}
 			}
 		}
 		return rect;
+	}
+
+	void Renderer2D::DebugDrawString(hpm::Vector2 position, float32 height, color32 color, const char* string) {
+		_DebugDrawStringInternal<char>(s_Properties, position, height, color, string);
+	}
+
+	void Renderer2D::DebugDrawString(hpm::Vector2 position, float32 height, color32 color, const wchar_t* string) {
+		_DebugDrawStringInternal<wchar_t>(s_Properties, position, height, color, string);
+	}
+
+	hpm::Rectangle Renderer2D::GetStringBoundingRect(hpm::Vector2 position, float32 height, const char* string) {
+		return _GetStringBoundingRectInternal<char>(s_Properties, position, height, string);
+	}
+	hpm::Rectangle Renderer2D::GetStringBoundingRect(hpm::Vector2 position, float32 height, const wchar_t* string) {
+		return _GetStringBoundingRectInternal<wchar_t>(s_Properties, position, height, string);
 	}
 
 	uint16 Renderer2D::LoadTexture(const char* filepath) {
@@ -611,8 +662,8 @@ namespace AB {
 				s_Properties->textures[freeIndex].refCount = 1;
 				s_Properties->textures[freeIndex].glHandle = texHandle;
 				s_Properties->textures[freeIndex].format = image.format;
-				s_Properties->textures[freeIndex].uv.min = hpm::Vector2(0.0f, 0.0f);
-				s_Properties->textures[freeIndex].uv.max = hpm::Vector2(1.0f, 1.0f);
+				s_Properties->textures[freeIndex].uv.min = hpm::Vector2{ 0.0f, 0.0f };
+				s_Properties->textures[freeIndex].uv.max = hpm::Vector2{1.0f, 1.0f};
 				s_Properties->textures[freeIndex].parent = 0;
 				
 				// NOTE: Increasing handle by one in order to use 0 value as invalid handle;
@@ -681,8 +732,8 @@ namespace AB {
 				s_Properties->textures[freeIndex].refCount = 1;
 				s_Properties->textures[freeIndex].glHandle = texHandle;
 				s_Properties->textures[freeIndex].format = format;
-				s_Properties->textures[freeIndex].uv.min = hpm::Vector2(0.0f, 0.0f);
-				s_Properties->textures[freeIndex].uv.max = hpm::Vector2(1.0f, 1.0f);
+				s_Properties->textures[freeIndex].uv.min = hpm::Vector2{0.0f, 0.0f};
+				s_Properties->textures[freeIndex].uv.max = hpm::Vector2{1.0f, 1.0f};
 				s_Properties->textures[freeIndex].parent = 0;
 				
 				// NOTE: Increasing handle by one in order to use 0 value as invalid handle;
@@ -707,6 +758,7 @@ namespace AB {
 	}
 
 	uint16 Renderer2D::TextureCreateRegion(uint16 handle, hpm::Vector2 min, hpm::Vector2 max) {
+
 		uint16 resultHandle = 0;
 		if (handle > 0) {
 
@@ -905,6 +957,7 @@ namespace AB {
 	}
 
 	SortEntry* SortQueue(Renderer2DProperties* properties) {
+		
 		// NOTE: end is pointing to a last element
 		//auto beg = __rdtsc();
 		// TODO: Copying the buffer because merge sort desn't. So if merge sort returns buffer B
@@ -924,6 +977,7 @@ namespace AB {
 		//	PrintString("%u16 %u16 %u32\n", sortedBuffer[i].key.depth, sortedBuffer[i].key.texHandle, sortedBuffer[i].renderQueueIndex);
 		//}
 		//PrintString("Renderables: %u16\n", properties->drawQueueUsed);
+
 		return  sortedBuffer;
 	}
 
@@ -937,7 +991,12 @@ namespace AB {
 			uv = GetTextureRegionUV(properties, rect->regionTexHandle);
 		}
 
-		float32 normalizedDepth = (float32)depth / 20.0f;
+		float32 farp = 0;
+		float32 nearp = 10;
+		float32 maxDepthBuffer = 1;
+		float32 minDepthBuffer = 0;
+		float32 normalizedDepth = maxDepthBuffer + (minDepthBuffer - maxDepthBuffer) /
+									(properties->nearPlane - properties->farPlane) * ((float32)depth - properties->farPlane);
 
 		float32 sin = hpm::Sin(hpm::ToRadians(rect->angle));
 		float32 cos = hpm::Cos(hpm::ToRadians(rect->angle));
@@ -991,92 +1050,97 @@ namespace AB {
 	}
 
 	void GenVertexAndBatchBuffers(Renderer2DProperties* properties, SortEntry* sortedBuffer) {
+		
 		uint32 batchCount = 0;
+		uint16 lastMatchedTexHandle = 0;
+		DrawableType lastMatchedType = DrawableType::SolidColor;
 		for (uint64 i = 0; i < properties->sortBufferLeftUsage; i++) {
 			if (sortedBuffer[i].key.depth < sortedBuffer[Renderer2D::DRAW_QUEUE_CAPACITY - 1].key.depth) {
 				batchCount++;
-				// Check for last sprite
 				RectangleData* rect = &properties->drawQueue[sortedBuffer[i].renderQueueIndex];
-				if (i + 1 == properties->sortBufferLeftUsage) {
-					properties->batches[properties->batchesUsed].count = batchCount;
+				lastMatchedTexHandle = sortedBuffer[i].key.texHandle;
+				lastMatchedType = rect->type;
+
+				if (i + 1 == properties->sortBufferLeftUsage ||                          // NOTE: Abort batch if it's the last sprite in the queue
+					sortedBuffer[i].key.texHandle != sortedBuffer[i + 1].key.texHandle)  // Or if next sprite has different tex handle
+				{
+					// NOTE: This is base handle
 					properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
 					properties->batches[properties->batchesUsed].type = rect->type;
+					properties->batches[properties->batchesUsed].count = batchCount;
+					properties->batches[properties->batchesUsed].depthMode = DepthTestingMode::TestAndWrite;
 
 					properties->batchesUsed++;
 					batchCount = 0;
 				}
-				else {
-					if (sortedBuffer[i].key.texHandle != sortedBuffer[i + 1].key.texHandle) {
-						properties->batches[properties->batchesUsed].count = batchCount;
-						properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
-						properties->batches[properties->batchesUsed].type = rect->type;
-
-						properties->batchesUsed++;
-						batchCount = 0;
-					}
-				}
-
 				GenVertexData(properties, rect, sortedBuffer[i].key.depth);
 			}
 		}
-		//batchCount = 0;
+		// NOTE: Abort any incomplete batch (if last sprite was from the first half of the queue (before sprites with alpha)
+		// Then there are one incomplete batch left)
+		if (batchCount) {
+			properties->batches[properties->batchesUsed].count = batchCount;
+			properties->batches[properties->batchesUsed].textureHandle = lastMatchedTexHandle;
+			properties->batches[properties->batchesUsed].type = lastMatchedType;
+			properties->batches[properties->batchesUsed].depthMode = DepthTestingMode::TestAndWrite;
+
+			properties->batchesUsed++;
+			batchCount = 0;
+		}
+		
 		for (uint64 i = properties->sortBufferRightUsage + 1; i < Renderer2D::DRAW_QUEUE_CAPACITY; i++) {
 			batchCount++;
 			// Check for last sprite
 			RectangleData* rect = &properties->drawQueue[sortedBuffer[i].renderQueueIndex];
-			if (i + 1 == Renderer2D::DRAW_QUEUE_CAPACITY) {
+			if (i + 1 == Renderer2D::DRAW_QUEUE_CAPACITY ||                           // NOTE: Abort batch if it's the last sprite in the queue
+				sortedBuffer[i].key.texHandle != sortedBuffer[i + 1].key.texHandle)   // Or if next sprite has different tex handle
+			{
 				properties->batches[properties->batchesUsed].count = batchCount;
 				// NOTE: This is base handle
 				properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
 				properties->batches[properties->batchesUsed].type = rect->type;
-
+				properties->batches[properties->batchesUsed].depthMode = DepthTestingMode::TestOnly;
 
 				properties->batchesUsed++;
 				batchCount = 0;
-			}
-			else {
-				if (sortedBuffer[i].key.texHandle != sortedBuffer[i + 1].key.texHandle) {
-					properties->batches[properties->batchesUsed].count = batchCount;
-					// NOTE: This is base handle
-					properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
-					properties->batches[properties->batchesUsed].type = rect->type;
 
-					properties->batchesUsed++;
-					batchCount = 0;
-				}
 			}
-
 			GenVertexData(properties, rect, sortedBuffer[i].key.depth);
 		}
 
+		lastMatchedTexHandle = 0;
+		lastMatchedType = DrawableType::SolidColor;
 		for (uint64 i = 0; i < properties->sortBufferLeftUsage; i++) {
 			if (sortedBuffer[i].key.depth >= sortedBuffer[Renderer2D::DRAW_QUEUE_CAPACITY - 1].key.depth) {
 				batchCount++;
-				// Check for last sprite
 				RectangleData* rect = &properties->drawQueue[sortedBuffer[i].renderQueueIndex];
-				if (i + 1 == properties->sortBufferLeftUsage) {
-					properties->batches[properties->batchesUsed].count = batchCount;
+				lastMatchedTexHandle = sortedBuffer[i].key.texHandle;
+				lastMatchedType = rect->type;
+				
+				if (i + 1 == properties->sortBufferLeftUsage ||                          // NOTE: Abort batch if it's the last sprite in the queue
+					sortedBuffer[i].key.texHandle != sortedBuffer[i + 1].key.texHandle)  // Or if next sprite has different tex handle
+				{
 					// NOTE: This is base handle
 					properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
 					properties->batches[properties->batchesUsed].type = rect->type;
-
+					properties->batches[properties->batchesUsed].count = batchCount;
+					properties->batches[properties->batchesUsed].depthMode = DepthTestingMode::TestAndWrite;
 					properties->batchesUsed++;
 					batchCount = 0;
-				}
-				else {
-					if (sortedBuffer[i].key.texHandle != sortedBuffer[i + 1].key.texHandle) {
-						properties->batches[properties->batchesUsed].count = batchCount;
-						// NOTE: This is base handle
-						properties->batches[properties->batchesUsed].textureHandle = sortedBuffer[i].key.texHandle;
-						properties->batches[properties->batchesUsed].type = rect->type;
-
-						properties->batchesUsed++;
-						batchCount = 0;
-					}
-				}
-
+				}			
 				GenVertexData(properties, rect, sortedBuffer[i].key.depth);
 			}
+		}
+		// NOTE: Abort any incomplete batch (if last sprite was from the first half of the queue (before sprites with alpha)
+		// Then there are one incomplete batch left)
+		if (batchCount) {
+			properties->batches[properties->batchesUsed].count = batchCount;
+			properties->batches[properties->batchesUsed].textureHandle = lastMatchedTexHandle;
+			properties->batches[properties->batchesUsed].type = lastMatchedType;
+			properties->batches[properties->batchesUsed].depthMode = DepthTestingMode::TestAndWrite;
+
+			properties->batchesUsed++;
+			batchCount = 0;
 		}
 	}
 
@@ -1094,6 +1158,7 @@ namespace AB {
 		GenVertexAndBatchBuffers(s_Properties, sortedBuffer);
 
 		GLCall(glClearColor(0.2f, 0.3f, 0.3f, 1.0f));
+		// TODO: Requires GL_LESS Depth test with clear to 0.0 and range 0.0 - 1.0
 		GLCall(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
 		GLCall(glBindBuffer(GL_ARRAY_BUFFER, s_Properties->GLVBOHandle));
@@ -1111,36 +1176,74 @@ namespace AB {
 		GLCall(glActiveTexture(GL_TEXTURE0));
 		GLCall(glUniform1i(s_Properties->uniformSamplerIndex, 0));
 
-		uint32 drawCalls = 0;
+		s_Properties->drawCallCount = 0;
 		uint64 verticesDrawn = 0;
 		for (uint64 i = 0; i < s_Properties->batchesUsed; i++) {
 			BatchData* batch = &s_Properties->batches[i];
 			if (batch->type == DrawableType::Textured) {
+				switch (batch->depthMode) {
+				case DepthTestingMode::TestAndWrite: {
+					AB_GLCALL(glDepthMask(GL_TRUE));
+				} break;
+				case DepthTestingMode::TestOnly: {
+					AB_GLCALL(glDepthMask(GL_FALSE));
+				} break;
+				default: {} break;
+				}
 				GLCall(glUniformSubroutinesuivARB(GL_FRAGMENT_SHADER, 1, &s_Properties->subroutineTextureIndex));
 				if (batch->textureHandle > 0) {
 					GLCall(glBindTexture(GL_TEXTURE_2D, GetTextureRegionAPIHandle(s_Properties, batch->textureHandle)));
 				}
 			} else if (batch->type == DrawableType::Glyph) {
+				switch (batch->depthMode) {
+				case DepthTestingMode::TestAndWrite: {
+					AB_GLCALL(glDepthMask(GL_TRUE));
+				} break;
+				case DepthTestingMode::TestOnly: {
+					AB_GLCALL(glDepthMask(GL_FALSE));
+				} break;
+				default: {} break;
+				}
 				GLCall(glUniformSubroutinesuivARB(GL_FRAGMENT_SHADER, 1, &s_Properties->subroutineGlyphIndex));
 				GLCall(glBindTexture(GL_TEXTURE_2D, GetTextureRegionAPIHandle(s_Properties, batch->textureHandle)));
 			} else if (batch->type == DrawableType::SolidColor) {
+				switch(batch->depthMode) {
+				case DepthTestingMode::TestAndWrite: {
+					AB_GLCALL(glDepthMask(GL_TRUE));
+				} break;
+				case DepthTestingMode::TestOnly: {
+					AB_GLCALL(glDepthMask(GL_FALSE));
+				} break;
+				default: {} break;
+				}
 				GLCall(glUniformSubroutinesuivARB(GL_FRAGMENT_SHADER, 1, &s_Properties->subroutineSolidIndex));
 			}
 				GLCall(glDrawElements(GL_TRIANGLES, 6 * s_Properties->batches[i].count, GL_UNSIGNED_SHORT, (void*)verticesDrawn));
-				drawCalls++;
+				s_Properties->drawCallCount++;
 				verticesDrawn += 6 * s_Properties->batches[i].count * sizeof(uint16);
 		}
 
+		s_Properties->verticesDrawnCount = (uint32)verticesDrawn;
 		ResetRenderState(s_Properties);
 
 		//system("cls");
+		//AB::PrintString("Flush: %u32\n", AB::Renderer2D::s_Properties->timeCounters[(uint32)AB::Renderer2DTimedFunctions::Flush]);
+		//AB::PrintString("GenVertexData: %u32\n", AB::Renderer2D::s_Properties->timeCounters[(uint32)AB::Renderer2DTimedFunctions::GenVertexData]);
+		//AB::PrintString("DebugDrawString: %u32\n", AB::Renderer2D::s_Properties->timeCounters[(uint32)AB::Renderer2DTimedFunctions::DebugDrawString]);
+		//AB::PrintString("SortQueue: %u32\n", AB::Renderer2D::s_Properties->timeCounters[(uint32)AB::Renderer2DTimedFunctions::SortQueue]);
+		//AB::PrintString("BuffAndBatch: %u32\n", AB::Renderer2D::s_Properties->timeCounters[(uint32)AB::Renderer2DTimedFunctions::GenVertexAndBatchBuffers]);
+		//memset(s_Properties->timeCounters, 0, sizeof(uint64) * (uint32)Renderer2DTimedFunctions::_Size);
+
+
+		//system("pause");
 		//AB::PrintString("DC: %u32\n", drawCalls);
 	}
+
 
 	void _GLInit(Renderer2DProperties* properties) {
 		uint32 winWidth;
 		uint32 winHeight;
-		Window::GetSize(winWidth, winHeight);
+		Window::GetSize(&winWidth, &winHeight);
 		GLCall(glViewport(0, 0, winWidth, winHeight));
 
 		GLCall(glGenBuffers(1, &properties->GLVBOHandle));

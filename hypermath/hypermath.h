@@ -52,6 +52,11 @@ typedef __m128				float128;
 
 namespace hpm {
 
+	HPM_INLINE float32 Map(float32 t, float32 a, float32 b, float32 c, float32 d) {
+		if (a == b || d == c) return 0.0f;
+		return c + (d - c) / (b - a) * (t - a);
+	}
+
 	HPM_INLINE constexpr float32 Pi() {
 		return 3.14159265358979323846f;
 	}
@@ -82,13 +87,6 @@ namespace hpm {
 			float32 g;
 		};
 		float32 data[2];
-
-		Vector2(float32 x_, float32 y_)
-			: x(x_)
-			, y(y_)
-		{}
-
-		Vector2() {}
 	};
 
 	union Vector3 {
@@ -103,14 +101,6 @@ namespace hpm {
 			float32 b;
 		};
 		float32 data[3];
-
-		Vector3(float32 x_, float32 y_, float32 z_)
-			: x(x_)
-			, y(y_)
-			, z(z_)
-		{}
-
-		Vector3() {}
 	};
 
 	union Vector4 {
@@ -128,15 +118,6 @@ namespace hpm {
 		};
 		float32 data[4];
 		float128 _packed;
-
-		Vector4(float32 x_, float32 y_, float32 z_, float32 w_)
-			: x(x_)
-			, y(y_)
-			, z(z_)
-			, w(w_)
-		{}
-
-		Vector4() {}
 	};
 
 	struct Rectangle {

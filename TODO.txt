@@ -5,6 +5,10 @@
 ### Win32Platform ###
 -- Fix path to game library in LoadLibrary
 
+## PLATFORM
+
+-- Unicode file names
+
 -- Set bytes read to zero at the beginning of DebugReadFile function
 
 -- Delete dependencies folder
@@ -12,3 +16,5 @@
 !!!!!
 -- TEST OPENGL ETTENSIONS ON LINUX WITH NVIDIA
 -- TEST OPENGL EXTENSIONS ON ATI
+## Renderer
+-- Bug with colors when failed to load texture

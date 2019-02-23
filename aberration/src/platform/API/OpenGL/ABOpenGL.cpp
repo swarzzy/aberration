@@ -530,8 +530,8 @@ namespace AB::GL {
 		AB_GLCALL(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 		AB_GLCALL(glBlendEquation(GL_FUNC_ADD));
 		AB_GLCALL(glEnable(GL_DEPTH_TEST));
-		AB_GLCALL(glDepthMask(GL_FALSE));
-		AB_GLCALL(glDepthFunc(GL_GREATER));
+		//AB_GLCALL(glDepthMask(GL_FALSE));
+		AB_GLCALL(glDepthFunc(GL_LESS));
 	}	
 
 	// TODO: Message almost always takes just patr of the buffer

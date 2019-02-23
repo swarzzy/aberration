@@ -29,14 +29,14 @@ namespace AB {
 		static void SwapBuffers();
 		static void EnableVSync(bool32 enable);
 
-		static void GetSize(uint32& width, uint32& height);
+		static void GetSize(uint32* width, uint32* height);
 		static void SetCloseCallback(CloseCallback* func);
 		static void SetResizeCallback(ResizeCallback* func);
 
 		static bool KeyPressed(KeyboardKey key);
 		static void SetKeyCallback(KeyCallback* func);
 
-		static void GetMousePosition(uint32& xPos, uint32& yPos);
+		static void GetMousePosition(uint32* xPos, uint32* yPos);
 		static bool MouseButtonPressed(MouseButton button);
 		static bool MouseInClientArea();
 		static void SetMouseButtonCallback(MouseButtonCallback* func);

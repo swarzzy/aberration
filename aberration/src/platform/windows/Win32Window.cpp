@@ -187,9 +187,9 @@ namespace AB {
 			wglSwapIntervalEXT(0);
 	}
 
-	void Window::GetSize(uint32& width, uint32& height) {
-		width = s_WindowProperties->width;
-		height = s_WindowProperties->height;
+	void Window::GetSize(uint32* width, uint32* height) {
+		*width = s_WindowProperties->width;
+		*height = s_WindowProperties->height;
 	}
 
 	void Window::SetCloseCallback(CloseCallback* func) {
@@ -208,9 +208,9 @@ namespace AB {
 		s_WindowProperties->keyCallback = func;
 	}
 
-	void Window::GetMousePosition(uint32& xPos, uint32& yPos) {
-		xPos = s_WindowProperties->mousePositionX;
-		yPos = s_WindowProperties->mousePositionY;
+	void Window::GetMousePosition(uint32* xPos, uint32* yPos) {
+		*xPos = s_WindowProperties->mousePositionX;
+		*yPos = s_WindowProperties->height - s_WindowProperties->mousePositionY;
 	}
 
 	bool Window::MouseButtonPressed(MouseButton button) {
@@ -376,8 +376,8 @@ namespace AB {
 
 		int actualPixelFormatID = 0;
 		UINT numFormats = 0;
-
-		auto resultCPF = wglChoosePixelFormatARB(fakeWindowDC, attribList, nullptr, 1, &actualPixelFormatID, &numFormats);
+		// Here was fake DC
+		auto resultCPF = wglChoosePixelFormatARB(actualWindowDC, attribList, nullptr, 1, &actualPixelFormatID, &numFormats);
 		AB_CORE_ASSERT(resultCPF, "Failed to initialize OpenGL extended context.");
 
 		PIXELFORMATDESCRIPTOR actualPixelFormat = {};
@@ -409,8 +409,6 @@ namespace AB {
 		bool32 glEXTLoadResult = GL::LoadExtensions();
 		AB_CORE_ASSERT(glEXTLoadResult, "Failed to load OpenGL extensions");
 
-		GL::InitAPI();
-
 		s_WindowProperties->Win32WindowHandle = actualWindowHandle;
 		s_WindowProperties->Win32WindowDC = actualWindowDC;
 		s_WindowProperties->OpenGLRC = actualGLRC;
@@ -427,6 +425,8 @@ namespace AB {
 		SetFocus(s_WindowProperties->Win32WindowHandle);
 
 		_Win32LoadXInput();
+
+		GL::InitAPI();
 
 		// TODO: Move to function
 		for (uint32 i = 0; i < XUSER_MAX_COUNT; i++) {

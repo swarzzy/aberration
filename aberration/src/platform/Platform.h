@@ -14,6 +14,18 @@ namespace AB {
 	// If buffer is to small, writes bufferSizeBytes chars, set bytesWritten to bufferSizeBytes and returns false
 	bool32 GetExecutablePath(char* buffer, uint32 bufferSizeBytes, uint32* bytesWritten);
 
+	// Returns microseconds
+	int64 GetCurrentRawTime();
+
+	struct ApplicationProperties {
+		int64 runningTime;
+		int64 frameTime;
+		int64 fps;
+		int64 ups;
+	};
+
+	const ApplicationProperties* GetAppProperties();
+
 	struct AB_API DateTime {
 		uint16 year;
 		uint16 month;
