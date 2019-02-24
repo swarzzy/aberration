@@ -115,6 +115,7 @@ int main()
 	uint32 updatesSinceLastTick = 0;
 
 	while (AB::Window::IsOpen()) {
+
 		if (tickTimer <= 0) {
 			tickTimer = SECOND_INTERVAL;
 			g_AppProperties->ups = updatesSinceLastTick;

@@ -11,7 +11,7 @@ namespace AB {
 			AB::Renderer2D::FillRectangleColor({ 20, 570 }, 9, 0, 0, { 430, 30 }, 0xff03284f);
 		}
 		char buffer[64];
-		AB::FormatString(buffer, 64, "%07.4f64 ms | %3i64 fps | %3i64 ups |%4u32 dc", properties->frameTime/ 1000.0, properties->fps, properties->ups, 0);
+		AB::FormatString(buffer, 64, "%07.4f64 ms | %3i64 fps | %3i64 ups |%4u32 dc", properties->frameTime/ 1000.0, properties->fps, properties->ups, properties->drawCalls);
 		hpm::Rectangle strr = AB::Renderer2D::GetStringBoundingRect({ 0,0 }, 20.0, buffer);
 		float32 h = (strr.max.y - strr.min.y) / 2;
 		AB::Renderer2D::DebugDrawString({ 35, 600 - h }, 20.0, 0xffffffff, buffer);
@@ -22,6 +22,7 @@ namespace AB {
 		properties->frameTime = appProps->frameTime;
 		properties->fps = appProps->fps;
 		properties->ups = appProps->ups;
+		properties->drawCalls = Renderer2D::GetDrawCallCount();
 	}
 
 }

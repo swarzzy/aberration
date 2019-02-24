@@ -18,7 +18,6 @@ namespace AB {
 		inline static struct Renderer2DProperties* s_Properties = nullptr;
 
 		Renderer2D() = delete;
-		// TODO: Move tis into .cpp
 
 		static constexpr uint64 DRAW_QUEUE_CAPACITY = 1024;
 		static constexpr uint64 INDEX_BUFFER_SIZE = DRAW_QUEUE_CAPACITY * 6;
@@ -29,8 +28,9 @@ namespace AB {
 		static constexpr float64 DEFAULT_MIN_DEPTH = 10;
 		static constexpr float64 DEFAULT_MAX_DEPTH = 0;
 
-		static void Initialize(uint32 drawableSpaceX, uint32 drawableSpaceY, float32 nearp = 10, float32 farp = 0);
+		static void Initialize(uint32 drawableSpaceX, uint32 drawableSpaceY);
 		static void Destroy();
+		static uint32 GetDrawCallCount();
 
 		static bool32 DrawRectangleColorUI(hpm::Vector2 min, hpm::Vector2 max, uint16 depth, float32 angle, float32 anchor, color32 color);
 		static uint16 LoadFont(const char* filepath);
