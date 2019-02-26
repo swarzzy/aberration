@@ -35,10 +35,14 @@ namespace AB::GL {
 #define GLCall(proc) proc
 #endif
 
+union ABGLProcs;
+
 namespace AB::GL {
 	bool32 LoadFunctions();
 	bool32 LoadExtensions();
 	void InitAPI();
+	ABGLProcs* GetFunctions();
+
 }
 
 #ifdef __cplusplus

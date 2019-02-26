@@ -1,74 +1,272 @@
 #include <hypermath.h>
 #include <Aberration.h>
+
+const char* vertSource= R"(
+#version 330 core
+layout (location = 0) in vec3 position;
+layout (location = 2) in vec2 texCoord;
+
+out vec2 TexCoord;
+
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+void main()
+{
+    gl_Position = projection * view * model * vec4(position, 1.0f);
+    TexCoord = vec2(texCoord.x, 1.0 - texCoord.y);
+}
+)";
+
+const char* fragSource = R"(
+#version 330 core
+in vec2 TexCoord;
+
+out vec4 color;
+
+uniform sampler2D ourTexture1;
+uniform sampler2D ourTexture2;
+
+void main()
+{
+    color = mix(texture(ourTexture1, TexCoord), texture(ourTexture2, TexCoord), 0.2);
+}
+)";
+
+	int32 LoadShaders(AB::Engine* engine) {
+		auto* gl = engine->glGetFunctions();
+		int32 vertexShader;
+		vertexShader = gl->_glCreateShader(GL_VERTEX_SHADER);
+		gl->_glShaderSource(vertexShader, 1, &vertSource, 0);
+		gl->_glCompileShader(vertexShader);
+
+		int32 fragmentShader;
+		fragmentShader = gl->_glCreateShader(GL_FRAGMENT_SHADER);
+		gl->_glShaderSource(fragmentShader, 1, &fragSource, 0);
+		gl->_glCompileShader(fragmentShader);
+
+		int32 result = 0;
+		gl->_glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &result);
+		if (!result) {
+			int32 logLen;
+			gl->_glGetShaderiv(vertexShader, GL_INFO_LOG_LENGTH, &logLen);
+			char* message = (char*)alloca(logLen);
+			gl->_glGetShaderInfoLog(vertexShader, logLen, NULL, message);
+			AB_FATAL("Shader compilation error:\n%s", message);
+		};
+
+		gl->_glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &result);
+		if (!result) {
+			int32 logLen;
+			gl->_glGetShaderiv(fragmentShader, GL_INFO_LOG_LENGTH, &logLen);
+			char* message = (char*)alloca(logLen);
+			gl->_glGetShaderInfoLog(fragmentShader, logLen, NULL, message);
+			AB_FATAL("Shader compilation error:\n%s", message);
+		};
+
+		int32 shaderHandle = gl->_glCreateProgram();
+		gl->_glAttachShader(shaderHandle, vertexShader);
+		gl->_glAttachShader(shaderHandle, fragmentShader);
+		gl->_glLinkProgram(shaderHandle);
+		gl->_glGetProgramiv(shaderHandle, GL_LINK_STATUS, &result);
+		if (!result) {
+			int32 logLen;
+			gl->_glGetProgramiv(shaderHandle, GL_INFO_LOG_LENGTH, &logLen);
+			char* message = (char*)alloca(logLen);
+			gl->_glGetProgramInfoLog(shaderHandle, logLen, 0, message);
+			AB_FATAL("Shader compilation error:\n%s", message);
+		}
+
+		gl->_glDeleteShader(vertexShader);
+		gl->_glDeleteShader(fragmentShader);
+		return shaderHandle;
+	}
+
+	float z = -7.0f;
+	float x = 0.0f;
+	AB::GameContext* HACK;
+
+	void KeyCallback(AB::KeyboardKey key, bool32 currState, bool32 prevState, uint32 repeatCount) {
+		if (key == AB::KeyboardKey::W && currState == 1) {
+			HACK->camPos  = hpm::Add(hpm::Multiply(HACK->camFront, 0.2),  HACK->camPos);
+		} if (key == AB::KeyboardKey::S && currState == 1) {
+			HACK->camPos = hpm::Subtract(HACK->camPos, hpm::Multiply(HACK->camFront, 0.2));
+		} if (key == AB::KeyboardKey::A && currState == 1) {
+			hpm::Vector3 right = hpm::Normalize(hpm::Cross(HACK->camFront, HACK->camUp));
+			HACK->camPos = hpm::Subtract(HACK->camPos, hpm::Multiply(right, 0.2));
+		} if (key == AB::KeyboardKey::D && currState == 1) {
+			hpm::Vector3 right = hpm::Normalize(hpm::Cross(HACK->camFront, HACK->camUp));
+			HACK->camPos = hpm::Add(hpm::Multiply(right, 0.2), HACK->camPos);
+		}
+	}
+
+	void MouseCallback(uint32 xPos, uint32 yPos) {
+		HACK->pitch += (float32)yPos - (float32)HACK->yLastMouse;
+		HACK->yaw += (float32)xPos - (float32)HACK->xLastMouse;
+		HACK->xLastMouse = xPos;
+		HACK->yLastMouse = yPos;
+
+		if (HACK->pitch > 89.0f)
+			HACK->pitch = 89.0f;
+		if (HACK->pitch < -89.0f)
+			HACK->pitch = -89.0f;
+	}
+
 extern "C" {
 	ABERRATION_ENTRY void GameInitialize(AB::Engine* engine, AB::GameContext* gameContext) {
-		gameContext->texHandle = engine->loadTexture("../../../assets/test.bmp");
-		engine->freeTexture(gameContext->texHandle);
-		gameContext->texHandle = engine->loadTexture("../../../assets/test.bmp");
-		gameContext->regHandle = engine->textureCreateRegion(gameContext->texHandle, { 0.5, 0.5 }, { 0.8, 0.8 });
-		gameContext->texHandle1 = engine->loadTexture("../../../assets/test_op.bmp");
-		gameContext->texHandle2 = engine->loadTexture("../../../assets/art.bmp");
-		// TODO: Game context in lambda
-		engine->windowSetKeyCallback([](AB::KeyboardKey key, bool32 currState, bool32 prevState, uint32 repeatCount){
-			if (key == AB::KeyboardKey::W) {
-				//gameContext->x += 1;
-			}
-		});
+		gameContext->shaderHandle = LoadShaders(engine);
+		auto* gl = engine->glGetFunctions();
+		HACK = gameContext;
+		engine->windowSetKeyCallback(KeyCallback);
+		engine->windowSetMouseMoveCallback(MouseCallback);
+
+		float32 vertices[] = {
+			-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+			0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+			0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+			0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+			-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+			-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+			-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+			0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+			0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+			0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+			-0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+			-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+			-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+			-0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+			-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+			-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+			-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+			-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+			0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+			0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+			0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+			0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+			0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+			0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+			-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+			0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+			0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+			0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+			-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+			-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+			-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+			0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+			0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+			0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+			-0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+			-0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+		};
+
+		gl->_glGenBuffers(1, &gameContext->vbo);
+		gl->_glBindBuffer(GL_ARRAY_BUFFER, gameContext->vbo);
+		gl->_glBufferData(GL_ARRAY_BUFFER, sizeof(float32) * 180, vertices, GL_STATIC_DRAW);
+		gl->_glBindVertexArray(0);
+
+		gl->_glGenTextures(1, &gameContext->texture);
+		gl->_glBindTexture(GL_TEXTURE_2D, gameContext->texture);
+
+		gl->_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		gl->_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		gl->_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		gl->_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		AB::Image img = engine->loadBMP("../../../assets/test.bmp");
+		gl->_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, img.width, img.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, img.bitmap);
+		engine->deleteBitmap(img.bitmap);
+		gl->_glBindTexture(GL_TEXTURE_2D, 0);
+
+
+		gameContext->camFront = {0, 0, -1};
+		gameContext->camPos = {0, 0, 3};
+		gameContext->camUp = {0, 1, 0};
+		gameContext->yaw = 0.0f;
+		gameContext->pitch = 0.0f;
+		engine->windowGetMousePositionCallback(&gameContext->xLastMouse, &gameContext->yLastMouse);
 	}
+
+	float a = 0.0f;
+
 	ABERRATION_ENTRY void GameRender(AB::Engine* engine, AB::GameContext* gameContext) {
-		//engine->fillRectangleColor({ 25, 560 }, 10, 0, 0, { 225, 40 }, 0xee2e271e);
-		//engine->fillRectangleColor({ 0, 560 }, 10, 0, 0, { 25, 40 }, 0xff01a8ff);
-		//hpm::Rectangle strr = engine->getStringBoundingRect(20.0, L"0 fps");
-		//float32 h = (40 + strr.max.y) / 2;
-		//engine->debugDrawString({35, 600 - h}, 20.0, 0xffffffff, L"0 fps");
+		hpm::Vector3 cubePositions[] = {
+			hpm::Vector3{ 0.0f,  0.0f,  0.0f },
+			hpm::Vector3{ 2.0f,  5.0f, -15.0f },
+			hpm::Vector3{ -1.5f, -2.2f, -2.5f },
+			hpm::Vector3{ -3.8f, -2.0f, -12.3f },
+			hpm::Vector3{ 2.4f, -0.4f, -3.5f },
+			hpm::Vector3{ -1.7f,  3.0f, -7.5f },
+			hpm::Vector3{ 1.3f, -2.0f, -2.5f },
+			hpm::Vector3{ 1.5f,  2.0f, -2.5f },
+			hpm::Vector3{ 1.5f,  0.2f, -1.5f },
+			hpm::Vector3{ -1.3f,  1.0f, -1.5f }
+		};
+
+		auto* gl = engine->glGetFunctions();
+
+		gl->_glActiveTexture(GL_TEXTURE0);
+		gl->_glBindTexture(GL_TEXTURE_2D, gameContext->texture);
+		gl->_glUseProgram(gameContext->shaderHandle);
+		gl->_glUniform1i(gl->_glGetUniformLocation(gameContext->shaderHandle, "ourTexture1"), 0);
+
+		//hpm::Matrix4 view = hpm::Translation({ x, 0.0f, z });
+		float32 xCam = hpm::Sin(a * 0.01f) * 10.2f;
+		float32 zCam = hpm::Cos(a * 0.01f) * 10.2f;
+		gameContext->camFront.x = hpm::Cos(hpm::ToRadians(gameContext->pitch)) * hpm::Cos(hpm::ToRadians(gameContext->yaw));
+		gameContext->camFront.y = hpm::Sin(hpm::ToRadians(gameContext->pitch));
+		gameContext->camFront.z = hpm::Cos(hpm::ToRadians(gameContext->pitch)) * hpm::Sin(hpm::ToRadians(gameContext->yaw));
+		gameContext->camFront = hpm::Normalize(gameContext->camFront);
+		hpm::Matrix4 view = hpm::LookAtRH(gameContext->camPos, 
+									hpm::Add(gameContext->camPos, gameContext->camFront),
+									gameContext->camUp);
+		char buffer[512];
+		// TODO: Debug functions for printing vectors
+		engine->formatString(buffer, 128, "camPos: %f32 %f32 %f32\ncamFront: %f32 %f32 %f32\ncamUp: %f32 %f32 %f32\nyaw: %f32\npitch: %f32", gameContext->camPos.x, gameContext->camPos.y, gameContext->camPos.z,
+								gameContext->camFront.x, gameContext->camFront.y, gameContext->camFront.z, gameContext->camUp.x, gameContext->camUp.y, gameContext->camUp.z, gameContext->yaw, gameContext->pitch);
+		engine->debugDrawString({ 100, 100 }, 20, 0xffffffff, buffer);
+		hpm::Matrix4 proj = hpm::PerspectiveRH(90.0f, 800.0f / 600.0f, 0.1f, 100.0f);
+		//hpm::Matrix4 proj = hpm::OrthogonalRH(0, 8, 0, 6, 0.1, 100);
 
 
-		uint16 reg = engine->textureCreateRegion(gameContext->texHandle2, { 0.0, 0.0 }, { 0.8, 0.8 });
-		uint16 reg1 = engine->textureCreateRegion(gameContext->texHandle2, { 0.0, 0.0 }, { 0.2, 0.2 });
-#if 0
-		const wchar_t* str = LR"(�� �������� ��������� ��� ������� � ���������� �� � ������ ����������
-��������� �����, ��������� �� ���� � ��� �������������� ����������� ������ �����.
-���� ����������� ������������ �������� ������ ������ ��� ���� ��������...
-����� ����� ������������� �������� �������� ���������� ������ � �������������� � ����
-������������ ������� � ����������������� ������������ ������, �������
-�� ���� �� ��� �������� �����������, �.�.
-������ ������, ��� ����� �� �������� ����������� ��� ��������������...
-����� ��������� ������� �� ����������� �����, ��������, ���� ���
-���������������� � ����� ��������.)";
-#else
-		const wchar_t* str = LR"(Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed
-do eiusmod tempor incididunt ut labore et dolore magna
-naliqua.Ut enim ad minim veniam, quis nostrud exercitation ullamco
-laboris nisi ut aliquip ex ea commodo consequat.Duis aute irure
-dolor in reprehenderit in voluptate velit esse cillum dolore
-eu fugiat nulla pariatur.Excepteur sint occaecat cupidatat
-non proident, sunt in culpa qui officia deserunt mollit
-nim id est laborum.)";
-#endif
-		hpm::Vector2 p{ 10, 500 };
-		hpm::Rectangle rect;
-		engine->debugDrawString(p, 20.0, 0xff55ff44, str);
-		rect = engine->getStringBoundingRect(p, 20, str);
-		engine->fillRectangleColor(rect.min, 10, 0, 0, hpm::Subtract(rect.max, rect.min), 0xaaa33b8c);
-		engine->fillRectangleColor({ 0, 0 }, 1, 0, 0, { 100, 100 }, 0x22ff0000);
-		engine->fillRectangleTexture({ 50, 50 }, 0, 0, 0, { 100, 100 }, gameContext->texHandle1);
-		engine->fillRectangleTexture({ 100, 100 }, 1,  0, 0, { 100, 100}, gameContext->texHandle);
-		engine->fillRectangleTexture({ 150, 150 }, 2, 0, 0, { 100, 100 }, gameContext->texHandle2);
-		engine->fillRectangleColor({ 200, 200 }, 3, 0, 0, { 100, 100 }, 0xaa0000ff);
+		int32 modelLoc = gl->_glGetUniformLocation(gameContext->shaderHandle, "model");
+		int32 viewLoc = gl->_glGetUniformLocation(gameContext->shaderHandle, "view");
+		int32 projLoc = gl->_glGetUniformLocation(gameContext->shaderHandle, "projection");
+		
+		gl->_glUniformMatrix4fv(viewLoc, 1, GL_FALSE, view.data);
+		gl->_glUniformMatrix4fv(projLoc, 1, GL_FALSE, proj.data);
+		
+		gl->_glBindBuffer(GL_ARRAY_BUFFER, gameContext->vbo);
+		gl->_glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
+		gl->_glEnableVertexAttribArray(0);
+		gl->_glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+		gl->_glEnableVertexAttribArray(2);
+		gl->_glEnable(GL_DEPTH_TEST);
+		for (GLuint i = 0; i < 10; i++) {
+			hpm::Matrix4 tr = hpm::Translation(cubePositions[i]);
+			GLfloat angle = 20.0f * i;
+			hpm::Matrix4 rt = tr;//hpm::Rotate(tr, a, { 1.0f, 0.3f, 0.5f });
+			hpm::Matrix4 sc = hpm::Identity4();//hpm::Scaling({1, 1, 1});
+			rt = hpm::Scale(rt, { 2, 3, 0.2 });
 
-		engine->fillRectangleTexture({ 200, 200 }, 7, 0, 0, { 100, 100 }, reg);
-		engine->fillRectangleColor({ 250, 250 }, 6, 0, 0, { 100, 100 }, 0xaa0000ff);
-		engine->fillRectangleColor({300, 300}, 8, 0, 0, { 200, 100 }, 0xffff0000);
-		//// TODO: Here is a byg with sorting
-		engine->fillRectangleColor({ 350, 350 },10, 0, 0, { 100, 30 }, 0xff1e272e);
-		int i = 5;
-		engine->fillRectangleColor({ 400, 400 }, 2, 0, 0, { 100, 100 }, 0xffff0000);
-		engine->fillRectangleColor({ 450, 450 }, 10, 0, 0, { 100, 30 }, 0xff1e272e);
-		engine->fillRectangleColor({ 500, 500 }, 3, 0, 0, { 100, 100 }, 0xff11f497);
-		engine->fillRectangleTexture({550, 550 }, 5, 0, 0, { 100, 100}, reg1);
+			a += 0.1f;
+			hpm::Matrix4 model = hpm::Multiply(rt, sc);
+			gl->_glUniformMatrix4fv(modelLoc, 1, GL_FALSE, model.data);
 
-		engine->freeTexture(reg);
-		engine->freeTexture(reg1);
+			gl->_glDrawArrays(GL_TRIANGLES, 0, 36);
+		}
+		gl->_glDisable(GL_DEPTH_TEST);
+
 	}
-	ABERRATION_ENTRY void GameUpdate(AB::Engine* engine, AB::GameContext* gameContext) {}
+	ABERRATION_ENTRY void GameUpdate(AB::Engine* engine, AB::GameContext* gameContext) {
+		//engine->printString("%f32 %f32 %f32 %f32\n%f32 %f32 %f32 %f32\n%f32 %f32 %f32 %f32\n%f32 %f32 %f32 %f32\n",  mr._11, mr._12, mr._13, mr._14,
+		//																												mr._21, mr._22, mr._23, mr._24,
+		//																												mr._31, mr._32, mr._33, mr._34,
+		//																										mr._41, mr._42, mr._43, mr._44);
+	}
 }

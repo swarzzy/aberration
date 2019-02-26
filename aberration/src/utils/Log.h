@@ -1,12 +1,6 @@
 #pragma once
 #include "ABHeader.h"
 
-#if defined(AB_PLATFORM_WINDOWS)
-#define AB_DEBUG_BREAK() __debugbreak()
-#elif defined(AB_PLATFORM_LINUX)
-#define AB_DEBUG_BREAK() __builtin_debugtrap()
-#endif
-
 namespace AB {
 
 	enum class LogLevel : uint32 {

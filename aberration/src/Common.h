@@ -26,3 +26,9 @@
 #define flop [[fallthrough]]
 
 #define AB_BIT(shift) (1 << shift)
+
+#if defined(AB_PLATFORM_WINDOWS)
+#define AB_DEBUG_BREAK() __debugbreak()
+#elif defined(AB_PLATFORM_LINUX)
+#define AB_DEBUG_BREAK() __builtin_debugtrap()
+#endif

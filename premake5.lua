@@ -146,6 +146,7 @@ project "Sandbox"
 
 	includedirs {
 		"aberration/",
+		"aberration/src", -- Temporary for GL header in sandbox
 		"hypermath/"
 	}
 

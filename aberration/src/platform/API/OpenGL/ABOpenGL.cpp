@@ -532,7 +532,11 @@ namespace AB::GL {
 		AB_GLCALL(glEnable(GL_DEPTH_TEST));
 		//AB_GLCALL(glDepthMask(GL_FALSE));
 		AB_GLCALL(glDepthFunc(GL_LESS));
-	}	
+	}
+
+	ABGLProcs* GetFunctions() {
+		return &_ABOpenGLProcs;
+	}
 
 	// TODO: Message almost always takes just patr of the buffer
 	// So it needs some counter for written chars

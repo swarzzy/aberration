@@ -51,7 +51,17 @@ static void _LoadEngineFunctions(AB::Engine* context) {
 	context->textureCreateRegion	= AB::Renderer2D::TextureCreateRegion;
 	context->windowSetKeyCallback	= AB::Window::SetKeyCallback;
 	context->debugDrawString		= AB::Renderer2D::DebugDrawString;
+	context->debugDrawStringW		= AB::Renderer2D::DebugDrawString;
 	context->getStringBoundingRect	= AB::Renderer2D::GetStringBoundingRect;
+	context->glGetFunctions			= AB::GL::GetFunctions;
+	context->log					= AB::Log;
+	context->logAssert				= AB::LogAssert;
+	context->formatString			= AB::FormatString;
+	context->printString			= AB::PrintString;
+	context->loadBMP				= AB::LoadBMP;
+	context->deleteBitmap			= AB::DeleteBitmap;
+	context->windowSetMouseMoveCallback = AB::Window::SetMouseMoveCallback;
+	context->windowGetMousePositionCallback = AB::Window::GetMousePosition;
 }
 
 static AB::ApplicationProperties* g_AppProperties = nullptr;
@@ -131,6 +141,8 @@ int main()
 		}
 
 		AB::DrawDebugOverlay(&debugOverlay);
+		// TODO: Temporary here
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		GameRender(engine, gameContext);
 
 		AB::Renderer2D::Flush();

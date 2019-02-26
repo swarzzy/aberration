@@ -681,7 +681,7 @@ namespace AB {
 			precision += 1;
 			float64 val = ReadArgFloat(type->size, args);
 			uint32 written = Float64ToASCII(tempAt, tempBufferSize, (float64)val, precision, 10, "0123456789", OutChar);
-			uint32 intDigits = CountUint64Digits((uint64)val, 10);
+			uint32 intDigits = CountUint64Digits((uint64)(val >= 0 ? val : -val), 10);
 			precision += intDigits;
 			tempAt += written;
 

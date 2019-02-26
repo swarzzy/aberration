@@ -775,7 +775,7 @@ namespace AB {
 		GLCall(glDisable(GL_DEPTH_TEST));
 		GLCall(glClearColor(0.2f, 0.3f, 0.3f, 1.0f));
 		// TODO: Requires GL_LESS Depth test with clear to 0.0 and range 0.0 - 1.0
-		GLCall(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+		//GLCall(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 		GLCall(glBindBuffer(GL_ARRAY_BUFFER, s_Properties->GLVBOHandle));
 		GLCall(glBufferData(GL_ARRAY_BUFFER, sizeof(VertexData) * s_Properties->vertexCount, (void*)s_Properties->vertexBuffer, GL_DYNAMIC_DRAW));
 		GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s_Properties->GLIBOHandle));
@@ -788,6 +788,7 @@ namespace AB {
 		GLCall(glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)(sizeof(float32) * 2 + sizeof(byte) * 4)));
 
 		// Always using 0 slot
+		GLCall(glUseProgram(s_Properties->shaderHandle));
 		GLCall(glActiveTexture(GL_TEXTURE0));
 		GLCall(glUniform1i(s_Properties->uniformSamplerIndex, 0));
 
