@@ -16,11 +16,14 @@
 
 namespace AB {
 
-	typedef void(CloseCallback)(void);
-	typedef void(ResizeCallback)(uint32 width, uint32 height);
-	typedef void(KeyCallback)(KeyboardKey key, bool32 currState, bool32 prevState, uint32 repeatCount);
-	typedef void(MouseButtonCallback)(MouseButton btn, bool32 state);
-	typedef void(MouseMoveCallback)(uint32 xPos, uint32 yPos);
+	typedef void(PlatformCloseCallback)(void);
+	typedef void(PlatformResizeCallback)(uint32 width, uint32 height);
+	typedef void(PlatformKeyCallback)(KeyboardKey key, bool32 currState, bool32 prevState, uint32 repeatCount);
+	typedef void(PlatformMouseButtonCallback)(MouseButton btn, bool32 state);
+	typedef void(PlatformMouseMoveCallback)(uint32 xPos, uint32 yPos, void* userData);
+	typedef void(PlatformFocusCallback)(bool32 focus, void* userData);
+
+
 	typedef void(GamepadButtonCallback)(uint8 gpNumber, GamepadButton btn, bool32 currState, bool32 prevState);
 	typedef void(GamepadStickCallback)(uint8 gpNumber, int16 xLs, int16 yLs, int16 xRs, int16 yRs);
 	typedef void(GamepadTriggerCallback)(uint8 gpNumber, byte lt, byte rt);
@@ -33,8 +36,8 @@ namespace AB {
 	typedef uint16(ABRendererLoadTextureFn)(const char* filepath);
 	typedef void(ABRendererFreeTextureFn)(uint16 handle);
 	typedef uint16(ABRendererTextureCreateRegion)(uint16 handle, hpm::Vector2 min, hpm::Vector2 max);
-	typedef void(ABWindowSetKeyCallbackFn)(KeyCallback* func);
-	typedef void(ABWindowSetMouseMoveCallbackFn)(MouseMoveCallback* func);
+	typedef void(ABWindowSetKeyCallbackFn)(PlatformKeyCallback* func);
+	typedef void(ABWindowSetMouseMoveCallbackFn)(PlatformMouseMoveCallback* func, void* userData);
 	typedef void(ABWindowGetMousePositionFn)(uint32* xPos, uint32* yPos);
 
 	typedef ABGLProcs*(ABGLGetFunctions)();
@@ -47,6 +50,29 @@ namespace AB {
 	typedef Image(ABLoadBMPFn)(const char* filename);
 	typedef void(ABDeleteBitmapFn)(void* ptr);
 
+	typedef bool32(ABWindowGetKeyboardStateFn)(byte* buffer, uint32 bufferSize);
+
+	struct PlatformKeyInfo;
+	struct PlatformMouseButtonInfo;
+
+	typedef PlatformKeyInfo(ABGetKeyStateFn)(KeyboardKey key);
+	typedef PlatformMouseButtonInfo(ABGetMouseButtonStateFn)(MouseButton button);
+	typedef void(ABWindowGetSizeFn)(uint32* width, uint32* height);
+	typedef void(ABSetMousePositionFn)(uint32 x, uint32 y);
+
+	typedef void(PlatformWindowSetFocusCallbackFn)(void* userData, PlatformFocusCallback* func);
+	typedef bool32(PlatformWindowWindowActiveFn)();
+	typedef void(PlatformWindowsShowCursorFn)(bool32 show);
+
+	// DebugOverlay
+	typedef void(PlatformDebugOverlayPushStringFn)(const char* string);
+	typedef void(PlatformDebugOverlayPushV2Fn)(const char* title, hpm::Vector2 vec);
+	typedef void(PlatformDebugOverlayPushV3Fn)(const char* title, hpm::Vector3 vec);
+	typedef void(PlatformDebugOverlayPushV4Fn)(const char* title, hpm::Vector4 vec);
+	typedef void(PlatformDebugOverlayPushF32Fn)(const char* title, float32 var);
+	typedef void(PlatformDebugOverlayPushI32Fn)(const char* title, int32 var);
+	typedef void(PlatformDebugOverlayPushU32Fn)(const char* title, uint32 var);
+
 	struct Engine {
 		ABRendererFillRectangleColorFn* fillRectangleColor;
 		ABRendererFillRectangleTextureFn* fillRectangleTexture;
@@ -56,7 +82,6 @@ namespace AB {
 		ABRendererLoadTextureFn* loadTexture;
 		ABRendererFreeTextureFn* freeTexture;
 		ABWindowSetKeyCallbackFn* windowSetKeyCallback;
-		ABWindowSetMouseMoveCallbackFn* windowSetMouseMoveCallback;
 		ABWindowGetMousePositionFn* windowGetMousePositionCallback;
 		ABRendererTextureCreateRegion* textureCreateRegion;
 		ABGLGetFunctions* glGetFunctions;
@@ -69,9 +94,28 @@ namespace AB {
 		//struct Renderer2D {
 		//	static void FreeTexture(uint16 handle);
 		//};
+		ABWindowGetKeyboardStateFn* GetKeyboardState;
+		ABGetKeyStateFn* GetKeyState;
+		ABGetMouseButtonStateFn* GetMouseButtonState;
+		ABWindowSetMouseMoveCallbackFn* SetMouseMoveCallback;
+		ABWindowGetSizeFn* GetWindowSize;
+		ABSetMousePositionFn* SetMousePosition;
+		PlatformWindowSetFocusCallbackFn* SetFocusCallback;
+		PlatformWindowWindowActiveFn* WindowActive;
+		PlatformWindowsShowCursorFn* ShowCursor;
+
+		// Debug Overlay
+		PlatformDebugOverlayPushStringFn* DebugOverlayPushStr;
+		PlatformDebugOverlayPushV2Fn* DebugOverlayPushV2;
+		PlatformDebugOverlayPushV3Fn* DebugOverlayPushV3;
+		PlatformDebugOverlayPushV4Fn* DebugOverlayPushV4;
+		PlatformDebugOverlayPushF32Fn* DebugOverlayPushF32;
+		PlatformDebugOverlayPushI32Fn* DebugOverlayPushI32;
+		PlatformDebugOverlayPushU32Fn* DebugOverlayPushU32;
 	};
 
 	struct GameContext {
+
 		int32 shaderHandle;
 		uint32 vbo;
 		uint32 texture;
@@ -80,36 +124,8 @@ namespace AB {
 		hpm::Vector3 camUp;
 		float32 pitch;
 		float32 yaw;
-		uint32 xLastMouse;
-		uint32 yLastMouse;
+		float32 xLastMouse;
+		float32 yLastMouse;
 	};
 
 }
-
-// TODO: This is depends on gameContext var now
-#if defined(AB_CONFIG_DISTRIB)
-
-#define AB_INFO(format, ...)	do{}while(false)
-#define AB_WARN(format, ...)	do{}while(false)
-#define AB_ERROR(format, ...)	do{}while(false)
-#define AB_FATAL(format, ...)	do{}while(false)
-#define AB_ASSERT(format, expr, ...)	do{}while(false)
-
-#else
-
-#if defined (__clang__)
-#define AB_INFO(format, ...) engine->log(AB::LogLevel::Info, __FILE__, __func__, __LINE__, format, ##__VA_ARGS__)
-#define AB_WARN(format, ...) engine->log(AB::LogLevel::Warn, __FILE__, __func__, __LINE__, format, ##__VA_ARGS__)
-#define AB_ERROR(format, ...) engine->log(AB::LogLevel::Error, __FILE__, __func__, __LINE__, format, ##__VA_ARGS__)
-#define AB_FATAL(format, ...) do { engine->log(AB::LogLevel::Fatal, __FILE__, __func__, __LINE__, format, ##__VA_ARGS__); AB_DEBUG_BREAK();} while(false)
-// TODO: print assertions
-#define AB_ASSERT(expr, format, ...) do { if (!(expr)) {engine->logAssert(AB::LogLevel::Fatal, __FILE__, __func__, __LINE__, format, ##__VA_ARGS__); AB_DEBUG_BREAK();}} while(false)
-#else
-#define AB_INFO(format, ...) engine->log(AB::LogLevel::Info, __FILE__, __func__, __LINE__, format, __VA_ARGS__)
-#define AB_WARN(format, ...) engine->log(AB::LogLevel::Warn, __FILE__, __func__, __LINE__, format, __VA_ARGS__)
-#define AB_ERROR(format, ...) engine->log(AB::LogLevel::Error, __FILE__, __func__, __LINE__, format, __VA_ARGS__)
-#define AB_FATAL(format, ...) do { engine->log(AB::LogLevel::Fatal, __FILE__, __func__, __LINE__, format, __VA_ARGS__); AB_DEBUG_BREAK();} while(false)
-// TODO: print assertions
-#define AB_ASSERT(expr, format, ...) do { if (!(expr)) {engine->logAssert(AB::LogLevel::Fatal, __FILE__, __func__, __LINE__, #expr ,format, __VA_ARGS__); AB_DEBUG_BREAK();}} while(false)
-#endif
-#endif

@@ -57,7 +57,11 @@ namespace AB {
 		char title[32];
 		uint32 width;
 		uint32 height;
-		bool running;
+		bool32 running;
+
+		bool32 activeWindow;
+		void* focusCallbackUserData;
+		PlatformFocusCallback* focusCallback;
 
 		Display* X11Display;
 		Screen* X11Screen;
@@ -66,22 +70,23 @@ namespace AB {
 		::Window X11Window;
 		Atom X11WmDeleteMessage;
 
-		CloseCallback* closeCallback;
-		ResizeCallback* resizeCallback;
+		PlatformCloseCallback* closeCallback;
+		PlatformResizeCallback* resizeCallback;
 
 		int32 mousePositionX;
 		int32 mousePositionY;
-		MouseButtonCallback* mouseButtonCallback;
-		MouseMoveCallback* mouseMoveCallback;
-		bool mouseButtonsCurrentState[MOUSE_BUTTONS_COUNT];
-		bool mouseInClientArea;
+		PlatformMouseButtonCallback* mouseButtonCallback;
+		void* mouseMoveCallbackUserData;
+		PlatformMouseMoveCallback* mouseMoveCallback;
+		bool32 mouseButtonsCurrentState[MOUSE_BUTTONS_COUNT];
+		bool32 mouseInClientArea;
 
 		//bool gamepadCurrentState[GAMEPAD_STATE_ARRAY_SIZE];
 		//bool gamepadPrevState[GAMEPAD_STATE_ARRAY_SIZE];
 		//GamepadAnalogCtrl gamepadAnalogControls[XUSER_MAX_COUNT];
 
 		X11KeyState keys[KEYBOARD_KEYS_COUNT];
-		KeyCallback* keyCallback;
+		PlatformKeyCallback* keyCallback;
 	};
 
 	static uint8 _X11KeyConvertToABKeycode(WindowProperties* window, uint32 X11KeySym);
@@ -308,7 +313,7 @@ namespace AB {
 						s_WindowProperties->mousePositionX = event.xmotion.x;
 						s_WindowProperties->mousePositionY = event.xmotion.y;
 						if (s_WindowProperties->mouseMoveCallback)
-							s_WindowProperties->mouseMoveCallback(event.xmotion.x, event.xmotion.y);
+							s_WindowProperties->mouseMoveCallback(event.xmotion.x, event.xmotion.y, s_WindowProperties->mouseMoveCallbackUserData);
 
 					} break;
 
@@ -328,6 +333,20 @@ namespace AB {
 						if (s_WindowProperties->resizeCallback)
 							s_WindowProperties->resizeCallback(attribs.width, attribs.height);
 						RenderGroupResizeCallback(attribs.width, attribs.height);
+					} break;
+
+					case FocusIn: {
+						s_WindowProperties->activeWindow = true;
+						if (s_WindowProperties->focusCallback) {
+							s_WindowProperties->focusCallback(true, s_WindowProperties->focusCallbackUserData);
+						}
+					} break;
+
+					case FocusOut: {
+						s_WindowProperties->activeWindow = false;
+						if (s_WindowProperties->focusCallback) {
+							s_WindowProperties->focusCallback(false, s_WindowProperties->focusCallbackUserData);
+						}
 					} break;
 				}
 
@@ -364,11 +383,11 @@ namespace AB {
 		*height = s_WindowProperties->height;
 	}
 
-	void Window::SetCloseCallback(CloseCallback* func) {
+	void Window::SetCloseCallback(PlatformCloseCallback* func) {
 		s_WindowProperties->closeCallback = func;
 	}
 
-	void Window::SetResizeCallback(ResizeCallback* func) {
+	void Window::SetResizeCallback(PlatformResizeCallback* func) {
 		s_WindowProperties->resizeCallback = func;
 	}
 
@@ -376,8 +395,48 @@ namespace AB {
 		return !(s_WindowProperties->keys[static_cast<uint8>(key)].prevState) && s_WindowProperties->keys[static_cast<uint8>(key)].currentState;
 	}
 
-	void Window::SetKeyCallback(KeyCallback* func) {
+	PlatformKeyInfo Window::GetKeyState(KeyboardKey key) {
+		PlatformKeyInfo state = {};
+		state.currentState =  s_WindowProperties->keys[(uint32)key].currentState;
+		state.prevState = s_WindowProperties->keys[(uint32)key].prevState;
+		return state;
+	}
+
+	PlatformMouseButtonInfo Window::GetMouseButtonState(MouseButton button) {
+		PlatformMouseButtonInfo state = {};
+		state.currentState = s_WindowProperties->mouseButtonsCurrentState[(uint32)button];
+		state.prevState = s_WindowProperties->mouseButtonsCurrentState[(uint32)button];
+		return state;
+	}
+
+	void Window::SetKeyCallback(PlatformKeyCallback* func) {
 		s_WindowProperties->keyCallback = func;
+	}
+
+	void Window::SetMousePosition(uint32 x, uint32 y) {
+		XWarpPointer(s_WindowProperties->X11Display, None, s_WindowProperties->X11Window, 0, 0, 0, 0, x, y);
+		#if 0
+		uint32 yFlipped = 0;
+		if (y < s_WindowProperties->height) {
+			yFlipped = s_WindowProperties->height - y;
+			POINT pt = { (LONG)x, (LONG)yFlipped };
+			if (ClientToScreen(s_WindowProperties->Win32WindowHandle, &pt)) {
+				SetCursorPos(pt.x, pt.y);
+			}
+		}
+		#endif 
+	}
+
+	void Window::ShowCursor(bool32 show) {
+	}
+
+	void Window::SetFocusCallback(void* userData, PlatformFocusCallback* func) {
+		s_WindowProperties->focusCallback = func;
+		s_WindowProperties->focusCallbackUserData = userData;
+	}
+
+	bool32 Window::WindowActive() {
+		return s_WindowProperties->activeWindow;
 	}
 
 	void Window::GetMousePosition(uint32* xPos, uint32* yPos) {
@@ -393,12 +452,13 @@ namespace AB {
 		return s_WindowProperties->mouseInClientArea;
 	}
 
-	void Window::SetMouseButtonCallback(MouseButtonCallback* func) {
+	void Window::SetMouseButtonCallback(PlatformMouseButtonCallback* func) {
 		s_WindowProperties->mouseButtonCallback = func;
 	}
 
-	void Window::SetMouseMoveCallback(MouseMoveCallback* func) {
+	void Window::SetMouseMoveCallback(PlatformMouseMoveCallback* func, void* userData) {
 		s_WindowProperties->mouseMoveCallback = func;
+		s_WindowProperties->mouseMoveCallbackUserData = userData;
 	}
 	// TODO: implement gamepad input in linux
 	// GAMEPAD INPUT (CURRENTLY NOT WORKING)
@@ -423,15 +483,15 @@ namespace AB {
 
 	}
 
-	void Window::SetGamepadButtonCallback(GamepadButtonCallback* func) {
+	void Window::SetGamepadButtonCallback(PlatformGamepadButtonCallback* func) {
 		
 	}
 
-	void Window::SetGamepadStickCallback(GamepadStickCallback* func) {
+	void Window::SetGamepadStickCallback(PlatformGamepadStickCallback* func) {
 		
 	}
 
-	void Window::SetGamepadTriggerCallback(GamepadTriggerCallback* func) {
+	void Window::SetGamepadTriggerCallback(PlatformGamepadTriggerCallback* func) {
 		
 	}
 
@@ -551,6 +611,7 @@ namespace AB {
 
 		XClearWindow(display, s_WindowProperties->X11Window);
 		XMapRaised(display, s_WindowProperties->X11Window);
+		s_WindowProperties->activeWindow = true;
 
 		// TODO: Error handling
 		//auto wm_protocols = XInternAtom(display, "WM_PROTOCOLS", False);

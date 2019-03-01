@@ -51,6 +51,7 @@ typedef float	float32; // float
 typedef double	float64; // double
 
 typedef uint32 color32;
+typedef byte bool8;
 
 typedef uintptr_t uintptr;
 

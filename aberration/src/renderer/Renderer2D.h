@@ -31,6 +31,7 @@ namespace AB {
 		static void Initialize(uint32 drawableSpaceX, uint32 drawableSpaceY);
 		static void Destroy();
 		static uint32 GetDrawCallCount();
+		static hpm::Vector2 GetCanvasSize();
 
 		static bool32 DrawRectangleColorUI(hpm::Vector2 min, hpm::Vector2 max, uint16 depth, float32 angle, float32 anchor, color32 color);
 		static uint16 LoadFont(const char* filepath);

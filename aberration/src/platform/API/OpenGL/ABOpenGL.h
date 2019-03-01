@@ -81,6 +81,7 @@ extern "C" {
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN 1
 #endif
+	// TODO: THIS Should not be here
 #include <windows.h>
 #endif
 }

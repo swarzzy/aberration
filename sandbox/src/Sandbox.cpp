@@ -1,5 +1,8 @@
 #include <hypermath.h>
 #include <Aberration.h>
+#include "Application.h"
+#include "InputManager.h"
+#include "platform/Platform.h"
 
 const char* vertSource= R"(
 #version 330 core
@@ -55,7 +58,7 @@ void main()
 			gl->_glGetShaderInfoLog(vertexShader, logLen, NULL, message);
 			AB_FATAL("Shader compilation error:\n%s", message);
 		};
-
+		
 		gl->_glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &result);
 		if (!result) {
 			int32 logLen;
@@ -86,41 +89,39 @@ void main()
 	float z = -7.0f;
 	float x = 0.0f;
 	AB::GameContext* HACK;
+	AB::InputPropeties* g_Input = nullptr;
 
 	void KeyCallback(AB::KeyboardKey key, bool32 currState, bool32 prevState, uint32 repeatCount) {
-		if (key == AB::KeyboardKey::W && currState == 1) {
-			HACK->camPos  = hpm::Add(hpm::Multiply(HACK->camFront, 0.2),  HACK->camPos);
-		} if (key == AB::KeyboardKey::S && currState == 1) {
-			HACK->camPos = hpm::Subtract(HACK->camPos, hpm::Multiply(HACK->camFront, 0.2));
-		} if (key == AB::KeyboardKey::A && currState == 1) {
-			hpm::Vector3 right = hpm::Normalize(hpm::Cross(HACK->camFront, HACK->camUp));
-			HACK->camPos = hpm::Subtract(HACK->camPos, hpm::Multiply(right, 0.2));
-		} if (key == AB::KeyboardKey::D && currState == 1) {
-			hpm::Vector3 right = hpm::Normalize(hpm::Cross(HACK->camFront, HACK->camUp));
-			HACK->camPos = hpm::Add(hpm::Multiply(right, 0.2), HACK->camPos);
-		}
+	
 	}
 
-	void MouseCallback(uint32 xPos, uint32 yPos) {
-		HACK->pitch += (float32)yPos - (float32)HACK->yLastMouse;
-		HACK->yaw += (float32)xPos - (float32)HACK->xLastMouse;
-		HACK->xLastMouse = xPos;
-		HACK->yLastMouse = yPos;
-
+	// TODO: Why pitch are upside down?
+	void MouseCallback(AB::MouseMode mode, float32 x, float32 y, void* userData) {
+		HACK->pitch += y;
+		HACK->yaw += x;
+		HACK->xLastMouse = x;
+		HACK->yLastMouse = y;
 		if (HACK->pitch > 89.0f)
 			HACK->pitch = 89.0f;
 		if (HACK->pitch < -89.0f)
 			HACK->pitch = -89.0f;
+
+		if (HACK->yaw > 360.0f)
+			HACK->yaw -= 360.0f;
+		if (HACK->yaw < -360.0f)
+			HACK->yaw -= -360.0f;
 	}
 
 extern "C" {
+
 	ABERRATION_ENTRY void GameInitialize(AB::Engine* engine, AB::GameContext* gameContext) {
+		g_Input = AB::InputInitialize(engine);
+		AB::SetMouseMode(g_Input, AB::MouseMode::Captured);
 		gameContext->shaderHandle = LoadShaders(engine);
 		auto* gl = engine->glGetFunctions();
 		HACK = gameContext;
 		engine->windowSetKeyCallback(KeyCallback);
-		engine->windowSetMouseMoveCallback(MouseCallback);
-
+		AB::SetMouseMoveCallback(g_Input, 0, MouseCallback);
 		float32 vertices[] = {
 			-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
 			0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
@@ -189,7 +190,8 @@ extern "C" {
 		gameContext->camUp = {0, 1, 0};
 		gameContext->yaw = 0.0f;
 		gameContext->pitch = 0.0f;
-		engine->windowGetMousePositionCallback(&gameContext->xLastMouse, &gameContext->yLastMouse);
+		gameContext->xLastMouse = 0;
+		gameContext->yLastMouse = 0;
 	}
 
 	float a = 0.0f;
@@ -225,11 +227,13 @@ extern "C" {
 		hpm::Matrix4 view = hpm::LookAtRH(gameContext->camPos, 
 									hpm::Add(gameContext->camPos, gameContext->camFront),
 									gameContext->camUp);
-		char buffer[512];
-		// TODO: Debug functions for printing vectors
-		engine->formatString(buffer, 128, "camPos: %f32 %f32 %f32\ncamFront: %f32 %f32 %f32\ncamUp: %f32 %f32 %f32\nyaw: %f32\npitch: %f32", gameContext->camPos.x, gameContext->camPos.y, gameContext->camPos.z,
-								gameContext->camFront.x, gameContext->camFront.y, gameContext->camFront.z, gameContext->camUp.x, gameContext->camUp.y, gameContext->camUp.z, gameContext->yaw, gameContext->pitch);
-		engine->debugDrawString({ 100, 100 }, 20, 0xffffffff, buffer);
+
+		DEBUG_OVERLAY_PUSH_V3("CamPos", gameContext->camPos);
+		DEBUG_OVERLAY_PUSH_V3("CamFront", gameContext->camFront);
+		DEBUG_OVERLAY_PUSH_V3("CamUP", gameContext->camUp);
+		DEBUG_OVERLAY_PUSH_F32("Yaw", gameContext->yaw);
+		DEBUG_OVERLAY_PUSH_F32("Pitch", gameContext->pitch);
+
 		hpm::Matrix4 proj = hpm::PerspectiveRH(90.0f, 800.0f / 600.0f, 0.1f, 100.0f);
 		//hpm::Matrix4 proj = hpm::OrthogonalRH(0, 8, 0, 6, 0.1, 100);
 
@@ -264,9 +268,21 @@ extern "C" {
 
 	}
 	ABERRATION_ENTRY void GameUpdate(AB::Engine* engine, AB::GameContext* gameContext) {
-		//engine->printString("%f32 %f32 %f32 %f32\n%f32 %f32 %f32 %f32\n%f32 %f32 %f32 %f32\n%f32 %f32 %f32 %f32\n",  mr._11, mr._12, mr._13, mr._14,
-		//																												mr._21, mr._22, mr._23, mr._24,
-		//																												mr._31, mr._32, mr._33, mr._34,
-		//																										mr._41, mr._42, mr._43, mr._44);
+		AB::InputUpdate(g_Input);
+
+		if (AB::InputKeyPressed(g_Input, AB::KeyboardKey::W)) {
+			HACK->camPos = hpm::Add(hpm::Multiply(HACK->camFront, 0.2), HACK->camPos);
+		}
+		if (AB::InputKeyPressed(g_Input, AB::KeyboardKey::S)) {
+			HACK->camPos = hpm::Subtract(HACK->camPos, hpm::Multiply(HACK->camFront, 0.2));
+		}
+		if (AB::InputKeyPressed(g_Input, AB::KeyboardKey::A)) {
+			hpm::Vector3 right = hpm::Normalize(hpm::Cross(HACK->camFront, HACK->camUp));
+			HACK->camPos = hpm::Subtract(HACK->camPos, hpm::Multiply(right, 0.2));
+		}
+		if (AB::InputKeyPressed(g_Input, AB::KeyboardKey::D)) {
+			hpm::Vector3 right = hpm::Normalize(hpm::Cross(HACK->camFront, HACK->camUp));
+			HACK->camPos = hpm::Add(hpm::Multiply(right, 0.2), HACK->camPos);
+		}
 	}
 }

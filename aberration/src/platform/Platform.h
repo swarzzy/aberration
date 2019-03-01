@@ -1,9 +1,8 @@
 #pragma once 
 #include "ABHeader.h"
-#include <hypermath.h>
 #include <../Aberration.h>
 
-
+typedef void(GameReconnectFn)(AB::Engine* engine, AB::GameContext* gameContext);
 typedef void(GameInitializeFn)(AB::Engine* engine, AB::GameContext* gameContext);
 typedef void(GameUpdateFn)(AB::Engine* engine, AB::GameContext* gameContext);
 typedef void(GameRenderFn)(AB::Engine* engine, AB::GameContext* gameContext);

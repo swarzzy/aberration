@@ -114,6 +114,8 @@ project "Aberration"
 			"aberration/src/platform/windows/**.h",
 			"aberration/src/platform/windows/**.cpp"
 		}
+		
+		removefiles { "**/windows/Win32Platform.cpp" }
 
 	filter { "system:linux" }
 		links {
@@ -126,6 +128,7 @@ project "Aberration"
 			"aberration/src/platform/unix/**.h",
 			"aberration/src/platform/unix/**.cpp",
 		}
+		removefiles { "aberration/src/platform/unix/UnixPlatform.cpp" }
 
 project "Sandbox"
 	location "sandbox"

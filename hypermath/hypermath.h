@@ -52,6 +52,14 @@ typedef __m128				float128;
 
 namespace hpm {
 
+	template <typename T>
+	HPM_INLINE T Abs(T value) {
+		if (value < 0) {
+			return value * (T)-1;
+		}
+		return value;
+	}
+
 	HPM_INLINE float32 Map(float32 t, float32 a, float32 b, float32 c, float32 d) {
 		if (a == b || d == c) return 0.0f;
 		return c + (d - c) / (b - a) * (t - a);
@@ -373,23 +381,23 @@ namespace hpm {
 
 	HPM_INLINE Matrix4 HPM_CALL LookAtRH(Vector3 from, Vector3 at, Vector3 up) {
 		Vector3 zAxis = Normalize(Subtract(at, from));
-		Vector3 xAxis = Normalize(Cross(up, zAxis));
-		Vector3 yAxis = Cross(zAxis, xAxis);
+		Vector3 xAxis = Normalize(Cross(zAxis, up));
+		Vector3 yAxis = Cross(xAxis, zAxis);
 
 		Matrix4 result;
 		result._11 = xAxis.x;
 		result._12 = xAxis.y;
 		result._13 = xAxis.z;
-		result._14 = Dot(xAxis, from);
+		result._14 = -Dot(xAxis, from);
 
 		result._21 = yAxis.x;
 		result._22 = yAxis.y;
 		result._23 = yAxis.z;
-		result._24 = Dot(yAxis, from);
+		result._24 = -Dot(yAxis, from);
 
-		result._31 = zAxis.x;
-		result._32 = zAxis.y;
-		result._33 = zAxis.z;
+		result._31 = -zAxis.x;
+		result._32 = -zAxis.y;
+		result._33 = -zAxis.z;
 		result._34 = Dot(zAxis, from);
 
 		result._41 = 0.0f;

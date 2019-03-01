@@ -16,7 +16,7 @@ namespace AB {
 		Left = 0, Right, Middle, XButton1, XButton2 
 	};
 
-	const uint32 KEYBOARD_KEYS_COUNT = 256;
+	constexpr uint32 KEYBOARD_KEYS_COUNT = 256;
 
 	enum class KeyboardKey : uint8 {
 		InvalidKey = 0x00,

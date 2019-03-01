@@ -603,6 +603,10 @@ namespace AB {
 		return s_Properties->drawCallCount;
 	}
 
+	hpm::Vector2 Renderer2D::GetCanvasSize() {
+		return s_Properties->viewSpaceDim;
+	}
+
 	void Renderer2D::FillRectangleColor(hpm::Vector2 position, uint16 depth, float32 angle, float32 anchor, hpm::Vector2 size, color32 color) {
 		if (s_Properties->sortBufferUsage <= DRAW_QUEUE_CAPACITY) {
 			// Has alpha < 1.0f

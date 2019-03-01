@@ -1,11 +1,4 @@
-#include "../Platform.h"
 #include <windows.h>
-#include <strsafe.h>
-#include "src/utils/Log.h"
-#include "src/platform/Window.h"
-#include "src/renderer/Renderer2D.h"
-#include "platform/API/OpenGL/ABOpenGL.h"
-#include "utils/DebugTools.h"
 
 // TODO: They are shouldn`t be hardcoded
 #if defined(_MSC_VER)
@@ -19,12 +12,16 @@ const char* TEMP_GAME_CODE_DLL_NAME = "Sandbox_temp.dll";
 #endif
 
 namespace AB {
-	static void UpdateGameCode(const char* libraryFullPath, const char* libraryDir);
+	static bool32 UpdateGameCode(const char* libraryFullPath, const char* libraryDir);
 	static void UnloadGameCode(const char* libraryDir);
 }
 
+static void _GameReconnectDummy(AB::Engine* engine, AB::GameContext* gameContext) {
+	AB_CORE_ERROR("Failed to reconnect game. No game code loaded");
+}
+
 static void _GameInitializeDummy(AB::Engine* engine, AB::GameContext* gameContext) {
-	AB_CORE_ERROR("Failed to update game. No game code loaded");
+	AB_CORE_ERROR("Failed to initialize game. No game code loaded");
 }
 
 static void _GameUpdateDummy(AB::Engine* engine, AB::GameContext* gameContext) {
@@ -35,129 +32,28 @@ static void _GameRenderDummy(AB::Engine* engine, AB::GameContext* gameContext) {
 	AB_CORE_ERROR("Failed to render game. No game code loaded");
 }
 
+static GameReconnectFn* _GameReconnect = _GameReconnectDummy;
 static GameInitializeFn* _GameInitialize = _GameInitializeDummy;
 static GameUpdateFn* _GameUpdate = _GameUpdateDummy;
 static GameRenderFn* _GameRender = _GameRenderDummy;
 
-#define GameInitialize _GameInitialize
-#define GameUpdate _GameUpdate
-#define GameRender _GameRender
-
-static void _LoadEngineFunctions(AB::Engine* context) {
-	context->fillRectangleTexture	= AB::Renderer2D::FillRectangleTexture;
-	context->fillRectangleColor		= AB::Renderer2D::FillRectangleColor;
-	context->loadTexture			= AB::Renderer2D::LoadTexture;
-	context->freeTexture			= AB::Renderer2D::FreeTexture;
-	context->textureCreateRegion	= AB::Renderer2D::TextureCreateRegion;
-	context->windowSetKeyCallback	= AB::Window::SetKeyCallback;
-	context->debugDrawString		= AB::Renderer2D::DebugDrawString;
-	context->debugDrawStringW		= AB::Renderer2D::DebugDrawString;
-	context->getStringBoundingRect	= AB::Renderer2D::GetStringBoundingRect;
-	context->glGetFunctions			= AB::GL::GetFunctions;
-	context->log					= AB::Log;
-	context->logAssert				= AB::LogAssert;
-	context->formatString			= AB::FormatString;
-	context->printString			= AB::PrintString;
-	context->loadBMP				= AB::LoadBMP;
-	context->deleteBitmap			= AB::DeleteBitmap;
-	context->windowSetMouseMoveCallback = AB::Window::SetMouseMoveCallback;
-	context->windowGetMousePositionCallback = AB::Window::GetMousePosition;
-}
-
-static AB::ApplicationProperties* g_AppProperties = nullptr;
-
-static constexpr int64 UPDATE_INTERVAL = 16000;
-static constexpr int64 SECOND_INTERVAL = 1000000;
-
-int main()
-{
-	AB_CORE_INFO("Aberration engine");
-	const uint32 executablePathBufferSize = 256;
-	const uint32 executableDirBufferSize = 256;
-	char executablePath[executablePathBufferSize];
-	char executableDir[executableDirBufferSize];
-
+static void SetupDirs(char* execPath, uint32 execPathSize, char* execDir, uint32 execDirSize, char* gameLibPath, uint32 gameLibPathSize) {
 	uint32 executablePathStrSize = 0;
-	if (!AB::GetExecutablePath(executablePath, executablePathBufferSize, &executablePathStrSize)) {
+	if (!AB::GetExecutablePath(execPath, execPathSize, &executablePathStrSize)) {
 		// TODO: Handle this. THIS SHOULD NOT BE in distribution build
 		AB_CORE_FATAL("Too long executable path.");
 	}
 
-	char* executableDirPtr = executablePath;
-	for (char* ch = executablePath; *ch; ch++) {
+	char* executableDirPtr = execPath;
+	for (char* ch = execPath; *ch; ch++) {
 		if (*ch == '\\')
 			executableDirPtr = ch + 1;
 	}
-	memcpy(executableDir, executablePath, (uint64)(executableDirPtr - executablePath));
-	executableDir[(uint64)(executableDirPtr - executablePath)] = '\0';
+	memcpy(execDir, execPath, (uint64)(executableDirPtr - execPath));
+	execDir[(uint64)(executableDirPtr - execPath)] = '\0';
 
-	const uint32 gameLibraryPathSize = 280;
-	char gameLibraryPath[gameLibraryPathSize];
-	AB::FormatString(gameLibraryPath, gameLibraryPathSize,"%s%s", executableDir, GAME_CODE_DLL_NAME);
-
-
-	AB::Window::Create("Aberration", 800, 600);
-	AB::Window::EnableVSync(true);
-
-	AB::Renderer2D::Initialize(800, 600);
-
-	AB::Engine* engine = (AB::Engine*)std::malloc(sizeof(AB::Engine));
-	memset(engine, 0, sizeof(AB::Engine));
-
-	_LoadEngineFunctions(engine);
-
-	AB::GameContext* gameContext = (AB::GameContext*)std::malloc(sizeof(AB::GameContext));
-	memset(gameContext, 0, sizeof(AB::GameContext));
-
-	AB::UpdateGameCode(gameLibraryPath, executableDir);
-	GameInitialize(engine, gameContext);
-
-	// TODO: Custom allocator
-	g_AppProperties = (AB::ApplicationProperties*)malloc(sizeof(AB::ApplicationProperties));
-	memset(g_AppProperties, 0, sizeof(AB::ApplicationProperties));
-
-	g_AppProperties->runningTime = AB::GetCurrentRawTime();
-
-	AB::DebugOverlayProperties debugOverlay = {};
-
-	int64 updateTimer = UPDATE_INTERVAL;
-	int64 tickTimer = SECOND_INTERVAL;
-	uint32 updatesSinceLastTick = 0;
-
-	while (AB::Window::IsOpen()) {
-
-		if (tickTimer <= 0) {
-			tickTimer = SECOND_INTERVAL;
-			g_AppProperties->ups = updatesSinceLastTick;
-			updatesSinceLastTick = 0;
-			AB::UpdateDebugOverlay(&debugOverlay);
-		}
-
-		if(updateTimer <= 0) {
-			updateTimer = UPDATE_INTERVAL;
-			updatesSinceLastTick++;
-			AB::UpdateGameCode(gameLibraryPath, executableDir);
-			GameUpdate(engine, gameContext);
-		}
-
-		AB::DrawDebugOverlay(&debugOverlay);
-		// TODO: Temporary here
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		GameRender(engine, gameContext);
-
-		AB::Renderer2D::Flush();
-		AB::Window::PollEvents();
-		AB::Window::SwapBuffers();
-
-		int64 currentTime = AB::GetCurrentRawTime();
-		g_AppProperties->frameTime = currentTime - g_AppProperties->runningTime;
-		g_AppProperties->runningTime = currentTime;
-		tickTimer -= g_AppProperties->frameTime;
-		updateTimer -= g_AppProperties->frameTime;
-		g_AppProperties->fps = SECOND_INTERVAL / g_AppProperties->frameTime;
-	}
-	AB::UnloadGameCode(executableDir);
-	return 0;
+	
+	AB::FormatString(gameLibPath, gameLibPathSize, "%s%s", execDir, GAME_CODE_DLL_NAME);
 }
 
 namespace AB {
@@ -165,7 +61,8 @@ namespace AB {
 	static HMODULE g_GameCodeDLL = nullptr;
 	uint64 g_LastWriteTime = 0;
 
-	static void UpdateGameCode(const char* libraryFullPath, const char* libraryDir) {
+	static bool32 UpdateGameCode(const char* libraryFullPath, const char* libraryDir) {
+		bool32 updated = false;
 		WIN32_FIND_DATA findData;
 		HANDLE findHandle = FindFirstFile(libraryFullPath, &findData);
 		if (findHandle != INVALID_HANDLE_VALUE) {
@@ -173,7 +70,7 @@ namespace AB {
 			FILETIME fileTime = findData.ftLastWriteTime;
 			uint64 writeTime = ((uint64)0 | fileTime.dwLowDateTime) | ((uint64)0 | fileTime.dwHighDateTime) << 32;
 			if (writeTime != g_LastWriteTime) {
-
+				updated = true;
 				UnloadGameCode(libraryDir);
 
 				DeleteFile(TEMP_GAME_CODE_DLL_NAME);
@@ -183,10 +80,12 @@ namespace AB {
 				if (result) {
 					g_GameCodeDLL = LoadLibrary(TEMP_GAME_CODE_DLL_NAME);
 					if (g_GameCodeDLL) {
+						auto gameReconnect = (GameReconnectFn*)GetProcAddress(g_GameCodeDLL, "GameReconnect");
 						auto gameUpdate = (GameUpdateFn*)GetProcAddress(g_GameCodeDLL, "GameUpdate");
 						auto gameRender = (GameRenderFn*)GetProcAddress(g_GameCodeDLL, "GameRender");
 						auto gameInitialize = (GameInitializeFn*)GetProcAddress(g_GameCodeDLL, "GameInitialize");
-						if (gameUpdate && gameRender && gameInitialize) {
+						if (gameUpdate && gameRender && gameInitialize && gameReconnect) {
+							_GameReconnect = gameReconnect;
 							_GameInitialize = gameInitialize;
 							_GameUpdate = gameUpdate;
 							_GameRender = gameRender;
@@ -207,6 +106,7 @@ namespace AB {
 		} else {
 			AB_CORE_ERROR("Game code not found");
 		}
+		return updated;
 	}
 
 	static void UnloadGameCode(const char* libraryDir) {
@@ -215,6 +115,8 @@ namespace AB {
 
 		FreeLibrary(g_GameCodeDLL);
 		g_GameCodeDLL = nullptr;
+		_GameReconnect = _GameReconnectDummy;
+		_GameInitialize = _GameInitializeDummy;
 		_GameUpdate = _GameUpdateDummy;
 		_GameRender = _GameRenderDummy;
 		DeleteFile(buff);
@@ -242,25 +144,6 @@ namespace AB {
 			time = (currentTime.QuadPart * 1000000) / frequency.QuadPart;
 		}
 		return  time;
-	}
-
-	const ApplicationProperties* GetAppProperties() {
-		return g_AppProperties;
-	}
-
-	uint32 DateTime::ToString(char* buffer, uint32 bufferSize) {
-		if (hour < 24 && minute < 60 && seconds < 60) {
-			if (bufferSize >= DATETIME_STRING_SIZE) {
-				int32 written = FormatString(buffer, bufferSize, "%02u16:%02u16:%02u16", hour, minute, seconds);
-				return DATETIME_STRING_SIZE - 1;
-			}
-		} else {
-			if (bufferSize >= DATETIME_STRING_SIZE) {
-				FormatString(buffer, bufferSize, "00:00:00");
-				return DATETIME_STRING_SIZE - 1;
-			}
-		}
-		return 1;
 	}
 
 	void GetLocalTime(DateTime& datetime) {
