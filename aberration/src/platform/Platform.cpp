@@ -46,6 +46,19 @@ namespace Client {
 	static void DebugOverlayPushVar(const char* title, uint32 var) {
 		AB::DebugOverlayPushVar(g_DebugOverlay, title, var);
 	}
+
+	void DebugOverlayPushSlider(const char* title, float32* val, float32 min, float32 max) {
+		AB::DebugOverlayPushSlider(g_DebugOverlay, title, val, min, max);
+	}
+
+	void DebugOverlayPushSlider(const char* title, int32* val, int32 min, int32 max) {
+		AB::DebugOverlayPushSlider(g_DebugOverlay, title, val, min, max);
+	}
+
+	void DebugOverlayPushSlider(const char* title, uint32* val, uint32 min, uint32 max) {
+		AB::DebugOverlayPushSlider(g_DebugOverlay, title, val, min, max);
+	}
+
 }
 
 static void _LoadEngineFunctions(AB::Engine* context) {
@@ -82,6 +95,10 @@ static void _LoadEngineFunctions(AB::Engine* context) {
 	context->DebugOverlayPushF32 = Client::DebugOverlayPushVar;
 	context->DebugOverlayPushI32 = Client::DebugOverlayPushVar;
 	context->DebugOverlayPushU32 = Client::DebugOverlayPushVar;
+	context->DebugOverlayPushSliderF32 = Client::DebugOverlayPushSlider;
+	context->DebugOverlayPushSliderI32 = Client::DebugOverlayPushSlider;
+	context->DebugOverlayPushSliderU32 = Client::DebugOverlayPushSlider;
+
 }
 
 static AB::ApplicationProperties* g_AppProperties = nullptr;
@@ -101,10 +118,10 @@ int main()
 
 	SetupDirs(executablePath, executablePathBufferSize, executableDir, executableDirBufferSize, gameLibraryPath, gameLibraryPathSize);
 
-	AB::Window::Create("Aberration", 800, 600);
+	AB::Window::Create("Aberration", 1280, 720);
 	AB::Window::EnableVSync(true);
 
-	AB::Renderer2D::Initialize(800, 600);
+	AB::Renderer2D::Initialize(1280, 720);
 
 	AB::Engine* engine = (AB::Engine*)std::malloc(sizeof(AB::Engine));
 	memset(engine, 0, sizeof(AB::Engine));
@@ -132,14 +149,12 @@ int main()
 	uint32 updatesSinceLastTick = 0;
 
 	while (AB::Window::IsOpen()) {
-
 		if (tickTimer <= 0) {
 			tickTimer = SECOND_INTERVAL;
 			g_AppProperties->ups = updatesSinceLastTick;
 			updatesSinceLastTick = 0;
 			AB::UpdateDebugOverlay(Client::g_DebugOverlay);
 		}
-
 		if (updateTimer <= 0) {
 			updateTimer = UPDATE_INTERVAL;
 			updatesSinceLastTick++;
@@ -148,7 +163,6 @@ int main()
 			}
 			GameUpdate(engine, gameContext);
 		}
-
 		AB::DrawDebugOverlay(Client::g_DebugOverlay);
 		// TODO: Temporary here
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

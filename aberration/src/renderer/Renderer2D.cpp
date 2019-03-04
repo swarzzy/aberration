@@ -607,6 +607,19 @@ namespace AB {
 		return s_Properties->viewSpaceDim;
 	}
 
+	hpm::Vector2 Renderer2D::GetMousePositionOnCanvas() {
+		uint32 w = 0;
+		uint32 h = 0;
+		AB::Window::GetSize(&w, &h);
+		uint32 xMouse = 0;
+		uint32 yMouse = 0;
+		Window::GetMousePosition(&xMouse, &yMouse);
+		AB_CORE_ASSERT(w && h, "Screen size is zero!");
+		float32 xMouseInCanvasSpace = (float32)xMouse * (float32)s_Properties->viewSpaceDim.x / w;
+		float32 yMouseInCanvasSpace = (float32)yMouse * (float32)s_Properties->viewSpaceDim.y / h;
+		return { xMouseInCanvasSpace, yMouseInCanvasSpace };
+	}
+
 	void Renderer2D::FillRectangleColor(hpm::Vector2 position, uint16 depth, float32 angle, float32 anchor, hpm::Vector2 size, color32 color) {
 		if (s_Properties->sortBufferUsage <= DRAW_QUEUE_CAPACITY) {
 			// Has alpha < 1.0f

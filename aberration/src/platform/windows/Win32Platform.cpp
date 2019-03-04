@@ -70,15 +70,13 @@ namespace AB {
 			FILETIME fileTime = findData.ftLastWriteTime;
 			uint64 writeTime = ((uint64)0 | fileTime.dwLowDateTime) | ((uint64)0 | fileTime.dwHighDateTime) << 32;
 			if (writeTime != g_LastWriteTime) {
-				updated = true;
 				UnloadGameCode(libraryDir);
 
-				DeleteFile(TEMP_GAME_CODE_DLL_NAME);
 				char buff[280];
 				FormatString(buff, 280, "%s%s", libraryDir, TEMP_GAME_CODE_DLL_NAME);
 				auto result = CopyFile(libraryFullPath, buff, FALSE);
 				if (result) {
-					g_GameCodeDLL = LoadLibrary(TEMP_GAME_CODE_DLL_NAME);
+					g_GameCodeDLL = LoadLibrary(buff);
 					if (g_GameCodeDLL) {
 						auto gameReconnect = (GameReconnectFn*)GetProcAddress(g_GameCodeDLL, "GameReconnect");
 						auto gameUpdate = (GameUpdateFn*)GetProcAddress(g_GameCodeDLL, "GameUpdate");
@@ -89,7 +87,7 @@ namespace AB {
 							_GameInitialize = gameInitialize;
 							_GameUpdate = gameUpdate;
 							_GameRender = gameRender;
-
+							updated = true;
 							g_LastWriteTime = writeTime;
 						}
 						else {
@@ -109,17 +107,27 @@ namespace AB {
 		return updated;
 	}
 
+
+
 	static void UnloadGameCode(const char* libraryDir) {
-		char buff[280];
-		FormatString(buff, 280, "%s%s", libraryDir, TEMP_GAME_CODE_DLL_NAME);
+		// NOTE: Moving a file instead of delete it because of windows bug.
+		// Windows says that a file still used by process and can't delete it
+		// but can move/rename it!
+		char tmpLibPath[MAX_PATH];
+		FormatString(tmpLibPath, 280, "%s%s", libraryDir, TEMP_GAME_CODE_DLL_NAME);
+		
+		char stubPath[MAX_PATH];
+		FormatString(stubPath, 280, "%s%s", libraryDir, "foo");
 
 		FreeLibrary(g_GameCodeDLL);
-		g_GameCodeDLL = nullptr;
+		
 		_GameReconnect = _GameReconnectDummy;
 		_GameInitialize = _GameInitializeDummy;
 		_GameUpdate = _GameUpdateDummy;
 		_GameRender = _GameRenderDummy;
-		DeleteFile(buff);
+		SetLastError(0);
+		//MoveFile(tmpLibPath, stubPath);
+		DeleteFile(tmpLibPath);
 	}
 
 	bool32 GetExecutablePath(char* buffer, uint32 bufferSizeBytes, uint32* bytesWritten) {

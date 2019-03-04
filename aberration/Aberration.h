@@ -73,6 +73,11 @@ namespace AB {
 	typedef void(PlatformDebugOverlayPushI32Fn)(const char* title, int32 var);
 	typedef void(PlatformDebugOverlayPushU32Fn)(const char* title, uint32 var);
 
+	typedef void(PlatformDebugOverlayPushSliderF32Fn)(const char* title, float32* val, float32 min, float32 max);
+	typedef void(PlatformDebugOverlayPushSliderI32Fn)(const char* title, uint32* val, uint32 min, uint32 max);
+	typedef void(PlatformDebugOverlayPushSliderU32Fn)(const char* title, int32* val, int32 min, int32 max);
+
+
 	struct Engine {
 		ABRendererFillRectangleColorFn* fillRectangleColor;
 		ABRendererFillRectangleTextureFn* fillRectangleTexture;
@@ -112,13 +117,20 @@ namespace AB {
 		PlatformDebugOverlayPushF32Fn* DebugOverlayPushF32;
 		PlatformDebugOverlayPushI32Fn* DebugOverlayPushI32;
 		PlatformDebugOverlayPushU32Fn* DebugOverlayPushU32;
+		PlatformDebugOverlayPushSliderF32Fn* DebugOverlayPushSliderF32;
+		PlatformDebugOverlayPushSliderU32Fn* DebugOverlayPushSliderU32;
+		PlatformDebugOverlayPushSliderI32Fn* DebugOverlayPushSliderI32;
+
 	};
 
 	struct GameContext {
 
 		int32 shaderHandle;
+		int32 lightShaderHandle;
 		uint32 vbo;
+		uint32 lightVbo;
 		uint32 texture;
+		uint32 spec_map;
 		hpm::Vector3 camPos;
 		hpm::Vector3 camFront;
 		hpm::Vector3 camUp;
@@ -126,6 +138,17 @@ namespace AB {
 		float32 yaw;
 		float32 xLastMouse;
 		float32 yLastMouse;
+		hpm::Vector3 light_props;
+		hpm::Vector3 light1_props;
+
+		hpm::Vector3 dl_props;
+		hpm::Vector3 dl_dir;
+		hpm::Vector3 light_pos;
+		hpm::Vector3 light1_pos;
+
+		float32 linear;
+		float32 quadratic;
+		bool32 mouseCaptured;
 	};
 
 }

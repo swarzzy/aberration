@@ -33,6 +33,7 @@ namespace AB {
 		static uint32 GetDrawCallCount();
 		static hpm::Vector2 GetCanvasSize();
 
+		static hpm::Vector2 GetMousePositionOnCanvas();
 		static bool32 DrawRectangleColorUI(hpm::Vector2 min, hpm::Vector2 max, uint16 depth, float32 angle, float32 anchor, color32 color);
 		static uint16 LoadFont(const char* filepath);
 

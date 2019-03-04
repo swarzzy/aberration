@@ -162,6 +162,13 @@ namespace hpm {
 		};
 	};
 
+	HPM_INLINE bool32 HPM_CALL Contains(Rectangle rect, Vector2 point) {
+		return	point.x > rect.min.x && 
+				point.y > rect.min.y && 
+				point.x < rect.max.x &&
+				point.y < rect.max.y;
+	}
+
 	HPM_INLINE Vector2 HPM_CALL Add(Vector2 left, Vector2 right) {
 		return Vector2{ left.x + right.x, left.y + right.y };
 	}

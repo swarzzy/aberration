@@ -14,7 +14,7 @@ namespace AB {
 		byte currentState;
 		byte prevState;
 	};
-
+	
 	InputPropeties* InputInitialize(Engine* context) {
 		// TODO:: ALLOCATION
 		InputPropeties* props;
@@ -81,8 +81,12 @@ namespace AB {
 		}
 	}
 
-	bool32 InputKeyPressed(InputPropeties* propeties, KeyboardKey key) {
+	bool32 InputKeyHeld(InputPropeties* propeties, KeyboardKey key) {
 		return Platform()->GetKeyState(key).currentState;
+	}
+
+	bool32 InputKeyPressed(InputPropeties* propeties, KeyboardKey key) {
+		return Platform()->GetKeyState(key).currentState && !Platform()->GetKeyState(key).prevState;
 	}
 
 	bool32 MouseButtonPressed(InputPropeties* propeties, MouseButton button) {

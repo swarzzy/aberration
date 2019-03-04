@@ -11,6 +11,9 @@ namespace AB {
 #define DEBUG_OVERLAY_PUSH_F32 AB::Platform()->DebugOverlayPushF32
 #define DEBUG_OVERLAY_PUSH_I32 AB::Platform()->DebugOverlayPushI32
 #define DEBUG_OVERLAY_PUSH_U32 AB::Platform()->DebugOverlayPushU32
+#define DEBUG_OVERLAY_PUSH_SLIDER_F32 AB::Platform()->DebugOverlayPushSliderF32
+#define DEBUG_OVERLAY_PUSH_SLIDER_I32 AB::Platform()->DebugOverlayPushSliderI32
+#define DEBUG_OVERLAY_PUSH_SLIDER_U32 AB::Platform()->DebugOverlayPushSliderU32
 
 #if defined(AB_CONFIG_DISTRIB)
 

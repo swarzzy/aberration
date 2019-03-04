@@ -2,6 +2,7 @@
 #include <Aberration.h>
 
 namespace AB {
+	// TODO: Input manager currently doesn`t work in live code mode because of memory allocation
 	enum class MouseMode : uint32 {
 		Cursor = 0,
 		Captured,
@@ -32,6 +33,7 @@ namespace AB {
 	InputPropeties* InputInitialize(Engine* context);
 	void InputUpdate(InputPropeties* propeties);
 	void SetMouseMode(InputPropeties* propeties, MouseMode mode);
+	bool32 InputKeyHeld(InputPropeties* propeties, KeyboardKey key);
 	bool32 InputKeyPressed(InputPropeties* propeties, KeyboardKey key);
 	bool32 MouseButtonPressed(InputPropeties* propeties, MouseButton button);
 	void SetMouseMoveCallback(InputPropeties* propeties, void* userData, MouseMoveCallback* fn);

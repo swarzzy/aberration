@@ -163,16 +163,20 @@ namespace AB {
 	}
 
 	void Window::PollEvents() {
+		// TODO: HACK Checking for keys that was just pressed in prev update and setting prevState to true
+		// because WM_KEYDOWN Will be pressed only when system repeats starts, so the key will be in
+		// "just pressed" for more than one update
+		for (uint32 i = 0; i < KEYBOARD_KEYS_COUNT; i++) {
+			if (s_WindowProperties->keys[i].currentState && !s_WindowProperties->keys[i].prevState) {
+				s_WindowProperties->keys[i].prevState = true;
+			}
+		}
 		MSG message;
 		BOOL result;
-		while (s_WindowProperties->running && (result = PeekMessage(&message, s_WindowProperties->Win32WindowHandle, 0, 0, PM_REMOVE)) != 0)
-		{
-			if (result == -1)
-			{
+		while (s_WindowProperties->running && (result = PeekMessage(&message, s_WindowProperties->Win32WindowHandle, 0, 0, PM_REMOVE)) != 0) {
+			if (result == -1) {
 				AB_CORE_FATAL("Window recieve error message.");
-			}
-			else
-			{
+			} else {
 				TranslateMessage(&message);
 				DispatchMessage(&message);
 			}
@@ -627,9 +631,6 @@ namespace AB {
 			// KEYBOARD INPUT
 
 			case WM_SYSKEYDOWN:
-
-			case WM_SYSKEYUP:
-				
 			case WM_KEYDOWN: {
 				uint32 key = _Win32KeyConvertToABKeycode(window, wParam);
 				window->keys[key].prevState = window->keys[key].currentState;
@@ -639,6 +640,7 @@ namespace AB {
 					window->keyCallback(static_cast<KeyboardKey>(key), true, window->keys[key].prevState, window->keys[key].repeatCount);
 			} break;
 
+			case WM_SYSKEYUP:
 			case WM_KEYUP: {
 				uint32 key = _Win32KeyConvertToABKeycode(window, wParam);
 				window->keys[key].prevState = window->keys[key].currentState;

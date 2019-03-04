@@ -25,6 +25,11 @@ namespace AB {
 	void DebugOverlayPushVar(DebugOverlayProperties* properties, const char* title, int32 vec);
 	void DebugOverlayPushVar(DebugOverlayProperties* properties, const char* title, uint32 vec);
 
+	void DebugOverlayPushSlider(DebugOverlayProperties* properties, const char* title, float32* val, float32 min, float32 max);
+	void DebugOverlayPushSlider(DebugOverlayProperties* properties, const char* title, int32* val, int32 min, int32 max);
+	void DebugOverlayPushSlider(DebugOverlayProperties* properties, const char* title, uint32* val, uint32 min, uint32 max);
+
+
 
 
 
