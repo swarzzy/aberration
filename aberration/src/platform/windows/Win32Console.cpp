@@ -3,6 +3,7 @@
 // Windows implemetation
 #include <Windows.h>
 
+
 namespace AB {
 	static const ConsoleColor CONSOLE_DEFAULT_TEXT_COLOR = ConsoleColor::DarkWhite;
 	static const ConsoleColor CONSOLE_DEFAULT_BACK_COLOR = ConsoleColor::Black;
@@ -20,7 +21,7 @@ namespace AB {
 
 	AB_API int32 ConsolePrint(const char* string) {
 		DWORD written;
-		BOOL result = WriteConsole(consoleHandle, string, static_cast<DWORD>(std::strlen(string)), &written, NULL);
+		BOOL result = WriteConsole(consoleHandle, string, static_cast<DWORD>(strlen(string)), &written, NULL);
 		if (result == 0)
 			return 0;
 		return 1;

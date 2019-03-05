@@ -1,6 +1,5 @@
 #pragma once
-#include "src/Types.h"
-#include "src/Common.h"
+#include "AB.h"
 
 #include <memory>
 

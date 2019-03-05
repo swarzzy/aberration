@@ -66,7 +66,7 @@ filter { "platforms:Linux" }
 
 project "Aberration"
 	location "aberration"
-	kind "ConsoleApp"
+	kind "SharedLib"
 	staticruntime "off"
 	--symbolspath "%{binDir}/$(DATE).pdb"
 	--linkoptions { "/PDBALTPATH:%DATE%.pdb", "/PDB:%DATE%.pdb" }
@@ -75,7 +75,8 @@ project "Aberration"
 	objdir ("build/obj/%{buildDir}")
 
 	defines {
-		"_CRT_SECURE_NO_WARNINGS"
+		"_CRT_SECURE_NO_WARNINGS",
+		"AB_BUILD_DLL"
 	}
 
 	--pchheader "src/ABHeader.h"
@@ -132,8 +133,10 @@ project "Aberration"
 
 project "Sandbox"
 	location "sandbox"
-	kind "SharedLib"
+	kind "ConsoleApp"
 	staticruntime "off"
+
+	links "Aberration"
 
 	targetdir ("build/bin/%{buildDir}")
 	objdir ("build/obj/%{buildDir}")

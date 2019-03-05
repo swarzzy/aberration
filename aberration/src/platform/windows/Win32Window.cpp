@@ -6,6 +6,7 @@
 #include <Xinput.h>
 
 #include "Win32WGLContext.h"
+#include "platform/Memory.h"
 
 // FORWARD DECLARATIONS
 namespace AB::GL {

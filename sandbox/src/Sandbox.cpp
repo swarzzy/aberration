@@ -1,5 +1,173 @@
 #include <hypermath.h>
 #include <Aberration.h>
+
+#include "Application.h"
+#include "renderer/Renderer3D.h"
+#include "platform/InputManager.h"
+
+float32 vertices[288] = {
+	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 0.0f,  0.0f, -1.0f,
+	0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,  0.0f, -1.0f,
+	0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,  0.0f, -1.0f,
+	0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,  0.0f, -1.0f,
+	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,  0.0f, -1.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 0.0f,  0.0f, -1.0f,
+
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.0f,  0.0f, 1.0f,
+	0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f,  0.0f, 1.0f,
+	0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f,  0.0f, 1.0f,
+	0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f,  0.0f, 1.0f,
+	-0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,  0.0f, 1.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.0f,  0.0f, 1.0f,
+
+	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f, -1.0f,  0.0f,  0.0f,
+	-0.5f,  0.5f, -0.5f,  1.0f, 1.0f, -1.0f,  0.0f,  0.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, -1.0f,  0.0f,  0.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, -1.0f,  0.0f,  0.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f, -1.0f,  0.0f,  0.0f,
+	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f, -1.0f,  0.0f,  0.0f,
+
+	0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 1.0f,  0.0f,  0.0f,
+	0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  0.0f,  0.0f,
+	0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f,  0.0f,  0.0f,
+	0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f,  0.0f,  0.0f,
+	0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 1.0f,  0.0f,  0.0f,
+	0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 1.0f,  0.0f,  0.0f,
+
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f, -1.0f,  0.0f,
+	0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 0.0f, -1.0f,  0.0f,
+	0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, -1.0f,  0.0f,
+	0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, -1.0f,  0.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.0f, -1.0f,  0.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f, -1.0f,  0.0f,
+
+	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,  1.0f,  0.0f,
+	0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,  1.0f,  0.0f,
+	0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,  1.0f,  0.0f,
+	0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,  1.0f,  0.0f,
+	-0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 0.0f,  1.0f,  0.0f,
+	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,  1.0f,  0.0f
+};
+
+int32 mesh;
+int32 material;
+int32 material1;
+
+float32 pitch = 0;
+float32 yaw = 0;
+hpm::Vector3 cam_pos = {0, 0, 0};
+hpm::Vector3 cam_front = { 0, 0, -1 };
+
+bool32 mouse_captured = false;
+float32 last_mouse_x = 0.0f;
+float32 last_mouse_y = 0.0f;
+
+AB::DirectionalLight light = {};
+
+AB::InputManager::Propeties* g_Input = nullptr;
+
+void MouseCallback(AB::InputManager::MouseMode mode, float32 x, float32 y, void* userData) {
+	if (mouse_captured) {
+		pitch += y;
+		yaw += x;
+		last_mouse_x = x;
+		last_mouse_y = y;
+		if (pitch > 89.0f)
+			pitch = 89.0f;
+		if (pitch < -89.0f)
+			pitch = -89.0f;
+
+		if (yaw > 360.0f)
+			yaw -= 360.0f;
+		if (yaw < -360.0f)
+			yaw -= -360.0f;
+	}
+}
+
+void Init() {
+	g_Input = AB::InputManager::Initialize();
+	AB::InputManager::SetMouseMoveCallback(g_Input, nullptr, MouseCallback);
+	AB::Renderer3DInit();
+	material = AB::Renderer3DCreateMaterial("../../../assets/test.bmp", "../../../assets/spec.bmp", 32);
+	material1 = AB::Renderer3DCreateMaterial("../../../assets/spec.bmp", "../../../assets/spec.bmp", 32);
+
+	mesh = AB::Renderer3DCreateMesh(vertices, 288);
+}
+
+void Update() {
+	AB::InputManager::Update(g_Input);
+	if (AB::InputManager::KeyPressed(g_Input, AB::KeyboardKey::Tab)) {
+		mouse_captured = !mouse_captured;
+		if (mouse_captured) {
+			AB::InputManager::SetMouseMode(g_Input, AB::InputManager::MouseMode::Captured);
+		}
+		else {
+			AB::InputManager::SetMouseMode(g_Input, AB::InputManager::MouseMode::Cursor);
+		}
+	}
+	if (AB::InputManager::KeyHeld(g_Input, AB::KeyboardKey::W)) {
+		cam_pos = hpm::Add(hpm::Multiply(cam_front, 0.2), cam_pos);
+	}
+	if (AB::InputManager::KeyHeld(g_Input, AB::KeyboardKey::S)) {
+		cam_pos = hpm::Subtract(cam_pos, hpm::Multiply(cam_front, 0.2));
+	}
+	if (AB::InputManager::KeyHeld(g_Input, AB::KeyboardKey::A)) {
+		hpm::Vector3 right = hpm::Normalize(hpm::Cross(cam_front, {0, 1, 0}));
+		cam_pos = hpm::Subtract(cam_pos, hpm::Multiply(right, 0.2));
+	}
+	if (AB::InputManager::KeyHeld(g_Input, AB::KeyboardKey::D)) {
+		hpm::Vector3 right = hpm::Normalize(hpm::Cross(cam_front, {0, 1, 0}));
+		cam_pos = hpm::Add(hpm::Multiply(right, 0.2), cam_pos);
+	}
+
+	cam_front.x = hpm::Cos(hpm::ToRadians(pitch)) * hpm::Cos(hpm::ToRadians(yaw));
+	cam_front.y = hpm::Sin(hpm::ToRadians(pitch));
+	cam_front.z = hpm::Cos(hpm::ToRadians(pitch)) * hpm::Sin(hpm::ToRadians(yaw));
+	cam_front = hpm::Normalize(cam_front);
+	AB::Renderer3DSetCamera(cam_front, cam_pos);
+
+}
+
+void Render() {
+	AB::Renderer3DSubmit(mesh, material, &hpm::Translation({ 1, 0, 1 }));
+	AB::Renderer3DSubmit(mesh, material1, &hpm::Translation({ -1, 0, 2 }));
+
+	DEBUG_OVERLAY_PUSH_SLIDER("pitch", &pitch, -180.0f, 180.0f);
+	DEBUG_OVERLAY_PUSH_SLIDER("yaw", &yaw, -360.0f, 360.0f);
+
+	
+	DEBUG_OVERLAY_PUSH_VAR("pitch", pitch);
+	DEBUG_OVERLAY_PUSH_VAR("yaw", yaw);
+
+	DEBUG_OVERLAY_PUSH_SLIDER("x", &light.direction.x, -1, 1);
+	DEBUG_OVERLAY_PUSH_SLIDER("y", &light.direction.y, -1, 1);
+	DEBUG_OVERLAY_PUSH_SLIDER("z", &light.direction.z, -1, 1);
+
+	DEBUG_OVERLAY_PUSH_SLIDER("amb", &light.ambient.x, 0, 1);
+	DEBUG_OVERLAY_PUSH_SLIDER("dif", &light.diffuse.x, 0, 1);
+	DEBUG_OVERLAY_PUSH_SLIDER("spc", &light.specular.x, 0, 1);
+
+	light.ambient = { light.ambient.x, light.ambient.x ,light.ambient.x };
+	light.diffuse = { light.diffuse.x , light.diffuse.x , light.diffuse.x };
+	light.specular = { light.specular.x, light.specular.x, light.specular.x };
+
+	AB::Renderer3DSetDirectionalLight(&light);
+
+	AB::Renderer3DRender();
+}
+
+int EntryPoint() {
+	AB::Application::Create();
+	AB::Application::SetInitCallback(Init);
+	AB::Application::SetUpdateCallback(Update);
+	AB::Application::SetRenderCallback(Render);
+	AB::Application::Run();
+	return 0;
+}
+
+AB_DECLARE_ENTRY_POINT(EntryPoint)
+
+#if 0
 #include "Application.h"
 #include "InputManager.h"
 #include "platform/Platform.h"
@@ -553,3 +721,4 @@ extern "C" {
 		}
 	}
 }
+#endif

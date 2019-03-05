@@ -1,8 +1,11 @@
 #include "DebugTools.h"
 #include "renderer/Renderer2D.h"
 #include "platform/Platform.h"
-#include "../../../sandbox/src/InputManager.h"
+#include "platform/InputManager.h"
 #include "platform/Window.h"
+#include "Application.h"
+#include "utils/Log.h"
+#include <cstring>
 
 namespace AB {
 
@@ -50,10 +53,10 @@ namespace AB {
 	}
 
 	void UpdateDebugOverlay(DebugOverlayProperties* properties) {
-		const ApplicationProperties* appProps = GetAppProperties();
-		properties->frameTime = appProps->frameTime;
-		properties->fps = appProps->fps;
-		properties->ups = appProps->ups;
+		auto app = Application::Get();
+		properties->frameTime = app->frame_time;
+		properties->fps = app->fps;
+		properties->ups = app->ups;
 		properties->drawCalls = Renderer2D::GetDrawCallCount();
 	}
 

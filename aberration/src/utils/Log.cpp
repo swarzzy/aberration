@@ -1,5 +1,6 @@
 #include "Log.h"
 #include <cstdarg>
+#include <cstring>
 #include "src/platform/Console.h"
 #include "platform/Platform.h"
 

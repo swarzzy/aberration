@@ -1,5 +1,5 @@
 #pragma once
-#include "../Types.h"
+#include "AB.h"
 
 namespace AB {
 	const uint32 GAMEPAD_BUTTONS_COUNT = 14;

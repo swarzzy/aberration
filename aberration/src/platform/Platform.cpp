@@ -1,14 +1,18 @@
 #include "Platform.h"
-#include "utils/DebugTools.h"
-#include "Window.h"
-#include "renderer/Renderer2D.h"
-#include "renderer/Renderer3D.h"
 
 #if defined(AB_PLATFORM_WINDOWS)
 #include "windows/Win32Platform.cpp"
 #elif defined(AB_PLATFORM_LINUX)
 #include "unix/UnixPlatform.cpp"
 #endif
+
+#if 0
+#include "utils/DebugTools.h"
+#include "Window.h"
+#include "renderer/Renderer2D.h"
+#include "renderer/Renderer3D.h"
+
+
 
 #define GameReconnect _GameReconnect
 #define GameInitialize _GameInitialize
@@ -261,12 +265,9 @@ int main()
 	AB::UnloadGameCode(executableDir);
 	return 0;
 }
+#endif
 
 namespace AB {
-
-	const ApplicationProperties* GetAppProperties() {
-		return g_AppProperties;
-	}
 
 	uint32 DateTime::ToString(char* buffer, uint32 bufferSize) {
 		if (hour < 24 && minute < 60 && seconds < 60) {

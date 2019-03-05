@@ -1,6 +1,7 @@
 #include "Renderer3D.h"
 #include "platform/API/OpenGL/ABOpenGL.h"
 #include "platform/Platform.h"
+#include "utils/ImageLoader.h"
 
 namespace AB {
 
@@ -206,12 +207,9 @@ namespace AB {
 		return  free_index;
 	}
 
-	void Renderer3DSetCamera(float32 pitch, float32 yaw, hpm::Vector3 position) {
-		g_Renderer->camera.front.x = hpm::Cos(hpm::ToRadians(pitch)) * hpm::Cos(hpm::ToRadians(yaw));
-		g_Renderer->camera.front.y = hpm::Sin(hpm::ToRadians(pitch));
-		g_Renderer->camera.front.z = hpm::Cos(hpm::ToRadians(pitch)) * hpm::Sin(hpm::ToRadians(yaw));
-		g_Renderer->camera.front = hpm::Normalize(g_Renderer->camera.front);
-
+	void Renderer3DSetCamera(hpm::Vector3 front, hpm::Vector3 position) {
+		g_Renderer->camera.front = hpm::Normalize(front);
+		g_Renderer->camera.position = position;
 		g_Renderer->camera.look_at = hpm::LookAtRH(g_Renderer->camera.position, hpm::Add(g_Renderer->camera.position, g_Renderer->camera.front), {0.0f, 1.0f, 0.0f});
 	}
 

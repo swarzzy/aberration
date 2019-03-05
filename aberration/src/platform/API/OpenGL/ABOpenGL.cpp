@@ -543,11 +543,11 @@ namespace AB::GL {
 	static constexpr uint32 LOG_BUFFER_SIZE = 256;
 	static char g_LogBuffer[LOG_BUFFER_SIZE];
 
-	AB_API void _ClearErrorQueue() {
+	void _ClearErrorQueue() {
 		while (_ABOpenGLProcs._glGetError() != GL_NO_ERROR);
 	}
 
-	AB_API bool32 _PeekError() {
+	bool32 _PeekError() {
 		GLenum errorCode = _ABOpenGLProcs._glGetError();
 		if (errorCode == GL_NO_ERROR)
 			return false;
@@ -566,7 +566,7 @@ namespace AB::GL {
 		return true;
 	}
 
-	AB_API void _GetLog(char* buffer, uint64 size) {
+	void _GetLog(char* buffer, uint64 size) {
 		if (size >= LOG_BUFFER_SIZE)
 			memcpy(buffer, g_LogBuffer, LOG_BUFFER_SIZE);
 		else

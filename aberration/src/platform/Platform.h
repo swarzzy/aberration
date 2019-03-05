@@ -1,12 +1,5 @@
 #pragma once 
-#include "ABHeader.h"
-#include <../Aberration.h>
-
-typedef void(GameReconnectFn)(AB::Engine* engine, AB::GameContext* gameContext);
-typedef void(GameInitializeFn)(AB::Engine* engine, AB::GameContext* gameContext);
-typedef void(GameUpdateFn)(AB::Engine* engine, AB::GameContext* gameContext);
-typedef void(GameRenderFn)(AB::Engine* engine, AB::GameContext* gameContext);
-
+#include "AB.h"
 int main();
 
 namespace AB {
@@ -15,15 +8,6 @@ namespace AB {
 
 	// Returns microseconds
 	int64 GetCurrentRawTime();
-
-	struct ApplicationProperties {
-		int64 runningTime;
-		int64 frameTime;
-		int64 fps;
-		int64 ups;
-	};
-
-	const ApplicationProperties* GetAppProperties();
 
 	struct AB_API DateTime {
 		uint16 year;
@@ -44,5 +28,4 @@ namespace AB {
 	AB_API void* DebugReadFile(const char* filename, uint32* bytesRead);
 	AB_API void DebugFreeFileMemory(void* memory);
 	AB_API bool32 DebugWriteFile(const char* filename,  void* data, uint32 dataSize);
-
 }
