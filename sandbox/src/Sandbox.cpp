@@ -334,6 +334,7 @@ extern "C" {
 	float a = 0.0f;
 
 	ABERRATION_ENTRY void GameRender(AB::Engine* engine, AB::GameContext* gameContext) {
+		
 		hpm::Vector3 cubePositions[] = {
 			hpm::Vector3{ 0.0f,  0.0f,  0.0f },
 			hpm::Vector3{ 2.0f,  5.0f, -15.0f },

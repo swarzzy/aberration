@@ -344,30 +344,30 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL OrthogonalRH(float32 left, float32 right, float32 bottom, float32 top, float32 near, float32 far) {
+	HPM_INLINE Matrix4 HPM_CALL OrthogonalRH(float32 left, float32 right, float32 bottom, float32 top, float32 n, float32 f) {
 		Matrix4 result = {};
 
 		result._11 = 2.0f / (right - left);
 		result._22 = 2.0f / (top - bottom);
-		result._33 = -2.0f / (far - near);
+		result._33 = -2.0f / (f - n);
 		result._14 = -(right + left) / (right - left);
 		result._24 = -(top + bottom) / (top - bottom);
-		result._34 = -(far + near) / (far - near);
+		result._34 = -(f + n) / (f - n);
 		result._44 = 1.0f;
 
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL PerspectiveRH(float32 fovDeg, float32 aspectRatio, float32 near, float32 far) {
+	HPM_INLINE Matrix4 HPM_CALL PerspectiveRH(float32 fovDeg, float32 aspectRatio, float32 n, float32 f) {
 		Matrix4 result = {};
 
 		float32 tanHalfFov = Tan(ToRadians(fovDeg / 2.0f));
 
 		result._11 = 1.0f / (aspectRatio * tanHalfFov);
 		result._22 = 1.0f / tanHalfFov;
-		result._33 = - (far + near) / (far - near);
+		result._33 = - (f + n) / (f - n);
 		result._43 = -1.0f;
-		result._34 = (-2.0f * near * far) / (far - near);
+		result._34 = (-2.0f * n * f) / (f - n);
 
 		return result;
 	}

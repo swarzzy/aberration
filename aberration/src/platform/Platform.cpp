@@ -2,6 +2,7 @@
 #include "utils/DebugTools.h"
 #include "Window.h"
 #include "renderer/Renderer2D.h"
+#include "renderer/Renderer3D.h"
 
 #if defined(AB_PLATFORM_WINDOWS)
 #include "windows/Win32Platform.cpp"
@@ -58,7 +59,6 @@ namespace Client {
 	void DebugOverlayPushSlider(const char* title, uint32* val, uint32 min, uint32 max) {
 		AB::DebugOverlayPushSlider(g_DebugOverlay, title, val, min, max);
 	}
-
 }
 
 static void _LoadEngineFunctions(AB::Engine* context) {
@@ -106,6 +106,50 @@ static AB::ApplicationProperties* g_AppProperties = nullptr;
 static constexpr int64 UPDATE_INTERVAL = 16000;
 static constexpr int64 SECOND_INTERVAL = 1000000;
 
+float32 vertices[288] = {
+	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 0.0f,  0.0f, -1.0f,
+	0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,  0.0f, -1.0f,
+	0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,  0.0f, -1.0f,
+	0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,  0.0f, -1.0f,
+	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,  0.0f, -1.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 0.0f,  0.0f, -1.0f,
+
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.0f,  0.0f, 1.0f,
+	0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f,  0.0f, 1.0f,
+	0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f,  0.0f, 1.0f,
+	0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f,  0.0f, 1.0f,
+	-0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,  0.0f, 1.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.0f,  0.0f, 1.0f,
+
+	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f, -1.0f,  0.0f,  0.0f,
+	-0.5f,  0.5f, -0.5f,  1.0f, 1.0f, -1.0f,  0.0f,  0.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, -1.0f,  0.0f,  0.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, -1.0f,  0.0f,  0.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f, -1.0f,  0.0f,  0.0f,
+	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f, -1.0f,  0.0f,  0.0f,
+
+	0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 1.0f,  0.0f,  0.0f,
+	0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  0.0f,  0.0f,
+	0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f,  0.0f,  0.0f,
+	0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f,  0.0f,  0.0f,
+	0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 1.0f,  0.0f,  0.0f,
+	0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 1.0f,  0.0f,  0.0f,
+
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f, -1.0f,  0.0f,
+	0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 0.0f, -1.0f,  0.0f,
+	0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, -1.0f,  0.0f,
+	0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, -1.0f,  0.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.0f, -1.0f,  0.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f, -1.0f,  0.0f,
+
+	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,  1.0f,  0.0f,
+	0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,  1.0f,  0.0f,
+	0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,  1.0f,  0.0f,
+	0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,  1.0f,  0.0f,
+	-0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 0.0f,  1.0f,  0.0f,
+	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,  1.0f,  0.0f
+};
+
 int main()
 {
 	AB_CORE_INFO("Aberration engine");
@@ -148,6 +192,16 @@ int main()
 	int64 tickTimer = SECOND_INTERVAL;
 	uint32 updatesSinceLastTick = 0;
 
+	AB::Renderer3DInit();
+	int32 material = AB::Renderer3DCreateMaterial("../../../assets/test.bmp", "../../../assets/spec.bmp", 32);
+	int32 material1 = AB::Renderer3DCreateMaterial("../../../assets/spec.bmp", "../../../assets/spec.bmp", 32);
+
+	int32 mesh = AB::Renderer3DCreateMesh(vertices, 288);
+	float32 pitch = 0;
+	float32 yaw = 0;
+
+	AB::DirectionalLight light = {};
+
 	while (AB::Window::IsOpen()) {
 		if (tickTimer <= 0) {
 			tickTimer = SECOND_INTERVAL;
@@ -166,7 +220,32 @@ int main()
 		AB::DrawDebugOverlay(Client::g_DebugOverlay);
 		// TODO: Temporary here
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		GameRender(engine, gameContext);
+		AB::Renderer3DSubmit(mesh, material, &hpm::Translation({1, 0, 1}));
+		AB::Renderer3DSubmit(mesh, material1, &hpm::Translation({ -1, 0, 2 }));
+
+		AB::DebugOverlayPushSlider(Client::g_DebugOverlay, "pitch", &pitch, -180.0f, 180.0f);
+		AB::DebugOverlayPushSlider(Client::g_DebugOverlay, "yaw", &yaw, -360.0f, 360.0f);
+
+		AB::DebugOverlayPushVar(Client::g_DebugOverlay, "pitch", pitch);
+		AB::DebugOverlayPushVar(Client::g_DebugOverlay, "yaw", yaw);
+
+		AB::DebugOverlayPushSlider(Client::g_DebugOverlay, "x", &light.direction.x, -1, 1);
+		AB::DebugOverlayPushSlider(Client::g_DebugOverlay, "y", &light.direction.y, -1, 1);
+		AB::DebugOverlayPushSlider(Client::g_DebugOverlay, "z", &light.direction.z, -1, 1);
+
+		AB::DebugOverlayPushSlider(Client::g_DebugOverlay, "amb", &light.ambient.x, 0, 1);
+		AB::DebugOverlayPushSlider(Client::g_DebugOverlay, "dif", &light.diffuse.x, 0, 1);
+		AB::DebugOverlayPushSlider(Client::g_DebugOverlay, "spc", &light.specular.x, 0, 1);
+
+		light.ambient = { light.ambient.x, light.ambient.x ,light.ambient.x };
+		light.diffuse = { light.diffuse.x , light.diffuse.x , light.diffuse.x };
+		light.specular = { light.specular.x, light.specular.x, light.specular.x };
+
+		AB::Renderer3DSetDirectionalLight(&light);
+
+		AB::Renderer3DSetCamera(pitch, yaw, { 0, 0, -3 });
+		AB::Renderer3DRender();
+		//GameRender(engine, gameContext);
 
 		AB::Renderer2D::Flush();
 		AB::Window::PollEvents();
