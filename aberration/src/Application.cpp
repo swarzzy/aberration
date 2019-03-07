@@ -5,69 +5,65 @@
 #include "renderer/Renderer2D.h"
 #include "platform/Platform.h"
 #include "platform/API/OpenGL/ABOpenGL.h"
+#include "platform/Memory.h"
 
-namespace AB::Application {
+namespace AB {
 
 	static constexpr int64 UPDATE_INTERVAL = 16000;
 	static constexpr int64 SECOND_INTERVAL = 1000000;
 
-	static Properties* g_App = nullptr;
-
-	void Create() {
-		if (!g_App) {
-			g_App = (Properties*)malloc(sizeof(Properties));
-			AB_CORE_ASSERT(g_App, "Failed to allocate Application.");
-			memset(g_App, 0, sizeof(Properties));
+	Application* AppCreate() {
+		Application** app = &GetMemory()->perm_storage.application;
+		if (!(*app)) {
+			(*app) = (Application*)SysAlloc(sizeof(Application));
+			AB_CORE_ASSERT((*app), "Failed to allocate Application.");
 		}
+		return (*app);
 	}
 
-	Properties* Get() {
-		return g_App;
-	}
-
-	void Run() {
+	void AppRun(Application* app) {
 		AB_CORE_INFO("Aberration engine");
-
+		
 		Window::Create("Aberration", 1280, 720);
 		Window::EnableVSync(true);
 
 		Renderer2D::Initialize(1280, 720);
 
-		g_App->running_time = AB::GetCurrentRawTime();
+		app->running_time = AB::GetCurrentRawTime();
 
-		g_App->debug_overlay = CreateDebugOverlay();
-		AB::DebugOverlayEnableMainPane(g_App->debug_overlay, true);
+		app->debug_overlay = CreateDebugOverlay();
+		AB::DebugOverlayEnableMainPane(app->debug_overlay, true);
 
 		int64 update_timer = UPDATE_INTERVAL;
 		int64 tick_timer = SECOND_INTERVAL;
 		uint32 updates_since_last_tick = 0;
 
-		if (g_App->init_callback) {
-			g_App->init_callback();
+		if (app->init_callback) {
+			app->init_callback();
 		}
 
 		while (AB::Window::IsOpen()) {
 			if (tick_timer <= 0) {
 				tick_timer = SECOND_INTERVAL;
-				g_App->ups = updates_since_last_tick;
+				app->ups = updates_since_last_tick;
 				updates_since_last_tick= 0;
-				AB::UpdateDebugOverlay(g_App->debug_overlay);
+				AB::UpdateDebugOverlay(app->debug_overlay);
 			}
 
 			if (update_timer<= 0) {
 				update_timer = UPDATE_INTERVAL;
 				updates_since_last_tick++;
-				if (g_App->update_callback) {
-					g_App->update_callback();
+				if (app->update_callback) {
+					app->update_callback();
 				}
 			}
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			AB::DrawDebugOverlay(g_App->debug_overlay);
+			AB::DrawDebugOverlay(app->debug_overlay);
 
-			if (g_App->render_callback) {
-				g_App->render_callback();
+			if (app->render_callback) {
+				app->render_callback();
 			}
 			
 			AB::Renderer2D::Flush();
@@ -75,23 +71,23 @@ namespace AB::Application {
 			AB::Window::SwapBuffers();
 
 			int64 current_time = AB::GetCurrentRawTime();
-			g_App->frame_time = current_time - g_App->running_time;
-			g_App->running_time = current_time;
-			tick_timer -= g_App->frame_time;
-			update_timer -= g_App->frame_time;
-			g_App->fps = SECOND_INTERVAL / g_App->frame_time;
+			app->frame_time = current_time - app->running_time;
+			app->running_time = current_time;
+			tick_timer -= app->frame_time;
+			update_timer -= app->frame_time;
+			app->fps = SECOND_INTERVAL / app->frame_time;
 		}
 	}
 
-	void SetInitCallback(InitCallback* proc) {
-		g_App->init_callback = proc;
+	void AppSetInitCallback(Application* app, InitCallback* proc) {
+		app->init_callback = proc;
 	}
 
-	void SetUpdateCallback(UpdateCallback* proc) {
-		g_App->update_callback = proc;
+	void AppSetUpdateCallback(Application* app, UpdateCallback* proc) {
+		app->update_callback = proc;
 	}
 
-	void SetRenderCallback(RenderCallback* proc) {
-		g_App->render_callback = proc;
+	void AppSetRenderCallback(Application* app, RenderCallback* proc) {
+		app->render_callback = proc;
 	}
 }

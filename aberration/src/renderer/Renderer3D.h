@@ -3,7 +3,6 @@
 #include <hypermath.h>
 
 namespace AB {
-
 	struct AB_API DirectionalLight {
 		hpm::Vector3 direction;
 		hpm::Vector3 ambient;
@@ -11,13 +10,21 @@ namespace AB {
 		hpm::Vector3 specular;
 	};
 
-	AB_API void Renderer3DInit();
-	AB_API void Renderer3DSetDirectionalLight(const DirectionalLight* light);
-	AB_API int32 Renderer3DCreateMesh(float32* vertices, uint32 num_vertices);
-	AB_API int32 Renderer3DCreateMaterial(const char* diff_path, const char* spec_path, float32 shininess);
-	AB_API void Renderer3DSetCamera(hpm::Vector3 front, hpm::Vector3 position);
-	AB_API void Renderer3DSubmit(int32 mesh_handle, int32 material_handle, const hpm::Matrix4* transform);
-	AB_API void Renderer3DRender();
+	struct FPSCamera {
+		
+	};
+
+}
+
+namespace AB {
+
+	AB_API void Init();
+	AB_API void SetDirectionalLight(const DirectionalLight* light);
+	AB_API int32 CreateMesh(float32* vertices, uint32 num_vertices);
+	AB_API int32 CreateMaterial(const char* diff_path, const char* spec_path, float32 shininess);
+	AB_API void SetCamera(hpm::Vector3 front, hpm::Vector3 position);
+	AB_API void Submit(int32 mesh_handle, int32 material_handle, const hpm::Matrix4* transform);
+	AB_API void Render();
 }
 
 #if 0

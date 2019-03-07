@@ -2,13 +2,13 @@
 #include "AB.h"
 #include "utils/DebugTools.h"
 
-namespace AB::Application {
+namespace AB{
 
 	typedef void(InitCallback)();
 	typedef void(UpdateCallback)();
 	typedef void(RenderCallback)();
-	
-	struct AB_API Properties {
+
+	struct AB_API Application {
 		DebugOverlayProperties* debug_overlay;
 		InitCallback* init_callback;
 		UpdateCallback* update_callback;
@@ -19,13 +19,12 @@ namespace AB::Application {
 		int64 ups;
 	};
 
-	AB_API void Create();
-	AB_API Properties* Get();
-	AB_API void SetInitCallback(InitCallback* proc);
-	AB_API void SetUpdateCallback(UpdateCallback* proc);
-	AB_API void SetRenderCallback(RenderCallback* proc);
+	AB_API Application* AppCreate();
+	AB_API void AppSetInitCallback(Application* app, InitCallback* proc);
+	AB_API void AppSetUpdateCallback(Application* app, UpdateCallback* proc);
+	AB_API void AppSetRenderCallback(Application* app, RenderCallback* proc);
 
-	AB_API void Run();
+	AB_API void AppRun(Application* app);
 }
 
 #define AB_DECLARE_ENTRY_POINT(func) int main() { return func(); }

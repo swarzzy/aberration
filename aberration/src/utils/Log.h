@@ -12,14 +12,14 @@ namespace AB {
 
 	// If buffer is big enough returns number of characters written (without null terminator),
 	// otherwise returns -1
-	int32 FormatString(char* buffer, uint32 bufferSize, const char* format, ...);
-	void PrintString(const char* format, ...);
-	uint32 ToString(char* buffer, uint32 bufferSize, uint64 value);
-	uint32 ToString(char* buffer, uint32 bufferSize, float64 value, uint32 precision);
+	AB_API int32 FormatString(char* buffer, uint32 bufferSize, const char* format, ...);
+	AB_API void PrintString(const char* format, ...);
+	AB_API uint32 ToString(char* buffer, uint32 bufferSize, uint64 value);
+	AB_API uint32 ToString(char* buffer, uint32 bufferSize, float64 value, uint32 precision);
 
-	void Log(LogLevel level, const char* file, const char* func, uint32 line, const char* fmt, ...);
-	void LogAssert(LogLevel level, const char* file, const char* func, uint32 line, const char* assertStr, const char* fmt, ...);
-	void CutFilenameFromEnd(char* str, char separator = '\\');
+	AB_API void Log(LogLevel level, const char* file, const char* func, uint32 line, const char* fmt, ...);
+	AB_API void LogAssert(LogLevel level, const char* file, const char* func, uint32 line, const char* assertStr, const char* fmt, ...);
+	AB_API void CutFilenameFromEnd(char* str, char separator = '\\');
 }
 
 #if defined(AB_CONFIG_DISTRIB)

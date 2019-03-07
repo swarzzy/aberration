@@ -6,6 +6,7 @@
 #include "Application.h"
 #include "utils/Log.h"
 #include <cstring>
+#include "platform/Memory.h"
 
 namespace AB {
 
@@ -20,8 +21,8 @@ namespace AB {
 
 	DebugOverlayProperties* CreateDebugOverlay() {
 		DebugOverlayProperties* properties = nullptr;
-		properties = (DebugOverlayProperties*)malloc(sizeof(DebugOverlayProperties));
-		memset(properties, 0, sizeof(DebugOverlayProperties));
+		properties = (DebugOverlayProperties*)SysAlloc(sizeof(DebugOverlayProperties));
+		GetMemory()->perm_storage.debug_overlay = properties;
 		auto canvasSize = Renderer2D::GetCanvasSize();
 		properties->overlayBeginPos = { 10, canvasSize.y - 40 };
 		return properties;
@@ -53,7 +54,7 @@ namespace AB {
 	}
 
 	void UpdateDebugOverlay(DebugOverlayProperties* properties) {
-		auto app = Application::Get();
+		auto* app = PermStorage()->application;
 		properties->frameTime = app->frame_time;
 		properties->fps = app->fps;
 		properties->ups = app->ups;
@@ -153,7 +154,7 @@ namespace AB {
 			(uint32)DebugUIColors::Pomegranate
 		);
 
-		if (Window::MouseButtonPressed(MouseButton::Left)) {
+		if (InputMouseButtonIsDown(PermStorage()->input_manager, MouseButton::Left)) {
 			hpm::Vector2 mousePos = Renderer2D::GetMousePositionOnCanvas();
 
 			if (hpm::Contains({ {area.min.x + blockCenterOff, area.min.y}, {area.max.x - blockCenterOff, area.max.y } }, { mousePos.x, mousePos.y })) {

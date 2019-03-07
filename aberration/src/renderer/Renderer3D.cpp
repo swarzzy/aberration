@@ -2,6 +2,7 @@
 #include "platform/API/OpenGL/ABOpenGL.h"
 #include "platform/Platform.h"
 #include "utils/ImageLoader.h"
+#include "platform/Memory.h"
 
 namespace AB {
 
@@ -29,9 +30,9 @@ namespace AB {
 		hpm::Matrix4 look_at;
 	};
 
-	static constexpr int32 MAX_MESHES = 32;
-	static constexpr int32 DRAW_BUFFER_SIZE = 32;
-	static constexpr int32 MAX_MATERIALS = 32;
+	static constexpr int32 MAX_MESHES = 128;
+	static constexpr int32 DRAW_BUFFER_SIZE = 256;
+	static constexpr int32 MAX_MATERIALS = 128;
 
 	struct Renderer3D {
 		int32 program_handle;
@@ -44,7 +45,7 @@ namespace AB {
 		DirectionalLight dir_light;
 	};
 
-	static Renderer3D* g_Renderer = nullptr;
+	//static Renderer3D* g_Renderer = nullptr;
 
 	static int32 LoadShader(const char* vertex_path, const char* fragment_path) {
 		uint32 bytes_read = 0;
@@ -150,99 +151,108 @@ namespace AB {
 		return texHandle;
 	}
 
-	void Renderer3DInit() {
-		if (!g_Renderer) {
-			g_Renderer = (Renderer3D*)malloc(sizeof(Renderer3D));
-			memset(g_Renderer, 0, sizeof(Renderer3D));
+	void Init() {
+		auto* ptr = &GetMemory()->perm_storage.forward_renderer;
+		if (!*ptr) {
+			*ptr = (Renderer3D*)SysAlloc(sizeof(Renderer3D));
 		} else {
 			AB_CORE_WARN("Renderer already initialized.");
 		}
 
-		g_Renderer->program_handle = LoadShader("../../../assets/shaders/MeshVertex.glsl", "../../../assets/shaders/MeshFragment.glsl");
+		(*ptr)->program_handle = LoadShader("../../../assets/shaders/MeshVertex.glsl", "../../../assets/shaders/MeshFragment.glsl");
 
-		g_Renderer->projection = hpm::PerspectiveRH(45.0f, 16.0f / 9.0f, 0.1f, 100.0f);
+		(*ptr)->projection = hpm::PerspectiveRH(45.0f, 16.0f / 9.0f, 0.1f, 100.0f);
 	}
 
-	void Renderer3DSetDirectionalLight(const DirectionalLight* light) {
-		g_Renderer->dir_light = *light;
+	void SetDirectionalLight(const DirectionalLight* light) {
+		PermStorage()->forward_renderer->dir_light = *light;
 	}
 
-	int32 Renderer3DCreateMesh(float32* vertices, uint32 num_vertices) {
+	int32 CreateMesh(float32* vertices, uint32 num_vertices) {
+		auto renderer = PermStorage()->forward_renderer;
 		int32 free_index = -1;
 		for (uint32 i = 0; i < MAX_MESHES; i++) {
-			if (!g_Renderer->meshes[i].used) {
+			if (!renderer->meshes[i].used) {
 				free_index = i;
 				break;
 			}
 		}
 		AB_CORE_ASSERT(free_index != -1, "Mesh storage is full");
 
-		g_Renderer->meshes[free_index].used = true;
+		renderer->meshes[free_index].used = true;
 
-		glGenBuffers(1, &g_Renderer->meshes[free_index].vertex_buffer_handle);
+		glGenBuffers(1, &renderer->meshes[free_index].vertex_buffer_handle);
 		AB_CORE_ASSERT("g_Renderer->meshes[free_index].vertex_buffer_handle", "");
-		glBindBuffer(GL_ARRAY_BUFFER, g_Renderer->meshes[free_index].vertex_buffer_handle);
+		glBindBuffer(GL_ARRAY_BUFFER, renderer->meshes[free_index].vertex_buffer_handle);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(float32) * num_vertices, vertices, GL_STATIC_DRAW);
 		glBindVertexArray(0);
 
 		return free_index;
 	}
 
-	int32 Renderer3DCreateMaterial(const char* diff_path, const char* spec_path, float32 shininess) {
+	int32 CreateMaterial(const char* diff_path, const char* spec_path, float32 shininess) {
+		auto renderer = PermStorage()->forward_renderer;
+
 		int32 free_index = -1;
 		for (int32 i = 0; i < MAX_MATERIALS; i++) {
-			if (!g_Renderer->materials[i].used) {
+			if (!renderer->materials[i].used) {
 				free_index = i;
-				g_Renderer->materials[i].used = true;
+				renderer->materials[i].used = true;
 				break;
 			}
 		}
 
 		AB_CORE_ASSERT(free_index != -1, "Materials storage is full.");
 
-		g_Renderer->materials[free_index].diffuse_map_handle = LoadTexture(diff_path);
-		g_Renderer->materials[free_index].specular_map_handle = LoadTexture(spec_path);
-		g_Renderer->materials[free_index].shininess = shininess;
+		renderer->materials[free_index].diffuse_map_handle = LoadTexture(diff_path);
+		renderer->materials[free_index].specular_map_handle = LoadTexture(spec_path);
+		renderer->materials[free_index].shininess = shininess;
 		
 		return  free_index;
 	}
 
-	void Renderer3DSetCamera(hpm::Vector3 front, hpm::Vector3 position) {
-		g_Renderer->camera.front = hpm::Normalize(front);
-		g_Renderer->camera.position = position;
-		g_Renderer->camera.look_at = hpm::LookAtRH(g_Renderer->camera.position, hpm::Add(g_Renderer->camera.position, g_Renderer->camera.front), {0.0f, 1.0f, 0.0f});
+	void SetCamera(hpm::Vector3 front, hpm::Vector3 position) {
+		auto renderer = PermStorage()->forward_renderer;
+
+		renderer->camera.front = hpm::Normalize(front);
+		renderer->camera.position = position;
+		renderer->camera.look_at = hpm::LookAtRH(renderer->camera.position, hpm::Add(renderer->camera.position, renderer->camera.front), {0.0f, 1.0f, 0.0f});
 	}
 
 
-	void Renderer3DSubmit(int32 mesh_handle, int32 material_handle, const hpm::Matrix4* transform) {
-		if (g_Renderer->draw_buffer_at < DRAW_BUFFER_SIZE) {
-			g_Renderer->draw_buffer[g_Renderer->draw_buffer_at].mesh_handle = mesh_handle;
-			g_Renderer->draw_buffer[g_Renderer->draw_buffer_at].material_handle = material_handle;
-			g_Renderer->draw_buffer[g_Renderer->draw_buffer_at].transform = *transform;
-			g_Renderer->draw_buffer_at++;
+	void Submit(int32 mesh_handle, int32 material_handle, const hpm::Matrix4* transform) {
+		auto renderer = PermStorage()->forward_renderer;
+
+		if (renderer->draw_buffer_at < DRAW_BUFFER_SIZE) {
+			renderer->draw_buffer[renderer->draw_buffer_at].mesh_handle = mesh_handle;
+			renderer->draw_buffer[renderer->draw_buffer_at].material_handle = material_handle;
+			renderer->draw_buffer[renderer->draw_buffer_at].transform = *transform;
+			renderer->draw_buffer_at++;
 		}
 	}
 
-	void Renderer3DRender() {
-		GLCall(glUseProgram(g_Renderer->program_handle));
-		GLCall(glUniformMatrix4fv(glGetUniformLocation(g_Renderer->program_handle, "projection"), 1, GL_FALSE, g_Renderer->projection.data));
-		GLCall(glUniformMatrix4fv(glGetUniformLocation(g_Renderer->program_handle, "view"), 1, GL_FALSE, g_Renderer->camera.look_at.data));
+	void Render() {
+		auto renderer = PermStorage()->forward_renderer;
 
-		hpm::Vector3* view_pos = &g_Renderer->camera.position;
-		GLCall(glUniform3f(glGetUniformLocation(g_Renderer->program_handle, "view_pos"), view_pos->x, view_pos->y, view_pos->z));
+		GLCall(glUseProgram(renderer->program_handle));
+		GLCall(glUniformMatrix4fv(glGetUniformLocation(renderer->program_handle, "projection"), 1, GL_FALSE, renderer->projection.data));
+		GLCall(glUniformMatrix4fv(glGetUniformLocation(renderer->program_handle, "view"), 1, GL_FALSE, renderer->camera.look_at.data));
 
-		GLCall(glUniform1i(glGetUniformLocation(g_Renderer->program_handle, "material.diffuse_map"), 0));
-		GLCall(glUniform1i(glGetUniformLocation(g_Renderer->program_handle, "material.spec_map"), 1));
+		hpm::Vector3* view_pos = &renderer->camera.position;
+		GLCall(glUniform3f(glGetUniformLocation(renderer->program_handle, "view_pos"), view_pos->x, view_pos->y, view_pos->z));
 
-		GLCall(glUniform3fv(glGetUniformLocation(g_Renderer->program_handle, "dir_light.direction"), 1, g_Renderer->dir_light.direction.data));
-		GLCall(glUniform3fv(glGetUniformLocation(g_Renderer->program_handle, "dir_light.ambient"), 1, g_Renderer->dir_light.ambient.data));
-		GLCall(glUniform3fv(glGetUniformLocation(g_Renderer->program_handle, "dir_light.diffuse"), 1, g_Renderer->dir_light.diffuse.data));
-		GLCall(glUniform3fv(glGetUniformLocation(g_Renderer->program_handle, "dir_light.specular"), 1, g_Renderer->dir_light.specular.data));
+		GLCall(glUniform1i(glGetUniformLocation(renderer->program_handle, "material.diffuse_map"), 0));
+		GLCall(glUniform1i(glGetUniformLocation(renderer->program_handle, "material.spec_map"), 1));
+
+		GLCall(glUniform3fv(glGetUniformLocation(renderer->program_handle, "dir_light.direction"), 1, renderer->dir_light.direction.data));
+		GLCall(glUniform3fv(glGetUniformLocation(renderer->program_handle, "dir_light.ambient"), 1, renderer->dir_light.ambient.data));
+		GLCall(glUniform3fv(glGetUniformLocation(renderer->program_handle, "dir_light.diffuse"), 1, renderer->dir_light.diffuse.data));
+		GLCall(glUniform3fv(glGetUniformLocation(renderer->program_handle, "dir_light.specular"), 1, renderer->dir_light.specular.data));
 
 
-		for (uint32 i = 0; i < g_Renderer->draw_buffer_at; i++) {
-			DrawCommand* command = &g_Renderer->draw_buffer[i];
-			GLCall(glBindBuffer(GL_ARRAY_BUFFER, g_Renderer->meshes[command->mesh_handle].vertex_buffer_handle));
+		for (uint32 i = 0; i < renderer->draw_buffer_at; i++) {
+			DrawCommand* command = &renderer->draw_buffer[i];
+			GLCall(glBindBuffer(GL_ARRAY_BUFFER, renderer->meshes[command->mesh_handle].vertex_buffer_handle));
 
 			// TODO: memory layout
 			GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0));
@@ -254,11 +264,11 @@ namespace AB {
 
 			GLCall(glEnable(GL_DEPTH_TEST));
 
-			GLCall(glUniformMatrix4fv(glGetUniformLocation(g_Renderer->program_handle, "model"), 1, GL_FALSE, command->transform.data));
+			GLCall(glUniformMatrix4fv(glGetUniformLocation(renderer->program_handle, "model"), 1, GL_FALSE, command->transform.data));
 
-			Material* material = &g_Renderer->materials[command->material_handle];
+			Material* material = &renderer->materials[command->material_handle];
 
-			GLCall(glUniform1f(glGetUniformLocation(g_Renderer->program_handle, "material.shininess"), material->shininess));
+			GLCall(glUniform1f(glGetUniformLocation(renderer->program_handle, "material.shininess"), material->shininess));
 
 			GLCall(glActiveTexture(GL_TEXTURE0));
 			GLCall(glBindTexture(GL_TEXTURE_2D, material->diffuse_map_handle));
