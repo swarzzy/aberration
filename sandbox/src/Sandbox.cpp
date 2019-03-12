@@ -6,52 +6,232 @@
 #include "platform/InputManager.h"
 #include "platform/API/OpenGL/ABOpenGL.h"
 #include "platform/Memory.h"
+#include "AssetManager.h"
 
-float32 vertices[288] = {
-	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 0.0f,  0.0f, -1.0f,
-	0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,  0.0f, -1.0f,
-	0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,  0.0f, -1.0f,
-	0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,  0.0f, -1.0f,
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,  0.0f, -1.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 0.0f,  0.0f, -1.0f,
+float32 vertices[] = {
+	-0.5f, -0.5f, -0.5f, 
+	0.5f, -0.5f, -0.5f,  
+	0.5f,  0.5f, -0.5f,  
+	0.5f,  0.5f, -0.5f,  
+	-0.5f,  0.5f, -0.5f, 
+	-0.5f, -0.5f, -0.5f, 
 
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.0f,  0.0f, 1.0f,
-	0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f,  0.0f, 1.0f,
-	0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f,  0.0f, 1.0f,
-	0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f,  0.0f, 1.0f,
-	-0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,  0.0f, 1.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.0f,  0.0f, 1.0f,
+	-0.5f, -0.5f,  0.5f, 
+	0.5f, -0.5f,  0.5f,  
+	0.5f,  0.5f,  0.5f,  
+	0.5f,  0.5f,  0.5f,  
+	-0.5f,  0.5f,  0.5f, 
+	-0.5f, -0.5f,  0.5f, 
 
-	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f, -1.0f,  0.0f,  0.0f,
-	-0.5f,  0.5f, -0.5f,  1.0f, 1.0f, -1.0f,  0.0f,  0.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, -1.0f,  0.0f,  0.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, -1.0f,  0.0f,  0.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f, -1.0f,  0.0f,  0.0f,
-	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f, -1.0f,  0.0f,  0.0f,
+	-0.5f,  0.5f,  0.5f, 
+	-0.5f,  0.5f, -0.5f, 
+	-0.5f, -0.5f, -0.5f, 
+	-0.5f, -0.5f, -0.5f, 
+	-0.5f, -0.5f,  0.5f, 
+	-0.5f,  0.5f,  0.5f, 
 
-	0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 1.0f,  0.0f,  0.0f,
-	0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  0.0f,  0.0f,
-	0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f,  0.0f,  0.0f,
-	0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f,  0.0f,  0.0f,
-	0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 1.0f,  0.0f,  0.0f,
-	0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 1.0f,  0.0f,  0.0f,
+	0.5f,  0.5f,  0.5f,  
+	0.5f,  0.5f, -0.5f,  
+	0.5f, -0.5f, -0.5f,  
+	0.5f, -0.5f, -0.5f,  
+	0.5f, -0.5f,  0.5f,  
+	0.5f,  0.5f,  0.5f,  
 
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f, -1.0f,  0.0f,
-	0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 0.0f, -1.0f,  0.0f,
-	0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, -1.0f,  0.0f,
-	0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, -1.0f,  0.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.0f, -1.0f,  0.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f, -1.0f,  0.0f,
+	-0.5f, -0.5f, -0.5f, 
+	0.5f, -0.5f, -0.5f,  
+	0.5f, -0.5f,  0.5f,  
+	0.5f, -0.5f,  0.5f,  
+	-0.5f, -0.5f,  0.5f, 
+	-0.5f, -0.5f, -0.5f, 
 
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,  1.0f,  0.0f,
-	0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,  1.0f,  0.0f,
-	0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,  1.0f,  0.0f,
-	0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,  1.0f,  0.0f,
-	-0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 0.0f,  1.0f,  0.0f,
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,  1.0f,  0.0f
+	-0.5f,  0.5f, -0.5f, 
+	0.5f,  0.5f, -0.5f,  
+	0.5f,  0.5f,  0.5f,  
+	0.5f,  0.5f,  0.5f,  
+	-0.5f,  0.5f,  0.5f, 
+	-0.5f,  0.5f, -0.5f, 
 };
 
+float32 pos[] = {
+	-0.5f, -0.5f, -0.5f,
+	0.5f, -0.5f, -0.5f,
+	0.5f,  0.5f, -0.5f,
+	0.5f,  0.5f, -0.5f,
+	-0.5f,  0.5f, -0.5f,
+	-0.5f, -0.5f, -0.5f,
+
+	-0.5f, -0.5f,  0.5f,
+	0.5f, -0.5f,  0.5f,
+	0.5f,  0.5f,  0.5f,
+	0.5f,  0.5f,  0.5f,
+	-0.5f,  0.5f,  0.5f,
+	-0.5f, -0.5f,  0.5f,
+
+	-0.5f,  0.5f,  0.5f,
+	-0.5f,  0.5f, -0.5f,
+	-0.5f, -0.5f, -0.5f,
+	-0.5f, -0.5f, -0.5f,
+	-0.5f, -0.5f,  0.5f,
+	-0.5f,  0.5f,  0.5f,
+
+	0.5f,  0.5f,  0.5f,
+	0.5f,  0.5f, -0.5f,
+	0.5f, -0.5f, -0.5f,
+	0.5f, -0.5f, -0.5f,
+	0.5f, -0.5f,  0.5f,
+	0.5f,  0.5f,  0.5f,
+
+	-0.5f, -0.5f, -0.5f,
+	0.5f, -0.5f, -0.5f,
+	0.5f, -0.5f,  0.5f,
+	0.5f, -0.5f,  0.5f,
+	-0.5f, -0.5f,  0.5f,
+	-0.5f, -0.5f, -0.5f,
+
+	-0.5f,  0.5f, -0.5f,
+	0.5f,  0.5f, -0.5f,
+	0.5f,  0.5f,  0.5f,
+	0.5f,  0.5f,  0.5f,
+	-0.5f,  0.5f,  0.5f,
+	-0.5f,  0.5f, -0.5f
+};
+
+float32 norm[] = {
+	0.0f,  0.0f, -1.0f,
+	0.0f,  0.0f, -1.0f,
+	0.0f,  0.0f, -1.0f,
+	0.0f,  0.0f, -1.0f,
+	0.0f,  0.0f, -1.0f,
+	0.0f,  0.0f, -1.0f,
+
+	0.0f,  0.0f, 1.0f,
+	0.0f,  0.0f, 1.0f,
+	0.0f,  0.0f, 1.0f,
+	0.0f,  0.0f, 1.0f,
+	0.0f,  0.0f, 1.0f,
+	0.0f,  0.0f, 1.0f,
+
+	-1.0f,  0.0f,  0.0f	,
+	- 1.0f,  0.0f,  0.0f,
+	- 1.0f,  0.0f,  0.0f,
+	- 1.0f,  0.0f,  0.0f,
+	- 1.0f,  0.0f,  0.0f,
+	- 1.0f,  0.0f,  0.0f,
+
+	1.0f,  0.0f,  0.0f,
+	1.0f,  0.0f,  0.0f,
+	1.0f,  0.0f,  0.0f,
+	1.0f,  0.0f,  0.0f,
+	1.0f,  0.0f,  0.0f,
+	1.0f,  0.0f,  0.0f,
+
+	0.0f, -1.0f,  0.0f,
+	0.0f,  -1.0f,  0.0f,
+	0.0f,  -1.0f,  0.0f,
+	0.0f,  -1.0f,  0.0f,
+	0.0f, -1.0f,  0.0f,
+	0.0f, -1.0f,  0.0f,
+
+	0.0f,  1.0f,  0.0f,
+	0.0f,  1.0f,  0.0f,
+	0.0f,  1.0f,  0.0f,
+	0.0f,  1.0f,  0.0f,
+	0.0f,  1.0f,  0.0f,
+	0.0f,  1.0f,  0.0f
+};
+
+float32 uv[] = {
+	0.0f, 0.0f,
+	1.0f, 0.0f,
+	1.0f, 1.0f,
+	1.0f, 1.0f,
+	0.0f, 1.0f,
+	0.0f, 0.0f,
+
+	0.0f, 0.0f,
+	1.0f, 0.0f,
+	1.0f, 1.0f,
+	1.0f, 1.0f,
+	0.0f, 1.0f,
+	0.0f, 0.0f,
+
+	1.0f, 0.0f,
+	1.0f, 1.0f,
+	0.0f, 1.0f,
+	0.0f, 1.0f,
+	0.0f, 0.0f,
+	1.0f, 0.0f,
+
+	1.0f, 0.0f,
+	1.0f, 1.0f,
+	0.0f, 1.0f,
+	0.0f, 1.0f,
+	0.0f, 0.0f,
+	1.0f, 0.0f,
+
+	0.0f, 1.0f,
+	1.0f, 1.0f,
+	1.0f, 0.0f,
+	1.0f, 0.0f,
+	0.0f, 0.0f,
+	0.0f, 1.0f,
+
+	0.0f, 1.0f,
+	1.0f, 1.0f,
+	1.0f, 0.0f,
+	1.0f, 0.0f,
+	0.0f, 0.0f,
+	0.0f, 1.0f
+};
+
+float32 i_vert[] = {
+	-1, -1, -1,
+	1, -1, -1,
+	1, 1, -1,
+	-1, 1, -1,
+	-1, -1, 1,
+	1, -1, 1,
+	1, 1, 1,
+	-1, 1, 1
+};
+
+float32 i_uv[] = {
+	0,0,
+	1,0,
+	1,1,
+	0,1,
+	0,0,
+	1,0,
+	1,1,
+	0,1
+};
+
+float32 i_norm[] = {
+	0, 0, 1,
+	1, 0, 0,
+	0, 0, -1,
+	-1, 0, 0,
+	0, 1, 0,
+	0, -1, 0,
+	0, 0, 1,
+	1, 0, 0
+};
+
+uint32 indices[6 * 6] =
+{
+	0, 1, 3, 3, 1, 2,
+	1, 5, 2, 2, 5, 6,
+	5, 4, 6, 6, 4, 7,
+	4, 0, 7, 7, 0, 3,
+	3, 2, 7, 7, 2, 6,
+	4, 5, 0, 0, 5, 1
+};
+
+uint32 ind[36];
+
+
 int32 mesh;
+int32 mesh2;
 int32 material;
 int32 material1;
 
@@ -91,12 +271,92 @@ void MouseCallback(AB::Event e) {
 	}
 }
 
+auto move_callback = [](AB::Event e) {
+	int32 action = -1;
+	if (e.type == AB::EVENT_TYPE_KEY_PRESSED) {
+		action = 1;
+	}
+	else if (e.type == AB::EVENT_TYPE_KEY_RELEASED) {
+		action = 0;
+	}
+	if (action != -1) {
+		switch (e.key_event.key) {
+		case AB::KeyboardKey::W: {
+			g_cam_w = action;
+		} break;
+		case AB::KeyboardKey::S: {
+			g_cam_s = action;
+		} break;
+		case AB::KeyboardKey::A: {
+			g_cam_a = action;
+		} break;
+		case AB::KeyboardKey::D: {
+			g_cam_d = action;
+		} break;
+		default: {
+		} break;
+		}
+	}
+};
+
+int32 w_h;
+int32 a_h;
+int32 s_h;
+int32 d_h;
+
+
+void Subscribe() {
+	AB::EventQuery w_q = {};
+	w_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED | AB::EVENT_TYPE_KEY_RELEASED;
+	//w_q.pass_through = true;
+	w_q.condition.key_event.key = AB::KeyboardKey::W;
+	w_q.callback = move_callback;
+
+	AB::EventQuery s_q = {};
+	s_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED | AB::EVENT_TYPE_KEY_RELEASED;
+	//s_q.pass_through = true;
+	s_q.condition.key_event.key = AB::KeyboardKey::S;
+	s_q.callback = move_callback;
+
+	AB::EventQuery a_q = {};
+	a_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED | AB::EVENT_TYPE_KEY_RELEASED;
+	//a_q.pass_through = true;
+	a_q.condition.key_event.key = AB::KeyboardKey::A;
+	a_q.callback = move_callback;
+
+	AB::EventQuery d_q = {};
+	d_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED | AB::EVENT_TYPE_KEY_RELEASED;
+	//d_q.pass_through = true;
+	d_q.condition.key_event.key = AB::KeyboardKey::D;
+	d_q.callback = move_callback;
+
+	w_h = AB::InputSubscribeEvent(g_Input, &w_q);
+	s_h = AB::InputSubscribeEvent(g_Input, &s_q);
+	a_h = AB::InputSubscribeEvent(g_Input, &a_q);
+	d_h = AB::InputSubscribeEvent(g_Input, &d_q);
+}
+
+void Unsub() {
+	AB::InputUnsubscribeEvent(g_Input, w_h);
+	AB::InputUnsubscribeEvent(g_Input, a_h);
+	AB::InputUnsubscribeEvent(g_Input, s_h);
+	AB::InputUnsubscribeEvent(g_Input, d_h);
+
+}
+
 void Init() {
-	AB::Init();
+	AB::Renderer3DInit();
 	g_Input = AB::InputInitialize();
+	auto asset_mgr = AB::AssetInitialize();
+	for (int i = 0; i < 36; i++) {
+		ind[i] = i;
+	}
+	mesh = AB::AssetCreateMesh(asset_mgr, 36, (hpm::Vector3*)vertices, nullptr, nullptr, 0, nullptr);
+	mesh2 = AB::AssetCreateMesh(asset_mgr, 36, (hpm::Vector3*)pos, (hpm::Vector2*)uv, (hpm::Vector3*)norm, 36, ind);
 	material = AB::CreateMaterial("../../../assets/test.bmp", "../../../assets/spec.bmp", 32);
 	material1 = AB::CreateMaterial("../../../assets/spec.bmp", "../../../assets/spec.bmp", 32);
-	mesh = AB::CreateMesh(vertices, 288);
+	mesh = AB::AssetCreateMeshAAB(asset_mgr, "../../../assets/mesh.aab");
+	//mesh = AB::AssetCreateMesh(vertices, 288);
 
 	AB::EventQuery tab_q = {};
 	tab_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED;
@@ -106,9 +366,11 @@ void Init() {
 		mouse_captured = !mouse_captured;
 		if (mouse_captured) {
 			AB::InputSetMouseMode(g_Input, AB::MouseMode::Captured);
+			Subscribe();
 		}
 		else {
 			AB::InputSetMouseMode(g_Input, AB::MouseMode::Cursor);
+			Unsub();
 		}
 	};
 
@@ -138,62 +400,6 @@ void Init() {
 
 	AB::InputSubscribeEvent(g_Input, &m_move_q);
 
-	auto move_callback = [](AB::Event e) {
-		int32 action = -1;
-		if (e.type == AB::EVENT_TYPE_KEY_PRESSED) {
-			action = 1;
-		}
-		else if (e.type == AB::EVENT_TYPE_KEY_RELEASED) {
-			action = 0;
-		}
-		if (action != -1) {
-			switch (e.key_event.key) {
-			case AB::KeyboardKey::W: {
-				g_cam_w = action;
-			} break;
-			case AB::KeyboardKey::S: {
-				g_cam_s = action;
-			} break;
-			case AB::KeyboardKey::A: {
-				g_cam_a = action;
-			} break;
-			case AB::KeyboardKey::D: {
-				g_cam_d = action;
-			} break;
-			default: {
-			} break;
-			}
-		}
-	};
-
-	AB::EventQuery w_q = {};
-	w_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED | AB::EVENT_TYPE_KEY_RELEASED;
-	//w_q.pass_through = true;
-	w_q.condition.key_event.key = AB::KeyboardKey::W;
-	w_q.callback = move_callback;
-
-	AB::EventQuery s_q = {};
-	s_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED | AB::EVENT_TYPE_KEY_RELEASED;
-	//s_q.pass_through = true;
-	s_q.condition.key_event.key = AB::KeyboardKey::S;
-	s_q.callback = move_callback;
-
-	AB::EventQuery a_q = {};
-	a_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED | AB::EVENT_TYPE_KEY_RELEASED;
-	//a_q.pass_through = true;
-	a_q.condition.key_event.key = AB::KeyboardKey::A;
-	a_q.callback = move_callback;
-
-	AB::EventQuery d_q = {};
-	d_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED | AB::EVENT_TYPE_KEY_RELEASED;
-	//d_q.pass_through = true;
-	d_q.condition.key_event.key = AB::KeyboardKey::D;
-	d_q.callback = move_callback;
-
-	AB::InputSubscribeEvent(g_Input, &w_q);
-	AB::InputSubscribeEvent(g_Input, &s_q);
-	AB::InputSubscribeEvent(g_Input, &a_q);
-	AB::InputSubscribeEvent(g_Input, &d_q);
 
 
 	AB::EventQuery click = {};
@@ -213,6 +419,18 @@ void Init() {
 
 void Update() {
 	
+}
+
+void Render() {
+	AB::InputBeginFrame(g_Input);
+	AB::EventQuery d_q = {};
+	d_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED | AB::EVENT_TYPE_KEY_RELEASED;
+	//d_q.pass_through = true;
+	d_q.condition.key_event.key = AB::KeyboardKey::D;
+	d_q.callback = move_callback;
+	//int32 h = AB::InputSubscribeEvent(g_Input, &d_q);
+
+	//AB::PrintString("%u32", alignof(AB::InternalEventQuery));
 	if (g_cam_w) {
 		cam_pos = hpm::Add(hpm::Multiply(cam_front, 0.2), cam_pos);
 	}
@@ -221,11 +439,11 @@ void Update() {
 	}
 
 	if (g_cam_a) {
-		hpm::Vector3 right = hpm::Normalize(hpm::Cross(cam_front, {0, 1, 0}));
+		hpm::Vector3 right = hpm::Normalize(hpm::Cross(cam_front, { 0, 1, 0 }));
 		cam_pos = hpm::Subtract(cam_pos, hpm::Multiply(right, 0.2));
 	}
 	if (g_cam_d) {
-		hpm::Vector3 right = hpm::Normalize(hpm::Cross(cam_front, {0, 1, 0}));
+		hpm::Vector3 right = hpm::Normalize(hpm::Cross(cam_front, { 0, 1, 0 }));
 		cam_pos = hpm::Add(hpm::Multiply(right, 0.2), cam_pos);
 	}
 
@@ -234,16 +452,39 @@ void Update() {
 	cam_front.z = hpm::Cos(hpm::ToRadians(pitch)) * hpm::Sin(hpm::ToRadians(yaw));
 	cam_front = hpm::Normalize(cam_front);
 	AB::SetCamera(cam_front, cam_pos);
-	AB::InputUpdate(g_Input);
-}
+	//AB::InputUpdate(g_Input);
+	//	AB::InputUnsubscribeEvent(g_Input, h);
 
-void Render() {
+	if (AB::InputKeyIsPressed(g_Input, AB::KeyboardKey::Space)) {
+		AB_CORE_INFO("space pressed\n");
+	}
+
+	if (AB::InputKeyIsReleased(g_Input, AB::KeyboardKey::Space)) {
+		AB_CORE_INFO("space released\n");
+	}
+
+	if (AB::InputMouseButtonIsPressed(g_Input, AB::MouseButton::Left)) {
+		AB_CORE_INFO("lb pressed\n");
+	}
+
+	if (AB::InputMouseButtonIsReleased(g_Input, AB::MouseButton::Left)) {
+		AB_CORE_INFO("lb released\n");
+	}
+
+	AB::InputEndFrame(g_Input);
+
 	AB::Submit(mesh, material, &hpm::Translation({ 1, 0, 1 }));
-	AB::Submit(mesh, material1, &hpm::Translation({ -1, 0, 2 }));
+	AB::Submit(mesh2, material1, &hpm::Translation({ -1, 0, 2 }));
 
 	DEBUG_OVERLAY_PUSH_VAR("mouse_pos", AB::InputGetMousePosition(g_Input));
 	DEBUG_OVERLAY_PUSH_SLIDER("pitch", &pitch, -180.0f, 180.0f);
 	DEBUG_OVERLAY_PUSH_SLIDER("yaw", &yaw, -360.0f, 360.0f);
+
+	DEBUG_OVERLAY_PUSH_VAR("W", w_h);
+	DEBUG_OVERLAY_PUSH_VAR("A", a_h);
+	DEBUG_OVERLAY_PUSH_VAR("S", s_h);
+	DEBUG_OVERLAY_PUSH_VAR("D", d_h);
+
 
 	//AB::PrintString("%u32\n", alignof(AB::InputManager::EventQuery));
 	DEBUG_OVERLAY_PUSH_VAR("pitch", pitch);

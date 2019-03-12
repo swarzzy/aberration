@@ -188,7 +188,6 @@ namespace AB {
 			uint32 mid = beg + (end - beg) / 2;
 			MergeSortV2(buffer, tempBuffer, beg, mid, pred);
 			MergeSortV2(buffer, tempBuffer, mid + 1, end, pred);
-
 			uint32 leftAt = beg;
 			uint32 rightAt = mid + 1;
 			uint32 tempAt = 0;

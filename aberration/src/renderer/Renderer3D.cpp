@@ -3,6 +3,9 @@
 #include "platform/Platform.h"
 #include "utils/ImageLoader.h"
 #include "platform/Memory.h"
+#include "AssetManager.h"
+#include "Application.h"
+//#include <cstddef>
 
 namespace AB {
 
@@ -10,11 +13,6 @@ namespace AB {
 		int32 mesh_handle;
 		int32 material_handle;
 		hpm::Matrix4 transform;
-	};
-
-	struct MeshProps {
-		bool8 used;
-		uint32 vertex_buffer_handle;
 	};
 
 	struct Material {
@@ -30,18 +28,16 @@ namespace AB {
 		hpm::Matrix4 look_at;
 	};
 
-	static constexpr int32 MAX_MESHES = 128;
 	static constexpr int32 DRAW_BUFFER_SIZE = 256;
 	static constexpr int32 MAX_MATERIALS = 128;
 
 	struct Renderer3D {
 		int32 program_handle;
-		hpm::Matrix4 projection;
-		MeshProps meshes[MAX_MESHES];
 		Material materials[MAX_MATERIALS];
 		uint32 draw_buffer_at;
 		DrawCommand draw_buffer[DRAW_BUFFER_SIZE];
 		Camera camera;
+		hpm::Matrix4 projection;
 		DirectionalLight dir_light;
 	};
 
@@ -151,43 +147,21 @@ namespace AB {
 		return texHandle;
 	}
 
-	void Init() {
-		auto* ptr = &GetMemory()->perm_storage.forward_renderer;
-		if (!*ptr) {
-			*ptr = (Renderer3D*)SysAlloc(sizeof(Renderer3D));
+	void Renderer3DInit() {
+		Renderer3D* props = nullptr;
+		//auto** ptr = &GetMemory()->perm_storage.forward_renderer;
+		if (!(PermStorage()->forward_renderer)) {
+			props = (Renderer3D*)SysAlloc(sizeof(Renderer3D));
 		} else {
 			AB_CORE_WARN("Renderer already initialized.");
 		}
-
-		(*ptr)->program_handle = LoadShader("../../../assets/shaders/MeshVertex.glsl", "../../../assets/shaders/MeshFragment.glsl");
-
-		(*ptr)->projection = hpm::PerspectiveRH(45.0f, 16.0f / 9.0f, 0.1f, 100.0f);
+		props->program_handle = LoadShader("../../../assets/shaders/MeshVertex.glsl", "../../../assets/shaders/MeshFragment.glsl");
+		props->projection = hpm::PerspectiveRH(45.0f, 16.0f / 9.0f, 0.1f, 100.0f);
+		AB::GetMemory()->perm_storage.forward_renderer = props;
 	}
 
 	void SetDirectionalLight(const DirectionalLight* light) {
 		PermStorage()->forward_renderer->dir_light = *light;
-	}
-
-	int32 CreateMesh(float32* vertices, uint32 num_vertices) {
-		auto renderer = PermStorage()->forward_renderer;
-		int32 free_index = -1;
-		for (uint32 i = 0; i < MAX_MESHES; i++) {
-			if (!renderer->meshes[i].used) {
-				free_index = i;
-				break;
-			}
-		}
-		AB_CORE_ASSERT(free_index != -1, "Mesh storage is full");
-
-		renderer->meshes[free_index].used = true;
-
-		glGenBuffers(1, &renderer->meshes[free_index].vertex_buffer_handle);
-		AB_CORE_ASSERT("g_Renderer->meshes[free_index].vertex_buffer_handle", "");
-		glBindBuffer(GL_ARRAY_BUFFER, renderer->meshes[free_index].vertex_buffer_handle);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(float32) * num_vertices, vertices, GL_STATIC_DRAW);
-		glBindVertexArray(0);
-
-		return free_index;
 	}
 
 	int32 CreateMaterial(const char* diff_path, const char* spec_path, float32 shininess) {
@@ -232,6 +206,7 @@ namespace AB {
 	}
 
 	void Render() {
+
 		auto renderer = PermStorage()->forward_renderer;
 
 		GLCall(glUseProgram(renderer->program_handle));
@@ -249,19 +224,40 @@ namespace AB {
 		GLCall(glUniform3fv(glGetUniformLocation(renderer->program_handle, "dir_light.diffuse"), 1, renderer->dir_light.diffuse.data));
 		GLCall(glUniform3fv(glGetUniformLocation(renderer->program_handle, "dir_light.specular"), 1, renderer->dir_light.specular.data));
 
+			
 
 		for (uint32 i = 0; i < renderer->draw_buffer_at; i++) {
 			DrawCommand* command = &renderer->draw_buffer[i];
-			GLCall(glBindBuffer(GL_ARRAY_BUFFER, renderer->meshes[command->mesh_handle].vertex_buffer_handle));
+			Mesh* mesh = AB::AssetGetMeshData(PermStorage()->asset_manager, command->mesh_handle);
 
-			// TODO: memory layout
-			GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0));
+			GLCall(glBindBuffer(GL_ARRAY_BUFFER, mesh->api_vb_handle));
+#if 1
+			GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0));
 			GLCall(glEnableVertexAttribArray(0));
-			GLCall(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat))));
-			GLCall(glEnableVertexAttribArray(1));
-			GLCall(glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat))));
-			GLCall(glEnableVertexAttribArray(2));
+			if (mesh->uvs) {
+				GLCall(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)((byte*)(mesh->uvs) - (byte*)(mesh->positions))));
+				GLCall(glEnableVertexAttribArray(1));
+			}
+			if (mesh->normals) {
+				GLCall(glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)((byte*)mesh->normals - (byte*)mesh->positions)));
+				GLCall(glEnableVertexAttribArray(2));
+			}
 
+			if (mesh->api_ib_handle != 0) {
+				GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->api_ib_handle));
+			}
+
+#else
+
+			GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, (sizeof(hpm::Vector3) * 2 + sizeof(hpm::Vector2)), (void*)0));
+			GLCall(glEnableVertexAttribArray(0));
+			GLCall(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, (sizeof(hpm::Vector3) * 2 + sizeof(hpm::Vector2)), (void*)(sizeof(hpm::Vector3))));
+			GLCall(glEnableVertexAttribArray(1));
+			GLCall(glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, (sizeof(hpm::Vector3) * 2 + sizeof(hpm::Vector2)), (void*)(sizeof(hpm::Vector2) + sizeof(hpm::Vector3))));
+			GLCall(glEnableVertexAttribArray(2));
+			GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->api_ib_handle));
+
+#endif
 			GLCall(glEnable(GL_DEPTH_TEST));
 
 			GLCall(glUniformMatrix4fv(glGetUniformLocation(renderer->program_handle, "model"), 1, GL_FALSE, command->transform.data));
@@ -276,8 +272,11 @@ namespace AB {
 			GLCall(glBindTexture(GL_TEXTURE_2D, material->specular_map_handle));
 
 
-
-			glDrawArrays(GL_TRIANGLES, 0, 36);
+			if (mesh->api_ib_handle != 0) {
+				GLCall(glDrawElements(GL_TRIANGLES, (GLsizei)mesh->num_indices, GL_UNSIGNED_INT, 0));
+			} else {
+				GLCall(glDrawArrays(GL_TRIANGLES, 0, mesh->num_vertices));
+			}
 		}
 
 

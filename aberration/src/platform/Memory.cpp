@@ -7,7 +7,9 @@
 
 namespace AB {
 
-	static constexpr uint64 DEFAULT_ALIGMENT = alignof(std::max_align_t);
+	// Using 16 byte aligment as default as malloc does (according to specs)
+	// There are crashes when using 8 byte aligment and optimizations are enabled
+	static constexpr uint64 DEFAULT_ALIGMENT = 16;//alignof(std::max_align_t);
 
 	static Memory* g_MemoryContext = nullptr;
 
@@ -52,12 +54,12 @@ namespace AB {
 
 		AB_CORE_ASSERT(size + padding < g_MemoryContext->sys_storage._internal.free, "Not enough system memory.");
 
-		g_MemoryContext->sys_storage._internal.offset += size + padding;
-		g_MemoryContext->sys_storage._internal.free -= size + padding;
+		g_MemoryContext->sys_storage._internal.offset += size + padding + 1;
+		g_MemoryContext->sys_storage._internal.free -= size + padding + 1;
 		uintptr next_address = current_address + padding;
 
 		AB_CORE_ASSERT(next_address % use_aligment == 0, "Wrong aligment");
-		//PrintString("Allocation: size: %u64, free: %u64, at: %u64, before: %u64, padding: %u64\n", size, g_MemoryContext->sys_storage._internal.free, next_address, current_address, next_address - current_address);
+		PrintString("Allocation: size: %u64, at address %u64, free: %u64, at: %u64, before: %u64, padding: %u64\n", size, next_address, g_MemoryContext->sys_storage._internal.free, next_address, current_address, next_address - current_address);
 
 		return (void*)next_address;
 	}

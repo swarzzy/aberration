@@ -6,6 +6,7 @@
 namespace AB {
 	constexpr uint32 MAX_EVENT_SUBSC = 32768;
 	constexpr uint32 EVENT_QUEUE_SIZE = 32768;
+	constexpr int32  EVENT_INVALID_HANDLE = -1;
 
 	enum class MouseMode : byte {
 		Cursor = 0,
@@ -21,8 +22,17 @@ namespace AB {
 		EVENT_TYPE_MOUSE_BTN_RELEASED	= 1 << 5
 	};
 
+	//
+	// IS THAT REALLY TRUE?
 	// NOTE: There are potentially could be problems with aligment of these structs 
 	// on different machine architectures.
+	//
+	// TODO: Maybe there are doesn't need to be an event queue.
+	// Subscriber's callbacks may just be called at the time manager gets event.
+	// So then all events actually will be handled in platform PollEvents method.
+	//
+	// TODO: Data oriented optimizations. Make event structs traversing cache friendly
+	//
 
 	struct Event {
 		union {
@@ -68,30 +78,37 @@ namespace AB {
 		EventCallback* callback;
 	};
 
-	struct KeyInfo {
-		byte current_state;
-		byte prev_state;
-		// Isn't 65536 are to small for repeat count?
-		uint16 sys_repeat_count;
+	struct InternalEventQuery {
+		int32 handle;
+		byte _pad[4];
+		EventQuery query;
 	};
 
-	struct MouseButtonInfo {
-		byte current_state;
-		byte prev_state;
+	struct Keys {
+		byte current_state[KEYBOARD_KEYS_COUNT];
+		byte prev_state[KEYBOARD_KEYS_COUNT];
+		// Isn't 65536 are to small for repeat count?
+		uint16 sys_repeat_count[KEYBOARD_KEYS_COUNT];
+	};
+
+	struct MouseButtons {
+		byte current_state[MOUSE_BUTTONS_COUNT];
+		byte prev_state[MOUSE_BUTTONS_COUNT];
 	};
 
 	struct InputMgr {
+		int32 sub_handle_counter;
 		MouseMode mouse_mode;
 		float32 mouse_pos_x;
 		float32 mouse_pos_y;
 		bool32 window_active;
 		bool32 mouse_in_client_area;
 		uint32 event_queue_at;
-		uint32 subscriptions_at;
-		MouseButtonInfo mouse_buttons[MOUSE_BUTTONS_COUNT];
-		KeyInfo keys[KEYBOARD_KEYS_COUNT];
+		uint32 last_subscription;
+		MouseButtons mouse_buttons[MOUSE_BUTTONS_COUNT];
+		Keys keys[KEYBOARD_KEYS_COUNT];
 		Event event_queue[EVENT_QUEUE_SIZE];
-		EventQuery subscriptions[MAX_EVENT_SUBSC];
+		InternalEventQuery subscriptions[MAX_EVENT_SUBSC];
 	};
 
 	enum KeyState : byte {
@@ -101,13 +118,21 @@ namespace AB {
 	};
 
 	AB_API InputMgr* InputInitialize();
+	AB_API void InputBeginFrame(InputMgr* mgr);
+	AB_API void InputEndFrame(InputMgr* mgr);
 
-	AB_API void InputSubscribeEvent(InputMgr* mgr, const EventQuery* query);
+	AB_API int32 InputSubscribeEvent(InputMgr* mgr, const EventQuery* query);
+	AB_API void InputUnsubscribeEvent(InputMgr* mgr, int32 handle);
+
 
 	AB_API hpm::Vector2 InputGetMousePosition(InputMgr* mgr);
 
-	AB_API void InputUpdate(InputMgr* mgr);
 	AB_API void InputSetMouseMode(InputMgr* mgr, MouseMode mode);
+	AB_API bool32 InputKeyIsPressed(InputMgr* mgr, KeyboardKey key);
 	AB_API bool32 InputKeyIsDown(InputMgr* mgr, KeyboardKey key);
+	AB_API bool32 InputKeyIsReleased(InputMgr* mgr, KeyboardKey key);
+	AB_API bool32 InputMouseButtonIsPressed(InputMgr* mgr, MouseButton button);
 	AB_API bool32 InputMouseButtonIsDown(InputMgr* mgr, MouseButton button);
+	AB_API bool32 InputMouseButtonIsReleased(InputMgr* mgr, MouseButton button);
+
 }

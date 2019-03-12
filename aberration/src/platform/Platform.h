@@ -26,6 +26,10 @@ namespace AB {
 	AB_API void GetLocalTime(DateTime& datetime);
 
 	AB_API void* DebugReadFile(const char* filename, uint32* bytesRead);
+
+	AB_API struct DebugReadFileOffsetRet { void* data; uint32 read; }
+	DebugReadFileOffset(const char* filename, uint32 offset, uint32 size);
+
 	AB_API void DebugFreeFileMemory(void* memory);
 	AB_API bool32 DebugWriteFile(const char* filename,  void* data, uint32 dataSize);
 }

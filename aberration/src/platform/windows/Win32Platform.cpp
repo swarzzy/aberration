@@ -71,6 +71,45 @@ namespace AB {
 		return  bitmap;
 	}
 
+	DebugReadFileOffsetRet DebugReadFileOffset(const char* filename, uint32 offset, uint32 size) {
+		void* bitmap = nullptr;
+		uint32 result_read = 0;
+		HANDLE fileHandle = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0);
+		if (fileHandle != INVALID_HANDLE_VALUE) {
+			LARGE_INTEGER fileSize = { 0 };
+			if (GetFileSizeEx(fileHandle, &fileSize)) {
+				if (fileSize.QuadPart <= 0xffffffff) {
+					if (offset + size <= fileSize.QuadPart) {
+						void* mem = std::malloc(size);
+						if (mem) {
+							if (SetFilePointer(fileHandle, offset, NULL, FILE_BEGIN) != INVALID_SET_FILE_POINTER) {
+								DWORD read;
+								if (ReadFile(fileHandle, mem, (DWORD)size, &read, 0) && (read == (DWORD)size)) {
+									result_read = size;
+									bitmap = mem;
+								} else {
+									AB_CORE_ERROR("Failed to read file.");
+									DebugFreeFileMemory(mem);
+								}
+							} else {
+								AB_CORE_ERROR("Failed to set file pointer.");
+								DebugFreeFileMemory(mem);
+							}
+						} else {
+							AB_CORE_ERROR("Failed to allocate memory.");
+						}
+					} else {
+						AB_CORE_ERROR("Offset is bigger than file size.");
+					}
+				} else {
+					AB_CORE_ERROR("Can`t read >4GB file.");
+				}
+			}
+			CloseHandle(fileHandle);
+		}
+		return  {bitmap, result_read };
+	}
+
 	void DebugFreeFileMemory(void* memory) {
 		if (memory) {
 			std::free(memory);

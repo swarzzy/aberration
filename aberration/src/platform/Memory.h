@@ -1,8 +1,13 @@
 #pragma once
 #include "AB.h"
+#include <cstring>
 
 #define KILOBYTES(kb) ((kb) * 1024)
 #define MEGABYTES(mb) ((mb) * 1024 * 1024)
+
+#define CopyArray(type, elem_count, dest, src) memcpy(dest, src, sizeof(type) * elem_count)
+#define SetArray(type, elem_count, dest, val) memset(dest, val, sizeof(type) * elem_count)
+
 
 namespace AB {
 	struct Renderer3D;
@@ -11,6 +16,7 @@ namespace AB {
 	struct DebugOverlayProperties;
 	struct InputMgr;
 	struct Application;
+	struct AssetManager;
 }
 
 namespace AB {
@@ -24,6 +30,7 @@ namespace AB {
 		DebugOverlayProperties* debug_overlay;
 		InputMgr* input_manager;
 		Application* application;
+		AssetManager* asset_manager;
 	};
 
 	struct _SysAllocatorData {

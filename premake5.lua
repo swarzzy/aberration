@@ -13,7 +13,7 @@ workspace "Aberration"
 	systemversion "latest"
 
 	--toolset "clang"
-
+	require "export-compile-commands"
 
 	flags {
 		"FatalCompileWarnings", 
@@ -177,6 +177,30 @@ project "FontPreprocessor"
 	files {
 		"tools/FontPreprocessor/**.h",
 		"tools/FontPreprocessor/**.cpp",
+	}
+
+	ignoredefaultlibraries { 
+		"gdi32full",
+		"GDI32",
+		"USER32",
+		"user32"
+	}
+
+project "AssetBuilder"
+	location "tools/AssetBuilder"
+	kind "ConsoleApp"
+	staticruntime "on"
+
+	targetdir ("build/bin/%{buildDir}")
+	objdir ("build/obj/%{buildDir}")
+
+	defines {
+		"_CRT_SECURE_NO_WARNINGS"
+	}
+
+	files {
+		"tools/AssetBuilder/**.h",
+		"tools/AssetBuilder/**.cpp",
 	}
 
 	ignoredefaultlibraries { 

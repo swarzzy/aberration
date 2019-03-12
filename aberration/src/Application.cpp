@@ -67,7 +67,7 @@ namespace AB {
 			}
 			
 			AB::Renderer2D::Flush();
-			AB::Window::PollEvents();
+			//AB::Window::PollEvents();
 			AB::Window::SwapBuffers();
 
 			int64 current_time = AB::GetCurrentRawTime();
