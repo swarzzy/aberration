@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AB.h"
+#include "../../hypermath/hypermath.h"
 
 namespace AB {
 	enum AABFileType : uint32 {
@@ -10,6 +11,14 @@ namespace AB {
 	constexpr uint32 AAB_FILE_VERSION = 0;
 
 #pragma pack(push, 1)
+	struct AABMeshMaterialProperties {
+		hpm::Vector3 k_a;
+		hpm::Vector3 k_d;
+		hpm::Vector3 k_s;
+		hpm::Vector3 k_e;
+		float32 shininess;
+	};
+
 	struct AABMeshHeader {
 		uint32 magic_value;
 		uint32 version;
@@ -23,6 +32,9 @@ namespace AB {
 		uint64 normals_offset;
 		uint64 uvs_offset;
 		uint64 indices_offset;
+		uint64 material_name_offset;		// Both are zero if there is no material
+		uint64 material_diff_bitmap_name_offset;
+		uint64 material_properties_offset;
 	};
 #pragma pack (pop)
 }

@@ -61,7 +61,7 @@ namespace AB {
 		return ibo_handle;
 	}
 
-	int32 AssetCreateMesh(AssetManager* mgr, uint32 number_of_vertices, hpm::Vector3* positions, hpm::Vector2* uvs, hpm::Vector3* normals, uint32 num_of_indices, uint32* indices) {
+	int32 AssetCreateMesh(AssetManager* mgr, uint32 number_of_vertices, hpm::Vector3* positions, hpm::Vector2* uvs, hpm::Vector3* normals, uint32 num_of_indices, uint32* indices, Material* material) {
 		AB_CORE_ASSERT(number_of_vertices, "Mesh should have more than 0 vertices.");
 		AB_CORE_ASSERT(positions, "Cannot create mesh witout vertices.");
 
@@ -81,13 +81,15 @@ namespace AB {
 			bool32 has_uvs = uvs != nullptr;
 			bool32 has_hormals = normals != nullptr;
 			bool32 has_indices = indices != nullptr;
+			bool32 has_material = material != nullptr;
 
 			uintptr vert_mem_size = number_of_vertices * sizeof(hpm::Vector3);
 			uintptr uv_mem_size = has_uvs ? number_of_vertices * sizeof(hpm::Vector2) : 0;
 			uintptr norm_mem_size = has_hormals ? number_of_vertices * sizeof(hpm::Vector3) : 0;
 			uintptr ind_mem_size = has_indices ? num_of_indices * sizeof(uint32) : 0;
+			uintptr mat_mem_size = sizeof(Material);
 
-			uintptr mem_size = vert_mem_size + uv_mem_size + norm_mem_size + ind_mem_size;
+			uintptr mem_size = vert_mem_size + uv_mem_size + norm_mem_size + ind_mem_size + mat_mem_size;
 			mgr->meshes[free_index].mem_begin = (byte*)malloc(mem_size);
 			mgr->meshes[free_index].mem_size = mem_size;
 
@@ -99,12 +101,26 @@ namespace AB {
 			byte* uv_beg = has_uvs ? (mgr->meshes[free_index].mem_begin + vert_mem_size) : nullptr;
 			byte* norm_beg = has_hormals ? (mgr->meshes[free_index].mem_begin + vert_mem_size + uv_mem_size) : nullptr;
 			byte* ind_beg = has_indices ? (mgr->meshes[free_index].mem_begin + vert_mem_size + uv_mem_size + norm_mem_size) : nullptr;
+			byte* mat_beg = mgr->meshes[free_index].mem_begin + vert_mem_size + uv_mem_size + norm_mem_size + ind_mem_size;
 			
 			mgr->meshes[free_index].uvs	= (hpm::Vector2*)uv_beg;
 			mgr->meshes[free_index].normals = (hpm::Vector3*)norm_beg;
 			mgr->meshes[free_index].indices = (uint32*)ind_beg;
+			mgr->meshes[free_index].material = (Material*)mat_beg;
 
 			CopyArray(hpm::Vector3, number_of_vertices, mgr->meshes[free_index].positions, positions);
+
+			if (has_material) {
+				CopyScalar(Material, mgr->meshes[free_index].material, material);
+			} else {
+				Material dummy = {};
+				dummy.shininess = 32.0f;
+				dummy.ambient = { 0.2f, 0.0f, 0.2f };
+				dummy.diffuse = { 0.8f, 0.0f, 0.8f };
+				dummy.specular = { 1.0f, 0.0f, 1.0f };
+				dummy.emission = {};
+				CopyScalar(Material, mgr->meshes[free_index].material, &dummy);
+			}
 			
 			if (has_uvs) {
 				CopyArray(hpm::Vector2, number_of_vertices, mgr->meshes[free_index].uvs, uvs);
@@ -261,7 +277,7 @@ namespace AB {
 			indices.push_back(i + 2);
 		}
 
-		return AssetCreateMesh(mgr, (uint32)vertices.size(), vertices.data(), nullptr, normals.data(), (uint32)indices.size(), indices.data());
+		return AssetCreateMesh(mgr, (uint32)vertices.size(), vertices.data(), nullptr, normals.data(), (uint32)indices.size(), indices.data(), nullptr);
 	}
 
 	int32 AssetCreateMeshAAB(AssetManager * mgr, const char * aab_path) {
@@ -282,8 +298,13 @@ namespace AB {
 					uint64 normals_offset = header->normals_offset;
 					uint64 uvs_offset = header->uvs_offset;
 					uint64 indices_offset = header->indices_offset;
-
+					uint64 material_name_offset = header->material_name_offset;
+					uint64 material_properties_offset = header->material_properties_offset;
+					uint64 material_diff_map_name_offset = header->material_diff_bitmap_name_offset;
+					
 					bool32 has_uv = header->uvs_count;
+					bool32 has_material = header->material_name_offset != 0;
+
 
 					uint64 asset_size = header->asset_size;
 					DebugFreeFileMemory(_header);
@@ -299,8 +320,21 @@ namespace AB {
 						hpm::Vector3* normals = (hpm::Vector3*)((byte*)asset_data + (normals_offset - vertices_offset));
 						hpm::Vector2* uvs = has_uv ? (hpm::Vector2*)((byte*)asset_data + (uvs_offset - vertices_offset) ) : nullptr;
 						uint32* indices = (uint32*)((byte*)asset_data + (indices_offset - vertices_offset));
+						AABMeshMaterialProperties* material_props = has_material ? (AABMeshMaterialProperties*)((byte*)asset_data + (material_properties_offset - vertices_offset)) : nullptr;
 
-						result_handle = AssetCreateMesh(mgr, vertices_count, vertices, uvs, normals, indices_count, indices);
+						Material material = {};
+						if (material_diff_map_name_offset) {
+							void* diff_name_ptr = (void*)((byte*)asset_data + (material_diff_map_name_offset - vertices_offset));
+							CopyArray(char, 256, material.diff_bitmap_name, diff_name_ptr);
+						}
+
+						material.ambient = material_props->k_a;
+						material.diffuse = material_props->k_d;
+						material.specular = material_props->k_s;
+						material.emission = material_props->k_e;
+						material.shininess = material_props->shininess;
+
+						result_handle = AssetCreateMesh(mgr, vertices_count, vertices, uvs, normals, indices_count, indices, &material);
 					} else {
 						AB_CORE_ERROR("Failed to read seet data");
 					}

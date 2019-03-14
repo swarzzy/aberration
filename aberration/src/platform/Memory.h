@@ -6,6 +6,7 @@
 #define MEGABYTES(mb) ((mb) * 1024 * 1024)
 
 #define CopyArray(type, elem_count, dest, src) memcpy(dest, src, sizeof(type) * elem_count)
+#define CopyScalar(type, dest, src) memcpy(dest, src, sizeof(type))
 #define SetArray(type, elem_count, dest, val) memset(dest, val, sizeof(type) * elem_count)
 
 

@@ -5,6 +5,7 @@ workspace "Aberration"
 	startproject "Aberration"
 	characterset "MBCS"
 	exceptionhandling "Off"
+	strictaliasing "Off"
 	rtti "Off"
 	floatingpoint "Fast"
 	functionlevellinking "On"
@@ -13,7 +14,7 @@ workspace "Aberration"
 	systemversion "latest"
 
 	--toolset "clang"
-	require "export-compile-commands"
+	
 
 	flags {
 		"FatalCompileWarnings", 

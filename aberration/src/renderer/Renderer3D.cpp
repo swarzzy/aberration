@@ -15,12 +15,12 @@ namespace AB {
 		hpm::Matrix4 transform;
 	};
 
-	struct Material {
-		bool8 used;
-		uint32 diffuse_map_handle;
-		uint32 specular_map_handle;
-		float32 shininess;
-	};
+	//struct Material {
+	//	bool8 used;
+	//	uint32 diffuse_map_handle;
+	//	uint32 specular_map_handle;
+	//	float32 shininess;
+	//};
 
 	struct Camera {
 		hpm::Vector3 position;
@@ -29,11 +29,11 @@ namespace AB {
 	};
 
 	static constexpr int32 DRAW_BUFFER_SIZE = 256;
-	static constexpr int32 MAX_MATERIALS = 128;
+	//static constexpr int32 MAX_MATERIALS = 128;
 
 	struct Renderer3D {
 		int32 program_handle;
-		Material materials[MAX_MATERIALS];
+		//Material materials[MAX_MATERIALS];
 		uint32 draw_buffer_at;
 		DrawCommand draw_buffer[DRAW_BUFFER_SIZE];
 		Camera camera;
@@ -164,26 +164,26 @@ namespace AB {
 		PermStorage()->forward_renderer->dir_light = *light;
 	}
 
-	int32 CreateMaterial(const char* diff_path, const char* spec_path, float32 shininess) {
-		auto renderer = PermStorage()->forward_renderer;
-
-		int32 free_index = -1;
-		for (int32 i = 0; i < MAX_MATERIALS; i++) {
-			if (!renderer->materials[i].used) {
-				free_index = i;
-				renderer->materials[i].used = true;
-				break;
-			}
-		}
-
-		AB_CORE_ASSERT(free_index != -1, "Materials storage is full.");
-
-		renderer->materials[free_index].diffuse_map_handle = LoadTexture(diff_path);
-		renderer->materials[free_index].specular_map_handle = LoadTexture(spec_path);
-		renderer->materials[free_index].shininess = shininess;
-		
-		return  free_index;
-	}
+	//int32 CreateMaterial(const char* diff_path, const char* spec_path, float32 shininess) {
+	//	auto renderer = PermStorage()->forward_renderer;
+	//
+	//	int32 free_index = -1;
+	//	for (int32 i = 0; i < MAX_MATERIALS; i++) {
+	//		if (!renderer->materials[i].used) {
+	//			free_index = i;
+	//			renderer->materials[i].used = true;
+	//			break;
+	//		}
+	//	}
+	//
+	//	AB_CORE_ASSERT(free_index != -1, "Materials storage is full.");
+	//
+	//	renderer->materials[free_index].diffuse_map_handle = LoadTexture(diff_path);
+	//	renderer->materials[free_index].specular_map_handle = LoadTexture(spec_path);
+	//	renderer->materials[free_index].shininess = shininess;
+	//	
+	//	return  free_index;
+	//}
 
 	void SetCamera(hpm::Vector3 front, hpm::Vector3 position) {
 		auto renderer = PermStorage()->forward_renderer;
@@ -261,15 +261,15 @@ namespace AB {
 			GLCall(glEnable(GL_DEPTH_TEST));
 
 			GLCall(glUniformMatrix4fv(glGetUniformLocation(renderer->program_handle, "model"), 1, GL_FALSE, command->transform.data));
-
-			Material* material = &renderer->materials[command->material_handle];
-
-			GLCall(glUniform1f(glGetUniformLocation(renderer->program_handle, "material.shininess"), material->shininess));
+			
+			GLCall(glUniform3fv(glGetUniformLocation(renderer->program_handle, "material.ambinet"), 1,  mesh->material->ambient.data));
+			GLCall(glUniform3fv(glGetUniformLocation(renderer->program_handle, "material.diffuse"), 1, mesh->material->diffuse.data));
+			GLCall(glUniform1f(glGetUniformLocation(renderer->program_handle, "material.shininess"), mesh->material->shininess));
 
 			GLCall(glActiveTexture(GL_TEXTURE0));
-			GLCall(glBindTexture(GL_TEXTURE_2D, material->diffuse_map_handle));
+			//GLCall(glBindTexture(GL_TEXTURE_2D, mesh->material->diffuse_map_handle));
 			GLCall(glActiveTexture(GL_TEXTURE1));
-			GLCall(glBindTexture(GL_TEXTURE_2D, material->specular_map_handle));
+			//GLCall(glBindTexture(GL_TEXTURE_2D, mesh->material->specular_map_handle));
 
 
 			if (mesh->api_ib_handle != 0) {

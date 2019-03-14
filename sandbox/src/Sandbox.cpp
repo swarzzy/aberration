@@ -351,11 +351,13 @@ void Init() {
 	for (int i = 0; i < 36; i++) {
 		ind[i] = i;
 	}
-	mesh = AB::AssetCreateMesh(asset_mgr, 36, (hpm::Vector3*)vertices, nullptr, nullptr, 0, nullptr);
-	mesh2 = AB::AssetCreateMesh(asset_mgr, 36, (hpm::Vector3*)pos, (hpm::Vector2*)uv, (hpm::Vector3*)norm, 36, ind);
-	material = AB::CreateMaterial("../../../assets/test.bmp", "../../../assets/spec.bmp", 32);
-	material1 = AB::CreateMaterial("../../../assets/spec.bmp", "../../../assets/spec.bmp", 32);
-	mesh = AB::AssetCreateMeshAAB(asset_mgr, "../../../assets/mesh.aab");
+	//mesh = AB::AssetCreateMesh(asset_mgr, 36, (hpm::Vector3*)vertices, nullptr, nullptr, 0, nullptr, nullptr);
+	//mesh2 = AB::AssetCreateMesh(asset_mgr, 36, (hpm::Vector3*)pos, (hpm::Vector2*)uv, (hpm::Vector3*)norm, 36, ind, nullptr);
+	//material = AB::CreateMaterial("../../../assets/test.bmp", "../../../assets/spec.bmp", 32);
+	//material1 = AB::CreateMaterial("../../../assets/spec.bmp", "../../../assets/spec.bmp", 32);
+	//mesh = AB::AssetCreateMeshAAB(asset_mgr, "../../../assets/dragon.aab");
+	mesh2 = AB::AssetCreateMeshAAB(asset_mgr, "../../../assets/test.aab");
+
 	//mesh = AB::AssetCreateMesh(vertices, 288);
 
 	AB::EventQuery tab_q = {};
@@ -474,7 +476,7 @@ void Render() {
 	AB::InputEndFrame(g_Input);
 
 	AB::Submit(mesh, material, &hpm::Translation({ 1, 0, 1 }));
-	AB::Submit(mesh2, material1, &hpm::Translation({ -1, 0, 2 }));
+	//AB::Submit(mesh2, material1, &hpm::Translation({ -1, 0, 2 }));
 
 	DEBUG_OVERLAY_PUSH_VAR("mouse_pos", AB::InputGetMousePosition(g_Input));
 	DEBUG_OVERLAY_PUSH_SLIDER("pitch", &pitch, -180.0f, 180.0f);

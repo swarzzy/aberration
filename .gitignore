@@ -5,6 +5,8 @@ Makefile
 deprecated
 .clang-complete
 .clang_complete
+assets/_3rd
+
 
 # CLion
 cmake-build-debug/

@@ -56,7 +56,7 @@ void FreeFileMemory(void* memory) {
 	}
 }
 
-struct ReadFileRet { void* data; uint64 size; } ReadFile(const char* filename) {
+struct ReadFileRet { void* data; uint64 size; } ReadEntireFile(const char* filename) {
 	uint32 bytesRead = 0;
 	void* bitmap = nullptr;
 	LARGE_INTEGER fileSize = { 0 };
@@ -110,7 +110,7 @@ void FreeFileMemory(void* memory) {
 	}
 }
 
-struct ReadFileRet { void* data; uint64 size; } ReadFile(const char* filename) {
+struct ReadFileRet { void* data; uint64 size; } ReadEntireFile(const char* filename) {
 	uint32 bytesRead = 0;
 	void* ptr = nullptr;
 	*bytesRead = 0;
@@ -299,7 +299,218 @@ uint32 GenNormals(hpm::Vector3* beg_vertices, uint32 size_vertices, uint32* beg_
 	return normals_at;
 }
 
+struct Mtl {
+	static constexpr uint32 TEXT_BUFFER_SIZE = 256;
+	char name[TEXT_BUFFER_SIZE];
+	char diff_map[TEXT_BUFFER_SIZE];
+	char amb_map[TEXT_BUFFER_SIZE];
+	bool32 has_diff_map;
+	bool32 has_amb_map;
+	hpm::Vector3 k_a;
+	hpm::Vector3 k_d;
+	hpm::Vector3 k_s;
+	hpm::Vector3 k_e;
+	float32 shininess;
+};
+
+
+uint32 ExtractStringFromToEnd(char* out_buf, uint32 out_size, const char* string) {
+	const char* at = string;
+	while (isspace((unsigned char)(*at))) at++;
+	uint32 buf_at = 0;
+	while ((*at != '\n' ) && (*at != '\0')) {
+		out_buf[buf_at] = (*at);
+		buf_at++;
+		if (buf_at == out_size - 1) {
+			break;
+		}
+		at++;
+	}
+	out_buf[buf_at] = '\0';
+	buf_at++;
+	assert(buf_at < out_size);
+	return buf_at;
+}
+
+struct ParseKRet { hpm::Vector3 K; char* next; }
+inline static ParseK(char* at) {  // after v
+	char* next;
+	float32 r = strtof(at, &next);
+	assert(at != next);
+	at = next;
+	float32 g = strtof(at, &next);
+	assert(at != next);
+	at = next;
+	float32 b = strtof(at, &next);
+	assert(at != next);
+
+	return { { r, g, b }, next };
+}
+
+Mtl ParseMtl(char* _at, const char* obj_dir) {
+	Mtl _mtl = {};
+	char mtl_file_name[Mtl::TEXT_BUFFER_SIZE];
+	uint32 mtl_file_name_at = 0;
+	mtl_file_name_at = ExtractStringFromToEnd(mtl_file_name, Mtl::TEXT_BUFFER_SIZE, _at);
+
+	char file_path[512];
+	assert(strcpy_s(file_path, 256, obj_dir) == 0);
+	strncat(file_path, mtl_file_name, mtl_file_name_at);
+	auto[data, size] = ReadEntireFile(file_path);
+	if (data) {
+		bool32 material = false;
+		for (uint64 i = 0; i < size;) {
+			char* mtl_at = ((char*)data + i);
+			switch (*mtl_at) {
+			//case '': {} break;
+			case '#': {
+				while (*((char*)data + i) != '\n') i++;
+				i++;
+			} break;
+			case 'n': {
+				if (*(mtl_at + 1) == 'e' &&
+					*(mtl_at + 2) == 'w' &&
+					*(mtl_at + 3) == 'm' &&
+					*(mtl_at + 4) == 't' &&
+					*(mtl_at + 5) == 'l') 
+				{
+					mtl_at += 6;
+					i += 6;
+					ExtractStringFromToEnd(_mtl.name, Mtl::TEXT_BUFFER_SIZE, mtl_at);
+					material = true;
+					while (*((char*)data + i) != '\n') i++;
+					i++;
+				}
+				
+			} break;
+			case 'm': {
+				if (*(mtl_at + 1) == 'a' &&
+					*(mtl_at + 2) == 'p' &&
+					*(mtl_at + 3) == '_' &&
+					*(mtl_at + 4) == 'K' &&
+					*(mtl_at + 5) == 'd')
+				{
+					mtl_at += 6;
+					i += 6;
+					char tmp[Mtl::TEXT_BUFFER_SIZE];
+					uint32 str_size = ExtractStringFromToEnd(tmp, Mtl::TEXT_BUFFER_SIZE, mtl_at);
+
+					if (!_mtl.has_diff_map) {
+						_mtl.has_diff_map = true;
+						memcpy(_mtl.diff_map, tmp, Mtl::TEXT_BUFFER_SIZE);
+					} else {
+						printf("WARN: Diffuse map for material: %s already defined. Map: %s will be ignored.\n",
+							_mtl.name, tmp);
+					}
+					while (*((char*)data + i) != '\n') i++;
+					i++;
+				} else
+					if (*(mtl_at + 1) == 'a' &&
+						*(mtl_at + 2) == 'p' &&
+						*(mtl_at + 3) == '_' &&
+						*(mtl_at + 4) == 'K' &&
+						*(mtl_at + 5) == 'a')
+					{
+						mtl_at += 6;
+						i += 6;
+						char tmp[Mtl::TEXT_BUFFER_SIZE];
+						uint32 str_size = ExtractStringFromToEnd(tmp, Mtl::TEXT_BUFFER_SIZE, mtl_at);
+
+						if (!_mtl.has_amb_map) {
+							_mtl.has_amb_map= true;
+							memcpy(_mtl.amb_map, tmp, Mtl::TEXT_BUFFER_SIZE);
+						}
+						else {
+							printf("WARN: Ambient map for material: %s already defined. Map: %s will be ignored.\n",
+								_mtl.name, tmp);
+						}
+						while (*((char*)data + i) != '\n') i++;
+						i++;
+					}
+
+			} break;
+			case 'i': {
+				if (*(mtl_at + 1) == 'l' &&
+					*(mtl_at + 2) == 'l' &&
+					*(mtl_at + 3) == 'u' &&
+					*(mtl_at + 4) == 'm')
+				{
+					mtl_at += 5;
+					i += 5;
+					char* next = nullptr;
+					uint32 illum = strtol(mtl_at, &next, 10);
+					assert(mtl_at != next);
+					assert(illum == 2); // Only Blinn-Phong supported now
+					while (*((char*)data + i) != '\n') i++;
+					i++;
+				} else {
+					while (*((char*)data + i) != '\n') i++;
+					i++;
+				}
+
+			} break;
+			case 'N': {
+				if (*(mtl_at + 1) == 's') {
+					char* next = nullptr;
+					float32 shin = strtof(mtl_at + 2, &next);
+					assert(mtl_at != next);
+					_mtl.shininess = shin;
+					while (*((char*)data + i) != '\n') i++;
+					i++;
+				} else {
+					printf("MTL PARSER: Unknown value N%c in material: %s\n", *(mtl_at + 1), _mtl.name);
+					while (*((char*)data + i) != '\n') i++;
+					i++;
+				}
+			} break;
+			case 'K': {
+				assert(material); // Check is that related to any material. Only one material in file supported now!
+				switch (*(mtl_at + 1)) {
+				case 'a': {
+					auto[amb_color, next] = ParseK(mtl_at + 2);
+					i += next - mtl_at;
+					_mtl.k_a = amb_color;
+				} break;
+				case 'd': {
+					auto[dif_color, next] = ParseK(mtl_at + 2);
+					i += next - mtl_at;
+					_mtl.k_d = dif_color;
+				} break;
+				case 's': {
+					auto[spc_color, next] = ParseK(mtl_at + 2);
+					i += next - mtl_at;
+					_mtl.k_s = spc_color;
+				} break;
+				case 'e': {
+					auto[em_color, next] = ParseK(mtl_at + 2);
+					i += next - mtl_at;
+					_mtl.k_e = em_color;
+				} break;
+				default: {
+					printf("MTL PARSER: Unknown value K%c in material: %s", *(mtl_at + 1), _mtl.name);
+					while (*((char*)data + i) != '\n') i++;
+					i++;
+				}
+				}
+			} break;
+
+			default: {
+				i++;
+			} break;
+			}
+		}
+	} else {
+		printf("Failed to open mtl file: %s", _mtl.name);
+	}
+	if (_mtl.has_amb_map && _mtl.has_diff_map) {
+		assert(strcmp(_mtl.amb_map, _mtl.diff_map) == 0); // For now diff map and ambient map should be the same
+	}
+	return _mtl;
+}
+
 struct VertexData {
+	Mtl material;
+	bool32 has_material;
 	hpm::Vector3* vertices; 
 	hpm::Vector3* normals; 
 	hpm::Vector2* uvs; 
@@ -310,11 +521,11 @@ struct VertexData {
 	uint32 indices_count; 
 };
 
-VertexData ParseOBJ(char* file_data, uint64 size) {
+VertexData ParseOBJ(char* file_data, uint64 size, const char* file_dir) {
 
 	hpm::Vector3* tmp_vertices = nullptr;
 	hpm::Vector3* tmp_normals = nullptr;
-	hpm::Vector2* tmp_uvs = nullptr;
+	hpm::Vector2* tmp_uvs = nullptr; 
 	uint32* tmp_vertex_indices = nullptr;
 	uint32* tmp_uv_indices = nullptr;
 	uint32* tmp_normals_indices = nullptr;
@@ -325,6 +536,9 @@ VertexData ParseOBJ(char* file_data, uint64 size) {
 	uint32 tmp_uv_indices_at = 0;
 	uint32 tmp_normals_indices_at = 0;
 
+	constexpr uint32 MAX_MATERIALS = 16;
+	Mtl* materials = nullptr;
+	uint32 matrials_at = 0;
 
 	// Just allocating big enough memory for any case
 	tmp_vertices = (hpm::Vector3*)malloc(sizeof(hpm::Vector3) * size);
@@ -335,15 +549,60 @@ VertexData ParseOBJ(char* file_data, uint64 size) {
 	assert(tmp_uvs);
 
 	FaceIndexType index_type = FaceIndexType::Undefined;
+	bool32 mtl_found = false;
+	int32 used_material_index = -1;
 
 	for (uint64 i = 0; i < size;) {
 		char* at = file_data + i;
 		switch (*at) {
 		case 'm': { // mtllib
-			while (*(file_data + i) != '\n') i++;
-			i++;
+			if (*(at + 1) == 't' &&
+				*(at + 2) == 'l' &&
+				*(at + 3) == 'l' &&
+				*(at + 4) == 'i' &&
+				*(at + 5) == 'b') 
+			{
+				if (!mtl_found) {
+					mtl_found = true;
+					at += 6;
+					i += 6;
+					Mtl mtl = {};
+					mtl = ParseMtl(at, file_dir);
+					if (!matrials_at) {
+						materials = (Mtl*)malloc(sizeof(Mtl) * MAX_MATERIALS);
+					}
+					materials[matrials_at] = mtl;
+					matrials_at++;
+
+					while (*(file_data + i) != '\n') i++;
+					i++;
+				}
+			} else {
+				while (*(file_data + i) != '\n') i++;
+				i++;
+			}
 		} break;
 		case 'u': { // usemtl
+			if (*(at + 1) == 's' &&
+				*(at + 2) == 'e' &&
+				*(at + 3) == 'm' &&
+				*(at + 4) == 't' &&
+				*(at + 5) == 'l') 
+			{
+				at += 6;
+				i += 6;
+				char buf[Mtl::TEXT_BUFFER_SIZE];
+				uint32 size_buf = ExtractStringFromToEnd(buf, Mtl::TEXT_BUFFER_SIZE, at);
+				for (uint32 i = 0; i < MAX_MATERIALS; i++) {
+					if (strcmp(buf, materials[i].name) == 0) {
+						used_material_index = i;
+						break;
+					}
+				}
+				if (used_material_index == -1) {
+					printf("Error: usemtl: material with name: %s is not loaded", buf);
+				}
+			}
 			while (*(file_data + i) != '\n') i++;
 			i++;
 		} break;
@@ -505,6 +764,12 @@ VertexData ParseOBJ(char* file_data, uint64 size) {
 		indices_at += 3;
 	}
 
+	Mtl used_material = {};
+	bool32 has_material = used_material_index != -1;
+	if (used_material_index != -1) {
+		used_material = materials[used_material_index];
+	}
+
 	free(tmp_vertex_indices);
 	free(tmp_uv_indices);
 	if (!generated_normals) {
@@ -512,15 +777,39 @@ VertexData ParseOBJ(char* file_data, uint64 size) {
 	}
 	free(tmp_vertices);
 	free(tmp_uvs);
+	if (matrials_at) {
+		free(materials);
+	}
 
-	return { vertices, normals, uvs, indices,  vertices_at, normals_at, uvs_at, indices_at };
+	return { used_material, has_material, vertices, normals, uvs, indices,  vertices_at, normals_at, uvs_at, indices_at };
 }
 
 void WriteAABMesh(VertexData vd) {
+	uint64 material_name_size = 0;
+	uint64 material_props_size = 0;
+	uint64 material_diff_name_size = 0;
+	char* material_diff_map_name = nullptr;
+	if (vd.has_material) {
+		material_name_size = strlen(vd.material.name) + 1;
+		// TODO: For now its assumed that amb and diff map is always the same texture
+		if (vd.material.has_amb_map) {
+			material_diff_name_size = strlen(vd.material.amb_map) + 1;
+			material_diff_map_name = vd.material.amb_map;
+		}
+		else if (vd.material.has_diff_map) {
+			material_diff_name_size = strlen(vd.material.diff_map) + 1;
+			material_diff_map_name = vd.material.diff_map;
+		}
+	}
+	material_props_size = sizeof(AB::AABMeshMaterialProperties);
+
 	uint64 data_size = sizeof(hpm::Vector3) * vd.vertices_count 
 						+ sizeof(hpm::Vector2) * vd.uvs_count 
 						+ sizeof(hpm::Vector3) * vd.normals_count 
-						+ sizeof(uint32) * vd.indices_count;
+						+ sizeof(uint32) * vd.indices_count
+						+ material_name_size
+						+ material_props_size
+						+ material_diff_name_size;
 
 	uint64 file_size = data_size + sizeof(AB::AABMeshHeader);
 
@@ -556,20 +845,73 @@ void WriteAABMesh(VertexData vd) {
 	uint64 indices_size = sizeof(uint32) * vd.indices_count;
 	memcpy(indices_ptr, vd.indices, indices_size);
 
+	if (vd.has_material) {
+		// TODO: Strings in the middle of file can break aligment.
+		// Should write strings at the end of file of introduce padding
+		void* mat_ptr = (void*)((byte*)indices_ptr + indices_size);
+		memcpy(mat_ptr, vd.material.name, material_name_size);
+		mat_ptr = (void*)((byte*)mat_ptr + material_name_size);
+		
+		AB::AABMeshMaterialProperties aab_material = {};
+		aab_material.k_a = vd.material.k_a;
+		aab_material.k_d = vd.material.k_d;
+		aab_material.k_s = vd.material.k_s;
+		aab_material.k_e = vd.material.k_e;
+		aab_material.shininess = vd.material.shininess;
+
+		memcpy(mat_ptr, &aab_material, sizeof(aab_material));
+
+		if (material_diff_name_size) {
+			mat_ptr = (void*)((byte*)mat_ptr + material_props_size);
+
+			memcpy(mat_ptr, material_diff_map_name, material_diff_name_size);
+		}
+	}
+
 	header_ptr->vertices_offset = sizeof(AB::AABMeshHeader);
 	header_ptr->normals_offset = header_ptr->vertices_offset + vertices_size;
-	header_ptr->uvs_offset= header_ptr->normals_offset + normals_size;
-	header_ptr->indices_offset= header_ptr->uvs_offset + uvs_size;
+	header_ptr->uvs_offset = header_ptr->normals_offset + normals_size;
+	header_ptr->indices_offset = header_ptr->uvs_offset + uvs_size;
+	if (vd.has_material) {
+		header_ptr->material_name_offset = header_ptr->indices_offset + indices_size;
+		header_ptr->material_properties_offset = header_ptr->material_name_offset + material_name_size;
+		header_ptr->material_diff_bitmap_name_offset = header_ptr->material_properties_offset + material_props_size;
+	} else {
+		header_ptr->material_name_offset = 0;
+		header_ptr->material_properties_offset = 0;
+		header_ptr->material_diff_bitmap_name_offset = 0;
+	}
 
 	assert(file_size < 0xffffffff); // Can`t write bigger than 4gb
-	bool32 result = WriteFile("mesh.aab", file_buffer, (uint32)file_size);
+	bool32 result = WriteFile("test.aab", file_buffer, (uint32)file_size);
 	assert(result); // Failed to write file
+
+	free(file_buffer);
 }
 
 int main(int argc, char** argv) {
 	assert(argc > 1);
-	auto[data, size] = ReadFile(argv[1]);
-	VertexData vertex_data = ParseOBJ((char*)data, size);
+	auto[data, size] = ReadEntireFile(argv[1]);
+
+	char separator;
+#if defined(AB_PLATFORM_WINDOWS)
+	separator = '\\';
+#elif defined(AB_PLATFORM_LINUX)
+	separator = '/';
+#endif
+
+	uint32 count = 0;
+	char file_dir[256];
+	char* at = argv[1];
+	while (*(at + count) != '\0') count++;
+	uint32 dir_offset = count;
+	while (*(at + dir_offset) != separator) dir_offset--;
+	memcpy(file_dir, argv[1], dir_offset);
+	assert(dir_offset < 256);
+	file_dir[dir_offset] = '\\';
+	file_dir[dir_offset + 1] = '\0';
+
+	VertexData vertex_data = ParseOBJ((char*)data, size, file_dir);
 	FreeFileMemory(data);
 	WriteAABMesh(vertex_data);
 
