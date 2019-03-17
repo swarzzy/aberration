@@ -105,6 +105,7 @@ namespace AB {
 
 		if (bitsPerPixel == 32) {
 			image.format = PixelFormat::RGBA;
+			image.bit_per_pixel = bitsPerPixel;
 			for (int64 i = 0; i < image.height * image.width; i++) {
 				uint32 tmp;
 				uint32* pixel = ((uint32*)image.bitmap) + i;
@@ -119,6 +120,7 @@ namespace AB {
 		}
 		else if (bitsPerPixel == 24) {
 			image.format = PixelFormat::RGB;
+			image.bit_per_pixel = bitsPerPixel;
 			for (int64 i = 0; i < (image.height * image.width * 3) - 3; i += 3) {
 				byte* pixel = ((byte*)image.bitmap) + i;
 				byte red = *(pixel);

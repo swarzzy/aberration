@@ -72,10 +72,10 @@ void main()
 	vec3 normal = normalize(norm);
 	vec3 view_dir = normalize(view_pos - pos);
 
-	//vec4 diff_texel = vec4(1.0, 0.0, 1.0, 1.0);//texture(material.diffuse_map, TexCoord);
-	//vec3 diff_sample = diff_texel.xyz;
+	vec4 diff_texel = texture(material.diffuse_map, TexCoord);
+	vec3 diff_sample = diff_texel.xyz;
 	//vec3 spec_sample = texture(material.spec_map, TexCoord).xyz;
-	vec3 diff_sample = material.diffuse;
+	//vec3 diff_sample = material.diffuse;
 	vec3 spec_sample = material.specular;
 
 	vec3 directional = DirectionalLight(dir_light, normal, view_dir, diff_sample, spec_sample);
@@ -87,7 +87,7 @@ void main()
 
 	vec3 sum_point = clamp(point, 0.0f, 1.0f);
 
-	//color = vec4(sum_point + directional, diff_texel.a);
-	color = vec4(sum_point + directional, 1.0f);
+	color = vec4(sum_point + directional, diff_texel.a);
+	//color = vec4(sum_point + directional, 1.0f);
 
 }

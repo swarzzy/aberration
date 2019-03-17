@@ -12,6 +12,7 @@ namespace AB {
 	struct Image {
 		uint32 width;
 		uint32 height;
+		uint32 bit_per_pixel;
 		PixelFormat format;
 		byte* bitmap;
 	};

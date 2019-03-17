@@ -20,6 +20,11 @@ namespace AB {
 	AB_API void Log(LogLevel level, const char* file, const char* func, uint32 line, const char* fmt, ...);
 	AB_API void LogAssert(LogLevel level, const char* file, const char* func, uint32 line, const char* assertStr, const char* fmt, ...);
 	AB_API void CutFilenameFromEnd(char* str, char separator = '\\');
+	// Returns required size if buffer is to small
+	struct GetFilenameFromPathRet { bool32 succeeded; uint64 written; }
+	AB_API GetFilenameFromPath(const char* path, char* buffer, uint32 buffer_size);
+	struct GetDirectoryRet { bool32 succeeded; uint64 written; }
+	AB_API GetDirectory(const char* file_path, char* buffer, uint32 buffer_size);
 }
 
 #if defined(AB_CONFIG_DISTRIB)

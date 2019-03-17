@@ -357,6 +357,7 @@ void Init() {
 	//material1 = AB::CreateMaterial("../../../assets/spec.bmp", "../../../assets/spec.bmp", 32);
 	//mesh = AB::AssetCreateMeshAAB(asset_mgr, "../../../assets/dragon.aab");
 	mesh2 = AB::AssetCreateMeshAAB(asset_mgr, "../../../assets/test.aab");
+	AB::AssetCreateTextureBMP(asset_mgr, "../../../assets/test.bmp");
 
 	//mesh = AB::AssetCreateMesh(vertices, 288);
 

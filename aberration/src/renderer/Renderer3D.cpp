@@ -267,6 +267,10 @@ namespace AB {
 			GLCall(glUniform1f(glGetUniformLocation(renderer->program_handle, "material.shininess"), mesh->material->shininess));
 
 			GLCall(glActiveTexture(GL_TEXTURE0));
+			Texture* texture = AssetGetTextureData(PermStorage()->asset_manager, mesh->material->diff_map_handle);
+			if (texture) {
+				GLCall(glBindTexture(GL_TEXTURE_2D, texture->api_handle));
+			}
 			//GLCall(glBindTexture(GL_TEXTURE_2D, mesh->material->diffuse_map_handle));
 			GLCall(glActiveTexture(GL_TEXTURE1));
 			//GLCall(glBindTexture(GL_TEXTURE_2D, mesh->material->specular_map_handle));

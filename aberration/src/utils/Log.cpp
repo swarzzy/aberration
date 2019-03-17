@@ -1006,4 +1006,90 @@ namespace AB {
 			str[end - beg] = '\0';
 		}
 	}
+
+	GetFilenameFromPathRet  GetFilenameFromPath(const char* path, char* buffer, uint32 buffer_size) {
+#if defined(AB_PLATFORM_WINDOWS)
+		char sep_1 = '\\';
+		char sep_2 = '/';
+#elif defined(AB_PLATFORM_LINUX)
+		char sep_1 = '/';
+		char sep_2 = '/';
+
+#else
+#error Unsupported OS
+#endif
+		GetFilenameFromPathRet result = {};
+		uint64 last_sep_pos = 0;
+		uint64 end = strlen(path);
+		bool32 has_sep = false;
+
+		for (uint64 i = end; i > 0; i--) {
+			if (path[i] == sep_1 || path[i] == sep_2) {
+				last_sep_pos = i;
+				has_sep = true;
+				break;
+			}
+		}
+
+		uint64 name_length = 0;
+		if (has_sep) {
+			name_length = end - last_sep_pos;
+		} else {
+			name_length = end;
+		}
+
+		if (name_length <= buffer_size) {
+			for (uint64 i = 0; i < name_length - 1; i++) {
+				buffer[i] = path[last_sep_pos + i + 1];
+				result.written++;
+			}
+			buffer[name_length - 1] = '\0';
+			result.written++;
+			result.succeeded = true;
+		} else {
+			result.written = name_length;
+			result.succeeded = false;
+		}
+		return result;
+	}
+
+	GetDirectoryRet GetDirectory(const char* file_path, char* buffer, uint32 buffer_size) {
+#if defined(AB_PLATFORM_WINDOWS)
+		char sep_1 = '\\';
+		char sep_2 = '/';
+#elif defined(AB_PLATFORM_LINUX)
+		char sep_1 = '/';
+		char sep_2 = '/';
+
+#else
+#error Unsupported OS
+#endif
+		GetDirectoryRet result = {};
+		uint64 last_sep_index = 0;
+		char used_separator = '/';
+
+		uint64 i = 0;
+		char at = file_path[i];
+		while (at != '\0') {
+			if (at == sep_1 || at == sep_2) {
+				last_sep_index = i;
+				used_separator = at;
+			}
+			i++;
+			at = file_path[i];
+		}
+
+		uint64 dir_num_chars = last_sep_index + 2;
+
+		if (buffer_size >= dir_num_chars) {
+			memcpy(buffer, file_path, dir_num_chars - 2);
+			buffer[dir_num_chars - 2] = used_separator;
+			buffer[dir_num_chars - 1] = '\0';
+			result.succeeded = true;
+		} else {
+			result.succeeded = false;
+		}
+		result.written = dir_num_chars;
+		return result;
+	}
 }

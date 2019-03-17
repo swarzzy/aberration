@@ -712,7 +712,7 @@ namespace AB {
 				XINPUT_STATE cState;
 				auto result = Win32XInputGetState(cIndex, &cState);
 				if (result == ERROR_SUCCESS) {
-					memcpy(props->gamepadPrevState, props->gamepadCurrentState, sizeof(bool) * GAMEPAD_BUTTONS_COUNT * XUSER_MAX_COUNT);
+					memcpy(props->gamepadPrevState, props->gamepadCurrentState, sizeof(bool32) * GAMEPAD_BUTTONS_COUNT * XUSER_MAX_COUNT);
 
 					XINPUT_GAMEPAD* gamepad = &cState.Gamepad;
 

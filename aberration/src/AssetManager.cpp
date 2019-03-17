@@ -5,6 +5,7 @@
 #include "platform/Platform.h"
 #include "ABFileFormats.h"
 #include <vector>
+#include "utils/ImageLoader.h"
 
 namespace AB {
 
@@ -150,138 +151,8 @@ namespace AB {
 		return free_index;
 	}
 
-	struct ParsePositionRet {
-		hpm::Vector3 position;
-		char* next;
-	};
-
-	ParsePositionRet ParsePosition(char* at) {  // after v
-		char* next;
-		float32 x = strtof(at, &next);
-		AB_CORE_ASSERT(at != next, "Failed to read position");
-		at = next;
-		float32 y = strtof(at, &next);
-		AB_CORE_ASSERT(at != next, "Failed to read position");
-		at = next;
-		float32 z = strtof(at, &next);
-		AB_CORE_ASSERT(at != next, "Failed to read position");
-
-		return { hpm::Vector3{ x, y, z }, next };
-	}
-
-	struct ParseFaceRet {
-		uint32 vertices[3];
-		char* next;
-	};
-
-	ParseFaceRet ParseFace (char* at) {  // after v
-		char* next;
-		ParseFaceRet result;
-		result.vertices[0] = strtoul(at, &next, 10) - 1;
-		AB_CORE_ASSERT(at != next, "Failed to read face indices");
-		at = next;
-		result.vertices[1] = strtoul (at, &next, 10) - 1;
-		AB_CORE_ASSERT(at != next, "Failed to read face indices");
-		at = next;
-		result.vertices[2] = strtoul(at, &next, 10) - 1;
-		AB_CORE_ASSERT(at != next, "Failed to read face indices");
-		at = next;
-
-		strtoul(at, &next, 10);
-		AB_CORE_ASSERT(at == next, "Failed to read face indices. This model has non triangle faces");
-		result.next = at;
-		return result;
-	}
-
-	void GenNormals(std::vector<hpm::Vector3>& vertices, std::vector<uint32>& indices, std::vector<hpm::Vector3>& normals) {
-		AB_CORE_ASSERT(indices.size() % 3 == 0, "Wrong number of indices");
-		for (uint32 i = 0; i < indices.size(); i+= 3) {
-			hpm::Vector3 first = hpm::Subtract(vertices[indices[i + 1]], vertices[indices[i]]);
-			hpm::Vector3 second = hpm::Subtract(vertices[indices[i + 2]], vertices[indices[i]]);
-			hpm::Vector3 normal = hpm::Normalize(hpm::Cross(first, second));
-			normals.push_back(normal);
-			normals.push_back(normal);
-			normals.push_back(normal);
-		}
-	}
-
-	int32 AssetCreateMeshOBJ(AssetManager* mgr, const char* obj_path) {
-		uint32 read = 0;
-		char* data = (char*)DebugReadFile(obj_path, &read);
-		AB_CORE_ASSERT(data, "Failed to read file: %s", obj_path);
-		std::vector<hpm::Vector3> tmp_vertices;
-		std::vector<uint32> tmp_indices;
-		std::vector<hpm::Vector3> tmp_normals;
-		tmp_vertices.reserve(read);
-		tmp_indices.reserve(read);
-		tmp_normals.reserve(read);
-
-		for (uint64 i = 0; i < read;) {
-			char* at = data + i;
-			switch (*at) {
-			case 'm': { // mtllib
-				while (*(data + i) != '\n') i++;
-				i++;
-			} break;
-			case 'u': { // usemtl
-				while (*(data + i) != '\n') i++;
-				i++;
-			} break;
-			case 'g': { // g - group 
-				while (*(data + i) != '\n') i++;
-				i++;
-			} break;
-			case '#': { // comment
-				while (*(data + i) != '\n') i++;
-				i++;
-			} break;
-			case 'v': { // vertex (position)
-				auto[pos, next] = ParsePosition(at + 1);
-				i += next - at;
-				tmp_vertices.push_back(pos);
-			} break;
-			case 'f': { // face indices
-				auto[ind, next] = ParseFace(at + 1);
-				i += next - at;
-				tmp_indices.push_back(ind[0]);
-				tmp_indices.push_back(ind[1]);
-				tmp_indices.push_back(ind[2]);
-			} break;
-			default: {
-				i++;
-			} break;
-			}
-		}
-		tmp_vertices.shrink_to_fit();
-		tmp_indices.shrink_to_fit();
-
-		DebugFreeFileMemory(data);
-		GenNormals(tmp_vertices, tmp_indices, tmp_normals);
-		tmp_normals.shrink_to_fit();
-
-		std::vector<hpm::Vector3> vertices;
-		std::vector<hpm::Vector3> normals;
-		std::vector<uint32> indices;
-
-		for (uint32 i = 0; i < tmp_indices.size(); i += 3) {
-			vertices.push_back(tmp_vertices[tmp_indices[i]]);
-			vertices.push_back(tmp_vertices[tmp_indices[i + 1]]);
-			vertices.push_back(tmp_vertices[tmp_indices[i + 2]]);
-
-			normals.push_back(tmp_normals[i]);
-			normals.push_back(tmp_normals[i + 1]);
-			normals.push_back(tmp_normals[i + 2]);
-
-			indices.push_back(i);
-			indices.push_back(i + 1);
-			indices.push_back(i + 2);
-		}
-
-		return AssetCreateMesh(mgr, (uint32)vertices.size(), vertices.data(), nullptr, normals.data(), (uint32)indices.size(), indices.data(), nullptr);
-	}
-
 	int32 AssetCreateMeshAAB(AssetManager * mgr, const char * aab_path) {
-		int32 result_handle = MESH_INVALID_HANDLE;
+		int32 result_handle = ASSET_INVALID_HANDLE;
 
 		auto[_header, header_read] = DebugReadFileOffset(aab_path, 0, sizeof(AABMeshHeader));
 		if (_header) {
@@ -322,19 +193,31 @@ namespace AB {
 						uint32* indices = (uint32*)((byte*)asset_data + (indices_offset - vertices_offset));
 						AABMeshMaterialProperties* material_props = has_material ? (AABMeshMaterialProperties*)((byte*)asset_data + (material_properties_offset - vertices_offset)) : nullptr;
 
-						Material material = {};
-						if (material_diff_map_name_offset) {
-							void* diff_name_ptr = (void*)((byte*)asset_data + (material_diff_map_name_offset - vertices_offset));
-							CopyArray(char, 256, material.diff_bitmap_name, diff_name_ptr);
+						if (has_material) {
+							Material material = {};
+							if (material_diff_map_name_offset) {
+								char* diff_name_ptr = (char*)((byte*)asset_data + (material_diff_map_name_offset - vertices_offset));
+								// TODO: This is all temporary
+								char path_buff[512];
+								auto[result, written] = GetDirectory(aab_path, path_buff, 256);
+								AB_CORE_ASSERT(result, "Too long path.");
+								strcat(path_buff, diff_name_ptr);
+								material.diff_map_handle = AssetCreateTextureBMP(mgr, path_buff);
+							} else {
+								material.diff_map_handle = ASSET_INVALID_HANDLE;
+							}
+
+							material.ambient = material_props->k_a;
+							material.diffuse = material_props->k_d;
+							material.specular = material_props->k_s;
+							material.emission = material_props->k_e;
+							material.shininess = material_props->shininess;
+							
+							result_handle = AssetCreateMesh(mgr, vertices_count, vertices, uvs, normals, indices_count, indices, &material);
+						} else {
+							result_handle = AssetCreateMesh(mgr, vertices_count, vertices, uvs, normals, indices_count, indices, nullptr);
 						}
 
-						material.ambient = material_props->k_a;
-						material.diffuse = material_props->k_d;
-						material.specular = material_props->k_s;
-						material.emission = material_props->k_e;
-						material.shininess = material_props->shininess;
-
-						result_handle = AssetCreateMesh(mgr, vertices_count, vertices, uvs, normals, indices_count, indices, &material);
 					} else {
 						AB_CORE_ERROR("Failed to read seet data");
 					}
@@ -353,9 +236,123 @@ namespace AB {
 		return result_handle;
 	}
 
-
-
 	Mesh* AssetGetMeshData(AssetManager* mgr, int32 mesh_handle) {
-		return &mgr->meshes[mesh_handle];
+		if (mesh_handle != ASSET_INVALID_HANDLE && mesh_handle < MESH_STORAGE_CAPACITY) {
+			return &mgr->meshes[mesh_handle];
+		} else {
+			return nullptr;
+		}
 	}
+
+	Texture* AssetGetTextureData(AssetManager* mgr, int32 texture_handle) {
+		if (texture_handle != ASSET_INVALID_HANDLE && texture_handle < TEXTURE_STORAGE_CAPACITY) {
+			return &mgr->textures[texture_handle];
+		} else {
+			return nullptr;
+		}
+	}
+
+	static uint32 APICreateTexture(uint16 w, uint16 h, uint32 bits_per_pixel, void* bitmap) {
+		uint32 handle;
+
+		uint32 format = 0;
+		uint32 in_format = 0;
+		switch (bits_per_pixel) {
+		case 24: {
+			format = GL_RGB;
+			in_format = GL_RGB8;
+		} break;
+		case 32: {
+			format = GL_RGBA;
+			in_format = GL_RGBA8;
+		} break;
+		default: {
+			AB_CORE_ERROR("Wrong image format");
+		} break;
+		}
+
+		if (format) {
+			GLCall(glGenTextures(1, &handle));
+			GLCall(glBindTexture(GL_TEXTURE_2D, handle));
+
+			GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
+			GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+			GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+			GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+			GLCall(glTexImage2D(
+				GL_TEXTURE_2D,
+				0,
+				in_format,
+				w,
+				h,
+				0,
+				format,
+				GL_UNSIGNED_BYTE,
+				bitmap
+			));
+
+			GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+		}
+		return handle;
+	}
+
+	int32 AssetCreateTexture(AssetManager* mgr, byte* bitmap, uint16 w, uint16 h, uint32 bits_per_pixel, const char* name) {
+		int32 result_handle = ASSET_INVALID_HANDLE;
+		int32 free_index = ASSET_INVALID_HANDLE;
+		bool32 found = false;
+		for (uint32 i = 0; i < TEXTURE_STORAGE_CAPACITY; i++) {
+			if (!mgr->texture_storage_usage[i]) {
+				free_index = i;
+				found = true;
+				break;
+			}
+		}
+
+		if (found) {
+			uint64 bitmap_size = w * h * (bits_per_pixel / 8);
+			uint64 name_size = strlen(name) + 1;
+			uint64 mem_size = bitmap_size + name_size;
+			void* mem_ptr = malloc(mem_size);
+			if (mem_ptr) {
+				auto* tx = &mgr->textures[free_index];
+				tx->mem_size = mem_size;
+				// TODO: strict aliasing might create problems here?
+				tx->mem_begin = (byte*)mem_ptr;
+				tx->bitmap = (byte*)mem_ptr;
+				tx->name = (char*)(tx->mem_begin + bitmap_size);
+
+				CopyArray(byte, bitmap_size, tx->bitmap, bitmap);
+				CopyArray(char, name_size , tx->name, name);
+
+				tx->api_handle = APICreateTexture(w, h, bits_per_pixel, tx->bitmap);
+				if (!tx->api_handle) {
+					AB_CORE_ERROR("Texture loading error. OpenGL API Error. Texture: %s", name);
+				}
+
+				mgr->texture_storage_usage[free_index] = true;
+				result_handle = free_index;
+			}
+			else {
+				AB_CORE_ERROR("Failed to allocate block with size: %u64", mem_size);
+			}
+		} else {
+			AB_CORE_ERROR("Failed to create texture. Storage is full");
+		}
+		return result_handle;
+	}
+
+	int32 AssetCreateTextureBMP(AssetManager* mgr, const char* bmp_path) {
+		Image bmp = LoadBMP(bmp_path);
+		if (bmp.bitmap) {
+			char name_buf[256];
+			auto[result, written] = GetFilenameFromPath(bmp_path, name_buf, 256);
+			// TODO: this in only test code
+			AB_CORE_ASSERT(result, "Too long filename: %s", bmp_path);
+			return AssetCreateTexture(mgr, bmp.bitmap, bmp.width, bmp.height, bmp.bit_per_pixel, name_buf);
+		} else {
+			AB_CORE_ERROR("Faied to create texture forom file: %s", bmp_path);
+			return ASSET_INVALID_HANDLE;
+		}
+	}
+
 }
