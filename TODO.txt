@@ -18,3 +18,4 @@
 -- TEST OPENGL EXTENSIONS ON ATI
 ## Renderer
 -- Bug with colors when failed to load texture
+-- Fix wrong face direction in font renderer

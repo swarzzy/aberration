@@ -944,6 +944,8 @@ namespace AB {
 										SortKey key = {};
 										key.depth = 10;
 										key.texHandle = GetTextureBaseHandle(properties, glyph->regionHandle);
+										// TODO: Glyph quads now rendered with triangles facing opposite way
+										// Becuase of negative y coordinate
 										properties->drawQueue[properties->drawQueueUsed] = { quadPos, quadSize, 0, 0, color, glyph->regionHandle, DrawableType::Glyph };
 										properties->sortBufferA[properties->sortBufferUsage] = { key, properties->drawQueueUsed };
 										properties->sortBufferUsage++;

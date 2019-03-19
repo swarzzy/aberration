@@ -73,7 +73,7 @@ void main()
 	vec3 view_dir = normalize(view_pos - pos);
 
 	vec4 diff_texel = texture(material.diffuse_map, TexCoord);
-	vec3 diff_sample = diff_texel.xyz;
+	vec3 diff_sample = vec3(1.0, 0.0, 1.0);//diff_texel.xyz;
 	//vec3 spec_sample = texture(material.spec_map, TexCoord).xyz;
 	//vec3 diff_sample = material.diffuse;
 	vec3 spec_sample = material.specular;

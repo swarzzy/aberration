@@ -532,6 +532,8 @@ namespace AB::GL {
 		AB_GLCALL(glEnable(GL_DEPTH_TEST));
 		//AB_GLCALL(glDepthMask(GL_FALSE));
 		AB_GLCALL(glDepthFunc(GL_LESS));
+		//GLCall(glEnable(GL_CULL_FACE));
+		//GLCall(glCullFace(GL_BACK));
 	}
 
 	ABGLProcs* GetFunctions() {

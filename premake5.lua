@@ -201,7 +201,7 @@ project "AssetBuilder"
 
 	files {
 		"tools/AssetBuilder/**.h",
-		"tools/AssetBuilder/**.cpp",
+		"tools/AssetBuilder/AssetBuilder.cpp",
 	}
 
 	ignoredefaultlibraries { 
