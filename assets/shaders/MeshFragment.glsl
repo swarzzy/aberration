@@ -1,29 +1,30 @@
-#version 330 core
-in vec2 TexCoord;
-in vec3 norm;
-in vec3 pos;
+in Vector3 f_Position;
+in Vector2 f_UV;
+in Vector3 f_Normal;
+
 out vec4 color;
 
 #define POINT_LIGHTS_NUMBER  2
 
 struct Material {
+	bool use_diff_map;
+	bool use_spec_map;
 	sampler2D diffuse_map;
 	sampler2D spec_map;
 	float shininess;
-	// TODO: Temporary
 	vec3 ambient;
 	vec3 diffuse;
 	vec3 specular;
 };
 
-//struct Light {
-//	vec3 position;
-//	vec3 ambient;
-//	vec3 diffuse;
-//	vec3 specular;
-//	float linear;
-//	float quadratic;
-//};
+struct PointLight {
+	Vector3 position;
+	Vector3 ambient;
+	Vector3 diffuse;
+	Vector3 specular;
+	float32 linear;
+	float32 quadratic;
+};
 
 struct DirLight {
 	vec3 direction;
@@ -33,12 +34,13 @@ struct DirLight {
 };
 
 uniform Material material;
-//uniform Light lights[POINT_LIGHTS_NUMBER];
+layout (std140) uniform pointLightsData {
+	PointLight pointLights[POINT_LIGHTS_NUMBER];
+};
 uniform DirLight dir_light;
 
-uniform vec3 view_pos;
 
-vec3 DirectionalLight(DirLight light, vec3 normal, vec3 view_dir, vec3 diff_sample, vec3 spec_sample) {
+vec3 CalcDirectionalLight(DirLight light, vec3 normal, vec3 view_dir, vec3 diff_sample, vec3 spec_sample) {
 	vec3 light_dir = normalize(-light.direction);
 	vec3 light_dir_reflected = reflect(-light_dir, normal);	
 
@@ -50,44 +52,53 @@ vec3 DirectionalLight(DirLight light, vec3 normal, vec3 view_dir, vec3 diff_samp
 	vec3 specular = Ks * light.specular * spec_sample;
 	return ambient + diffuse + specular;
 }
-//
-//vec3 PointLight(Light light, vec3 normal, vec3 view_dir, vec3 diff_sample, vec3 spec_sample) {
-//	float distance = length(light.position - pos);
-//	float attenuation = 1.0f / (1.0f + 
-//								light.linear * distance + 
-//								light.quadratic * distance * distance);
-//	
-//	vec3 light_dir = normalize(light.position - pos);
-//	vec3 reflect_dir = reflect(-light_dir, normal);
-//	float Kd = max(dot(normal, light_dir), 0.0);
-//	float Ks = pow(max(dot(view_dir, reflect_dir), 0.0), material.shininess);
-//	vec3 ambient = light.ambient * diff_sample * attenuation;
-//	vec3 diffuse = light.diffuse * Kd * diff_sample * attenuation;
-//	vec3 specular = Ks * light.specular * spec_sample * attenuation;
-//	return ambient + diffuse + specular;
-//}
-//
+
+vec3 CalcPointLight(PointLight light, Vector3 normal, Vector3 viewDir, Vector3 diffSample, Vector3 specSample) {
+	float32 distance = length(light.position - f_Position);
+	float32 attenuation = 1.0f / (1.0f + 
+								light.linear * distance + 
+								light.quadratic * distance * distance);
+	
+	Vector3 lightDir = normalize(light.position - f_Position);
+	Vector3 reflectDir = reflect(-lightDir, normal);
+	float32 Kd = max(dot(normal, lightDir), 0.0);
+	float32 Ks = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+	Vector3 ambient = light.ambient * diffSample * attenuation;
+	Vector3 diffuse = light.diffuse * Kd * diffSample * attenuation;
+	Vector3 specular = Ks * light.specular * specSample * attenuation;
+	return ambient + diffuse + specular;
+}
+
 void main()
 {
-	vec3 normal = normalize(norm);
-	vec3 view_dir = normalize(view_pos - pos);
+	vec3 normal = normalize(f_Normal);
+	vec3 viewDir = normalize(sys_ViewPos - f_Position);
 
-	vec4 diff_texel = texture(material.diffuse_map, TexCoord);
-	vec3 diff_sample = vec3(1.0, 0.0, 1.0);//diff_texel.xyz;
-	//vec3 spec_sample = texture(material.spec_map, TexCoord).xyz;
-	//vec3 diff_sample = material.diffuse;
-	vec3 spec_sample = material.specular;
+	vec3 diffSample;
+	vec3 alpha = vec3(1.0f);
+	if (material.use_diff_map) {
+		diffSample = texture(material.diffuse_map, f_UV).xyz;
+	} else {
+		diffSample = material.diffuse;
+	}
 
-	vec3 directional = DirectionalLight(dir_light, normal, view_dir, diff_sample, spec_sample);
+	vec3 specSample;
+	if (material.use_spec_map) {
+		specSample = texture(material.spec_map, f_UV).xyz;
+	} else {
+		specSample = material.specular;
+	}
+
+	vec3 directional = CalcDirectionalLight(dir_light, normal, viewDir, diffSample, specSample);
 
 	vec3 point = vec3(0.0f);
-	//for (int i = 0; i < POINT_LIGHTS_NUMBER; i++) {
-	//	point += PointLight(lights[i], normal, view_dir, diff_sample, spec_sample);
-	//}
+	for (int i = 0; i < POINT_LIGHTS_NUMBER; i++) {
+		point += CalcPointLight(pointLights[i], f_Normal, viewDir, diffSample, specSample);
+	}
 
 	vec3 sum_point = clamp(point, 0.0f, 1.0f);
 
-	color = vec4(sum_point + directional, diff_texel.a);
+	color = vec4(sum_point + directional, alpha);
 	//color = vec4(sum_point + directional, 1.0f);
 
 }

@@ -2,8 +2,13 @@
 #include "Utils.cpp"
 
 namespace AB {
-	struct ParseVertexRet { hpm::Vector3 v; char* next; }
-	inline static ParseVertex(const char* at) {  // after v
+	
+	struct ParseVertexRet {
+		hpm::Vector3 v;
+		char* next;
+	};
+	
+	inline static ParseVertexRet ParseVertex(const char* at) {  // after v
 		char* next;
 		float32 x = strtof(at, &next);
 		assert(at != next);
@@ -17,8 +22,12 @@ namespace AB {
 		return { { x, y, z }, next };
 	}
 
-	struct ParseNormalRet { hpm::Vector3 v; char* next; }
-	inline static ParseNormal(const char* at) {  // after v
+	struct ParseNormalRet {
+		hpm::Vector3 v;
+		char* next;
+	};
+	
+	inline static ParseNormalRet ParseNormal(const char* at) {  // after v
 		char* next;
 		float32 x = strtof(at, &next);
 		assert(at != next);
@@ -34,8 +43,12 @@ namespace AB {
 		return { result, next };
 	}
 
-	struct ParseUVRet { hpm::Vector2 uv; char* next; }
-	inline static ParseUV(const char* at) {
+	struct ParseUVRet {
+		hpm::Vector2 uv;
+		char* next;
+	};
+	
+	inline static ParseUVRet ParseUV(const char* at) {
 		char* next;
 		float32 u = strtof(at, &next);
 		assert(at != next);
@@ -50,8 +63,13 @@ namespace AB {
 		Undefined = 0, Vertex, VertexNormal, VertexUV, VertexUVNormal
 	};
 
-	struct ParseFaceRet { uint32 v[3]; uint32 uv[3]; uint32 n[3]; const char* next; }
-	inline static ParseFace(FaceIndexType type, const char* at) {  // after v
+	struct ParseFaceRet { uint32 v[3];
+		uint32 uv[3];
+		uint32 n[3];
+		const char* next;
+	};
+	
+	inline static ParseFaceRet ParseFace(FaceIndexType type, const char* at) {  // after v
 
 		char* next;
 		ParseFaceRet result = {};
@@ -122,7 +140,8 @@ namespace AB {
 	static uint32 GenNormals(hpm::Vector3* beg_vertices, uint64 size_vertices, uint32* beg_indices, uint64 size_indices, hpm::Vector3* beg_normals) {
 		uint32 normals_at = 0;
 
-		for (uint32 i = 0; i < size_indices; i += 3) {
+		for (uint32 i = 0; i < size_indices - 3; i += 3) {
+			assert(i + 3 < size_indices);
 			assert(beg_indices[i + 2] < size_vertices); // Out of range
 
 			hpm::Vector3 first = hpm::Subtract(beg_vertices[beg_indices[i + 1]], beg_vertices[beg_indices[i]]);
@@ -154,8 +173,12 @@ namespace AB {
 		return buf_at;
 	}
 
-	struct ParseKRet { hpm::Vector3 K; const char* next; }
-	inline static ParseK(const char* at) {  // after v
+	struct ParseKRet {
+		hpm::Vector3 K;
+		const char* next;
+	};
+	
+	inline static ParseKRet ParseK(const char* at) {  // after v
 		char* next;
 		float32 r = strtof(at, &next);
 		assert(at != next);
@@ -332,6 +355,7 @@ namespace AB {
 		Newmtl,
 		DiffMap,
 		AmbMap,
+		SpecMap,
 		Illum,
 		Shininess,
 		Ambient,
@@ -346,6 +370,7 @@ namespace AB {
 			char* newmtl_name;
 			char* diff_map_name;
 			char* amb_map_name;
+			char* spec_map_name;
 			uint32 illum;
 			float32 shininess;
 			hpm::Vector3 ambient;
@@ -418,8 +443,26 @@ namespace AB {
 					assert(false);
 				}
 			}
+			else if (memcmp(string + 1, "ap_Ks", 5) == 0) {
+				char* spec_map_name = (char*)malloc(512);
+				if (spec_map_name) {
+					uint32 spec_map_name_size = ExtractStringFromToEnd(spec_map_name, 512, string + 6);
+					if (spec_map_name_size) {
+						result.type = MtlTokenType::SpecMap;
+						result.data.spec_map_name = spec_map_name;
+					}
+					else {
+						printf("Specular map name is too big.\n");
+						assert(false);
+					}
+				}
+				else {
+					printf("malloc() failed.\n");
+					assert(false);
+				}
+			}
 			else {
-				printf("Failed to parse mtl argument. Unknown argument");
+				printf("Warning: unexpected MTL directive.\n");
 			}
 		} break;
 		case 'i': {
@@ -432,7 +475,7 @@ namespace AB {
 				result.data.illum = illum;
 			}
 			else {
-				printf("Failed to parse mtl argument. Unknown argument");
+				printf("Warning: unexpected MTL directive.\n");
 			}
 		} break;
 		case 'N': {
@@ -445,7 +488,7 @@ namespace AB {
 				result.data.shininess = shin;
 			}
 			else {
-				printf("Failed to parse mtl argument.Unknown argument");
+				printf("Warning: unexpected MTL directive.\n");
 			}
 		} break;
 		case 'K': {
@@ -533,6 +576,11 @@ namespace AB {
 				state->material.diff_map_name = tok->data.diff_map_name;
 			}
 		} break;
+		case MtlTokenType::SpecMap: {
+			if (state->in_material) {
+				state->material.spec_map_name= tok->data.spec_map_name;
+			}
+		} break;
 		case MtlTokenType::Newmtl: {
 			if (!(state->in_material)) {
 				state->in_material = true;
@@ -545,10 +593,10 @@ namespace AB {
 			}
 		} break;
 		case MtlTokenType::Unknown: {
-			printf("Unknown mtl directive\n");
+			//printf("Unknown mtl directive\n");
 		} break;
 		default: {
-			printf("Unknown mtl directive\n");
+			//printf("Unknown mtl directive\n");
 		} break;
 		}
 	}
@@ -558,10 +606,8 @@ namespace AB {
 	}
 
 	void LoadMTL(const char* path, std::vector<Material>* material_stack) {
-		auto[_data, size] = ReadEntireFile(path);
-		char* data = (char*)_data;
-		// TODO: This could get last byte lost. There sould be propper text reading.
-		if (_data) {
+		auto[data, size] = ReadEntireFileAsText(path);
+		if (data) {
 			data[size - 1] = '\0';
 			MtlParsingState parsing_state = {};
 
@@ -581,7 +627,7 @@ namespace AB {
 
 			FinalizeMtl(&parsing_state, material_stack);
 
-			FreeFileMemory(_data);
+			FreeFileMemory(data);
 		}
 		else {
 			printf("Failed to read mtl library: %s", path);
@@ -590,6 +636,10 @@ namespace AB {
 
 	// This is not POD! Do not memset it to 0
 	struct ObjParsingState {
+		uint32 global_vertex_index_offset;
+		uint32 global_normal_index_offset;
+		uint32 global_uv_index_offset;
+
 		std::vector<hpm::Vector3> vertices;
 		std::vector<hpm::Vector3> normals;
 		std::vector<hpm::Vector2> uvs;
@@ -602,6 +652,10 @@ namespace AB {
 	};
 
 	static void ResetObjParsingState(ObjParsingState* state) {
+		state->global_vertex_index_offset += SafeTruncateU64U32(state->vertices.size());
+		state->global_normal_index_offset += SafeTruncateU64U32(state->normals.size());
+		state->global_uv_index_offset += SafeTruncateU64U32(state->uvs.size());
+
 		state->vertices.clear();
 		state->normals.clear();
 		state->uvs.clear();
@@ -695,20 +749,20 @@ namespace AB {
 		} break;
 		case ObjTokenType::Face: {
 			auto type = tok->data.face.type;
-			state->vertex_indices.push_back(tok->data.face.v_ind[0]);
-			state->vertex_indices.push_back(tok->data.face.v_ind[1]);
-			state->vertex_indices.push_back(tok->data.face.v_ind[2]);
+			state->vertex_indices.push_back(tok->data.face.v_ind[0] - state->global_vertex_index_offset);
+			state->vertex_indices.push_back(tok->data.face.v_ind[1] - state->global_vertex_index_offset);
+			state->vertex_indices.push_back(tok->data.face.v_ind[2] - state->global_vertex_index_offset);
 
 			if (type == FaceIndexType::VertexNormal || type == FaceIndexType::VertexUVNormal) {
-				state->normal_indices.push_back(tok->data.face.n_ind[0]);
-				state->normal_indices.push_back(tok->data.face.n_ind[1]);
-				state->normal_indices.push_back(tok->data.face.n_ind[2]);
+				state->normal_indices.push_back(tok->data.face.n_ind[0] - state->global_normal_index_offset);
+				state->normal_indices.push_back(tok->data.face.n_ind[1] - state->global_normal_index_offset);
+				state->normal_indices.push_back(tok->data.face.n_ind[2] - state->global_normal_index_offset);
 			}
 
 			if (type == FaceIndexType::VertexUV || type == FaceIndexType::VertexUVNormal) {
-				state->uv_indices.push_back(tok->data.face.uv_ind[0]);
-				state->uv_indices.push_back(tok->data.face.uv_ind[1]);
-				state->uv_indices.push_back(tok->data.face.uv_ind[2]);
+				state->uv_indices.push_back(tok->data.face.uv_ind[0] - state->global_uv_index_offset);
+				state->uv_indices.push_back(tok->data.face.uv_ind[1] - state->global_uv_index_offset);
+				state->uv_indices.push_back(tok->data.face.uv_ind[2] - state->global_uv_index_offset);
 			}
 		} break;
 		case ObjTokenType::Mtllib: {
@@ -724,7 +778,7 @@ namespace AB {
 		} break;
 		case ObjTokenType::Usemtl: {
 			if (state->material_name) {
-				printf("Warn: material overwrinig: %s by %s", state->material_name, tok->data.lib_name);
+				printf("Warninig: material %s overwrited by %s\n", state->material_name, tok->data.lib_name);
 			}
 			state->material_name = tok->data.lib_name;
 		} break;
@@ -733,12 +787,8 @@ namespace AB {
 	}
 
 	void ParseOBJ(const char* file_path, std::vector<Mesh>* mesh_stack, std::vector<Material>* material_stack) {
-		auto[_data, size] = ReadEntireFile(file_path);
-		if (_data) {
-			char* data = (char*)_data;
-			// TODO: This could get last byte lost. There sould be propper text reading.
-			data[size - 1] = '\0';
-
+		auto[data, size] = ReadEntireFileAsText(file_path);
+		if (data) {
 			constexpr uint32 file_dir_sz = 512;
 			char dir[file_dir_sz];
 			auto[success, written] = GetDirectory(file_path, dir, file_dir_sz);
@@ -770,7 +820,7 @@ namespace AB {
 			else {
 				printf("Failed to read file: %s", file_path);
 			}
-			FreeFileMemory(_data);
+			FreeFileMemory(data);
 		}
 		else {
 			printf("Internal error."); // failed to get directory

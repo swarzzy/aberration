@@ -34,6 +34,7 @@ namespace AB {
 		char* name;
 		char* diff_map_name;
 		char* amb_map_name;
+		char* spec_map_name;
 		hpm::Vector3 ka;
 		hpm::Vector3 kd;
 		hpm::Vector3 ks;

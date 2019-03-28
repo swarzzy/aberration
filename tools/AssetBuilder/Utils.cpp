@@ -1,10 +1,18 @@
-#include "../../aberration/src/AB.h"
+#include "../../aberration/AB.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-struct GetDirectoryRet { bool32 succeeded; uint64 written; }
-GetDirectory(const char* file_path, char* buffer, uint32 buffer_size) {
+inline uint32 SafeTruncateU64U32(uint64 val) {
+	assert(val <= 0xffffffff);
+	return (uint32)val;
+}
+
+struct GetDirectoryRet { bool32 succeeded;
+	uint64 written;
+};
+
+GetDirectoryRet GetDirectory(const char* file_path, char* buffer, uint32 buffer_size) {
 #if defined(AB_PLATFORM_WINDOWS)
 	char sep_1 = '\\';
 	char sep_2 = '/';
@@ -55,7 +63,12 @@ void FreeFileMemory(void* memory) {
 	}
 }
 
-struct ReadFileRet { void* data; uint64 size; } ReadEntireFile(const char* filename) {
+struct ReadFileRet {
+	void* data;
+	uint64 size;
+};
+
+ReadFileRet ReadEntireFile(const char* filename) {
 	uint32 bytesRead = 0;
 	void* bitmap = nullptr;
 	LARGE_INTEGER fileSize = { 0 };
@@ -85,6 +98,43 @@ struct ReadFileRet { void* data; uint64 size; } ReadEntireFile(const char* filen
 	return  { bitmap, bytesRead };
 }
 
+struct ReadFileAsTextRet {
+	char* data;
+	uint64 size;
+};
+
+ReadFileAsTextRet ReadEntireFileAsText(const char* filename) {
+	uint32 bytesRead = 0;
+	char* string = nullptr;
+	LARGE_INTEGER fileSize = { 0 };
+	HANDLE fileHandle = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0);
+	if (fileHandle != INVALID_HANDLE_VALUE) {
+		if (GetFileSizeEx(fileHandle, &fileSize)) {
+			if (fileSize.QuadPart > 0xffffffff) {
+				printf("Can`t read >4GB file.");
+				CloseHandle(fileHandle);
+				return { nullptr, 0 };
+			}
+			void* bitmap = malloc(fileSize.QuadPart + 1);
+			if (bitmap) {
+				DWORD read;
+				if (!ReadFile(fileHandle, bitmap, (DWORD)fileSize.QuadPart, &read, 0) && !(read == (DWORD)fileSize.QuadPart)) {
+					printf("Failed to read file.");
+					FreeFileMemory(bitmap);
+					bitmap = nullptr;
+				}
+				else {
+					string = (char*)bitmap;
+					string[fileSize.QuadPart] = '\0';
+					bytesRead = (uint32)fileSize.QuadPart + 1;
+				}
+			}
+		}
+		CloseHandle(fileHandle);
+	}
+	return  { string , bytesRead };
+}
+
 bool32 WriteFile(const char* filename, void* data, uint32 dataSize) {
 	HANDLE fileHandle = CreateFile(filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
 	if (fileHandle != INVALID_HANDLE_VALUE) {
@@ -109,7 +159,12 @@ void FreeFileMemory(void* memory) {
 	}
 }
 
-struct ReadFileRet { void* data; uint64 size; } ReadEntireFile(const char* filename) {
+struct ReadFileRet {
+	void* data;
+	uint64 size;
+};
+
+ReadFileRet ReadEntireFile(const char* filename) {
 	uint32 bytesRead = 0;
 	void* ptr = nullptr;
 	*bytesRead = 0;

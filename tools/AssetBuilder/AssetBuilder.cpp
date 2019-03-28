@@ -2,8 +2,8 @@
 #include <cassert>
 #include <vector>
 
-#include "../../aberration/src/ABFileFormats.h"
-#include "../../hypermath/hypermath.h"
+#include "../../aberration/FileFormats.h"
+#include <hypermath.h>
 
 #include "OBJLoader.cpp"
 
@@ -47,6 +47,12 @@ namespace AB {
 		bool32 generated_normals = false;
 
 		if (!mesh->num_normals) {
+			// FIXME: GenNormals now is not working properly.
+			// Its whites out of memory boundaries somewhere
+			// and there are actually bad algorithm (normals aren't  interpolated between tringles)
+			// So just abort for now
+			printf("Error. Mesh doesn't have normals.\n");
+			assert(false);
 			printf("File does not contains normals. Generating normals...\n");
 			mesh->normals = (hpm::Vector3*)malloc(sizeof(hpm::Vector3) * mesh->num_vertex_indices);
 			mesh->num_normals = GenNormals(mesh->vertices, mesh->num_vertices, mesh->vertex_indices, mesh->num_vertex_indices, mesh->normals);
@@ -139,12 +145,21 @@ namespace AB {
 		// TODO: Temporary: writing matrial to mesh asset
 		uint64 material_name_size = 0;
 		uint64 material_props_size = 0;
+
 		uint64 material_diff_name_size = 0;
 		char* material_diff_map_name = nullptr;
+
+		uint64 material_spec_name_size = 0;
+		char* material_spec_map_name = nullptr;
+
 		Material* material = {};
 		if (mesh->material_index != -1) { // has material
 			material = &(*material_stack)[mesh->material_index];
 			material_name_size = strlen(material->name) + 1;
+			if (material->spec_map_name) {
+				material_spec_map_name = material->spec_map_name;
+				material_spec_name_size = strlen(material->spec_map_name) + 1;
+			}
 			// TODO: For now its assumed that amb and diff map is always the same texture
 			if (material->amb_map_name) {
 				material_diff_name_size = strlen(material->amb_map_name) + 1;
@@ -166,7 +181,8 @@ namespace AB {
 			+ sizeof(uint32) * mesh->num_indices
 			+ material_name_size
 			+ material_props_size
-			+ material_diff_name_size;
+			+ material_diff_name_size
+			+ material_spec_name_size;
 
 		uint64 file_size = data_size + sizeof(AB::AABMeshHeader);
 
@@ -220,8 +236,12 @@ namespace AB {
 
 			if (material_diff_name_size) {
 				mat_ptr = (void*)((byte*)mat_ptr + material_props_size);
-
 				memcpy(mat_ptr, material_diff_map_name, material_diff_name_size);
+			}
+
+			if (material_spec_name_size) {
+				mat_ptr = (void*)((byte*)mat_ptr + material_diff_name_size);
+				memcpy(mat_ptr, material_spec_map_name, material_spec_name_size);
 			}
 		}
 
@@ -229,6 +249,7 @@ namespace AB {
 		header_ptr->normals_offset = header_ptr->vertices_offset + vertices_size;
 		header_ptr->uvs_offset = header_ptr->normals_offset + normals_size;
 		header_ptr->indices_offset = header_ptr->uvs_offset + uvs_size;
+
 		if (mesh->material_index != -1) {
 			header_ptr->material_name_offset = header_ptr->indices_offset + indices_size;
 			header_ptr->material_properties_offset = header_ptr->material_name_offset + material_name_size;
@@ -238,15 +259,22 @@ namespace AB {
 			else {
 				header_ptr->material_diff_bitmap_name_offset = 0;
 			}
+
+			if (material_spec_map_name) {
+				header_ptr->material_spec_bitmap_name_offset = header_ptr->material_diff_bitmap_name_offset + material_diff_name_size;
+			} else {
+				header_ptr->material_spec_bitmap_name_offset = 0;
+			}
 		}
 		else {
 			header_ptr->material_name_offset = 0;
 			header_ptr->material_properties_offset = 0;
 			header_ptr->material_diff_bitmap_name_offset = 0;
+			header_ptr->material_spec_bitmap_name_offset = 0;
 		}
 
 		assert(file_size < 0xffffffff); // Can`t write bigger than 4gb
-		bool32 result = WriteFile("test.aab", file_buffer, (uint32)file_size);
+		bool32 result = WriteFile(file_name, file_buffer, (uint32)file_size);
 		assert(result); // Failed to write file
 
 		free(file_buffer);
@@ -256,8 +284,6 @@ namespace AB {
 using namespace AB;
 int main(int argc, char** argv) {
 	if (argc > 1) {
-		auto[data, size] = ReadEntireFile(argv[1]);
-		// TODO: check reading
 		constexpr uint32 file_dir_sz = 512;
 		char file_dir[file_dir_sz];
 		auto[success, written] = GetDirectory(argv[1], file_dir, file_dir_sz);
@@ -267,7 +293,6 @@ int main(int argc, char** argv) {
 			std::vector<Material> material_stack;
 
 			ParseOBJ(argv[1], &mesh_stack, &material_stack);
-			FreeFileMemory(data);
 			for (uint32 i = 0; i < mesh_stack.size(); i++) {
 				ABMesh mesh = GenABMesh(&(mesh_stack[i]), &material_stack);
 				char* file_name = (char*)malloc(strlen(mesh_stack[i].name) + 4 + 2);
