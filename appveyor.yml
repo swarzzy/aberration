@@ -6,6 +6,6 @@ configuration:
 - Release
 - Distrib
 platform: Windows
-build:
-  - cmd: call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
-  - cmd: project\build.bat
+before_build:
+   - cmd: call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
+   - cmd: project\build.bat
