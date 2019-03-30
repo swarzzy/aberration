@@ -253,8 +253,8 @@ Vector3 sys_ViewPos;};
 			AB_CORE_WARN("Renderer already initialized.");
 		}
 
-		auto[vertexSource, vSize] = DebugReadTextFile("../../../assets/shaders/MeshVertex.glsl");
-		auto[fragmentSource, fSize] = DebugReadTextFile("../../../assets/shaders/MeshFragment.glsl");
+		auto[vertexSource, vSize] = DebugReadTextFile("../assets/shaders/MeshVertex.glsl");
+		auto[fragmentSource, fSize] = DebugReadTextFile("../assets/shaders/MeshFragment.glsl");
 
 		props->program_handle = RendererCreateProgram(vertexSource, fragmentSource);
 

@@ -1,12 +1,56 @@
 #include "../Window.h"
-#include "src/utils/Log.h"
+#include "utils/Log.h"
+#include "../Memory.h"
 
 #include <X11/X.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysymdef.h>
 #include <X11/Xatom.h>
-#include <GL/glx.h>
+#include "../API/OpenGL/OpenGL.h"
+
+
+// Declarations from <GL/glx.h>
+
+typedef struct __GLXcontextRec *GLXContext;
+typedef struct __GLXFBConfigRec *GLXFBConfig;
+typedef XID GLXDrawable;
+
+#define GLX_X_RENDERABLE		0x8012
+#define GLX_DRAWABLE_TYPE		0x8010
+#define GLX_WINDOW_BIT			0x00000001
+#define GLX_X_VISUAL_TYPE		0x22
+#define GLX_TRUE_COLOR			0x8002
+#define GLX_RENDER_TYPE			0x8011
+#define GLX_RGBA_BIT			0x00000001
+#define GLX_DOUBLEBUFFER		5
+#define GLX_RED_SIZE			8
+#define GLX_GREEN_SIZE			9
+#define GLX_BLUE_SIZE			10
+#define GLX_ALPHA_SIZE			11
+#define GLX_DEPTH_SIZE			12
+#define GLX_STENCIL_SIZE		13
+
+#define GLX_CONTEXT_MAJOR_VERSION_ARB				0x2091
+#define GLX_CONTEXT_MINOR_VERSION_ARB				0x2092
+#define GLX_CONTEXT_CORE_PROFILE_BIT_ARB			0x00000001
+#define GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 	0x00000002
+#define GLX_CONTEXT_PROFILE_MASK_ARB     			0x9126
+
+extern "C" {
+	extern void glXSwapBuffers( Display *dpy, GLXDrawable drawable );
+	extern GLXDrawable glXGetCurrentDrawable( void );
+	extern Bool glXQueryVersion( Display *dpy, int *maj, int *min );
+	extern GLXFBConfig *glXChooseFBConfig( Display *dpy, int screen,
+										   const int *attribList, int *nitems );
+	extern XVisualInfo *glXGetVisualFromFBConfig( Display *dpy,
+												  GLXFBConfig config );
+	extern Bool glXMakeCurrent( Display *dpy, GLXDrawable drawable,
+								GLXContext ctx);
+	extern const char *glXQueryExtensionsString( Display *dpy, int screen );
+
+	extern void (*glXGetProcAddress(const GLubyte *procname))( void );
+}
 
 // TODO: Destroy context and delete all stuff in Destroy()
 
@@ -19,6 +63,11 @@ namespace AB::GL {
 
 namespace AB {
 	extern void RenderGroupResizeCallback(uint32 width, uint32 height);
+	extern void PlatformMouseCallback(uint32 xPos, uint32 yPos);
+	extern void PlatformMouseButtonCallback(MouseButton button, bool32 state);
+	extern void PlatformKeyCallback(KeyboardKey key, bool32 state, uint16 sys_repeat_count);
+	extern void PlatformFocusCallback(bool32 focus);
+	extern void PlatformMouseLeaveCallback(bool32 in_client_area);
 }
 
 namespace AB {
@@ -60,8 +109,6 @@ namespace AB {
 		bool32 running;
 
 		bool32 activeWindow;
-		void* focusCallbackUserData;
-		PlatformFocusCallback* focusCallback;
 
 		Display* X11Display;
 		Screen* X11Screen;
@@ -73,301 +120,263 @@ namespace AB {
 		PlatformCloseCallback* closeCallback;
 		PlatformResizeCallback* resizeCallback;
 
-		int32 mousePositionX;
-		int32 mousePositionY;
-		PlatformMouseButtonCallback* mouseButtonCallback;
-		void* mouseMoveCallbackUserData;
-		PlatformMouseMoveCallback* mouseMoveCallback;
-		bool32 mouseButtonsCurrentState[MOUSE_BUTTONS_COUNT];
 		bool32 mouseInClientArea;
 
-		//bool gamepadCurrentState[GAMEPAD_STATE_ARRAY_SIZE];
-		//bool gamepadPrevState[GAMEPAD_STATE_ARRAY_SIZE];
-		//GamepadAnalogCtrl gamepadAnalogControls[XUSER_MAX_COUNT];
-
 		X11KeyState keys[KEYBOARD_KEYS_COUNT];
-		PlatformKeyCallback* keyCallback;
 	};
 
 	static uint8 _X11KeyConvertToABKeycode(WindowProperties* window, uint32 X11KeySym);
 	static bool32 _GLXLoadExtensions(WindowProperties* windowProps);
+	static void _PlatformCreateWindowAndContext(WindowProperties* s_WindowProperties);
 
-	Window::~Window() {
-
-	}
-
-	void Window::Create(const char* title, uint32 width, uint32 height) {
-		// TODO: LOG!!!!
-		if (s_WindowProperties) {
+	void WindowCreate(const char* title, uint32 width, uint32 height) {
+		if ((PermStorage()->window)) {
 			AB_CORE_WARN("Window already initialized");
 			return;
 		}
 
-		s_WindowProperties = ab_create WindowProperties{};
-		// TODO: Check is that copy safe
-		memcpy(s_WindowProperties->title, title, WINDOW_TITLE_SIZE);
-		s_WindowProperties->width = width;
-		s_WindowProperties->height = height;
-
-		PlatformCreate();
+		WindowProperties* properties = (WindowProperties*)SysAlloc(sizeof(WindowProperties));
+		memcpy(properties->title, title, WINDOW_TITLE_SIZE);
+		properties->width = width;
+		properties->height = height;
+		
+		GetMemory()->perm_storage.window = properties;
+		_PlatformCreateWindowAndContext(properties);
 	}
 
-	void Window::Destroy() {
+	void WindowDestroy() {
+		AB_CORE_FATAL("Cannot destroy window for now. System allocator cannot free");
+		auto window = PermStorage()->window;
 		// TODO: Destroy Context
 		//glXDestroyContext(display, context);
 		//XFree(vInfo);
 
-		XUnmapWindow(s_WindowProperties->X11Display, s_WindowProperties->X11Window);
-		XDestroyWindow(s_WindowProperties->X11Display, s_WindowProperties->X11Window);
-		XCloseDisplay(s_WindowProperties->X11Display);
-		ab_delete_scalar s_WindowProperties;
-		s_WindowProperties = nullptr;
+		XUnmapWindow(window->X11Display, window->X11Window);
+		XDestroyWindow(window->X11Display, window->X11Window);
+		XCloseDisplay(window->X11Display);
 	}
 
-	void Window::Close() {
-		s_WindowProperties->running = false;
-		XUnmapWindow(s_WindowProperties->X11Display, s_WindowProperties->X11Window);
+	void WindowClose() {
+		auto window = PermStorage()->window;
+		window->running = false;
+		XUnmapWindow(window->X11Display, window->X11Window);
 	}
 
-	bool Window::IsOpen() {
-		return s_WindowProperties->running;
+	bool WindowIsOpen() {
+		auto window = PermStorage()->window;
+		return window->running;
 	}
 
-	void Window::PollEvents() {
+	void WindowPollEvents() {
+		auto window = PermStorage()->window;
 		// NOTE: This behavior can be different than on windows. 
 		// On windows we still processing events after running set to false
-		if (s_WindowProperties->running) {
+		if (window->running) {
 			XEvent event;
 			Bool result = False;
-			while (XPending(s_WindowProperties->X11Display)) {
-				XNextEvent(s_WindowProperties->X11Display, &event);
+			while (XPending(window->X11Display)) {
+				XNextEvent(window->X11Display, &event);
 				switch (event.type) {
-					case ClientMessage: {
-						if (event.xclient.data.l[0] == s_WindowProperties->X11WmDeleteMessage) {
-							if (s_WindowProperties->closeCallback)
-								s_WindowProperties->closeCallback();
-							s_WindowProperties->running = false;
-							XUnmapWindow(s_WindowProperties->X11Display, s_WindowProperties->X11Window);
+				case ClientMessage: {
+					if (event.xclient.data.l[0] == window->X11WmDeleteMessage) {
+						if (window->closeCallback)
+							window->closeCallback();
+						window->running = false;
+						XUnmapWindow(window->X11Display, window->X11Window);
+					}
+				} break;
+
+				case KeymapNotify: {
+					XRefreshKeyboardMapping(&event.xmapping);
+				} break;
+
+				case KeyPress: {
+					char str[25];
+					KeySym keysym;
+					uint32 length = XLookupString(&event.xkey, str, 25, &keysym, NULL);
+					uint8 key = _X11KeyConvertToABKeycode(window, keysym);
+
+					window->keys[key].prevState = window->keys[key].currentState;
+					window->keys[key].currentState = true;
+#if 0 // Why are we checking for it that way
+					KeyboardKey kbKey = static_cast<KeyboardKey>(key);
+					// Check for Shift
+					if (kbKey == KeyboardKey::LeftShift || kbKey == KeyboardKey::RightShift) {
+						window->keys[static_cast<uint8>(KeyboardKey::Shift)].prevState =
+							window->keys[static_cast<uint8>(KeyboardKey::Shift)].currentState;
+						window->keys[static_cast<uint8>(KeyboardKey::Shift)].currentState = true;
+					}
+					// Check for Ctrl
+					if (kbKey == KeyboardKey::LeftCtrl || kbKey == KeyboardKey::RightCtrl) {
+						window->keys[static_cast<uint8>(KeyboardKey::Ctrl)].prevState =
+							window->keys[static_cast<uint8>(KeyboardKey::Ctrl)].currentState;
+						window->keys[static_cast<uint8>(KeyboardKey::Ctrl)].currentState = true;
+					}
+#endif
+					// Callback for press and repeat events here
+					PlatformKeyCallback(static_cast<KeyboardKey>(key), true, window->keys[key].repeatCount);
+				} break;
+
+				case KeyRelease: {
+					char str[25];
+					KeySym keysym;
+					uint32 length = XLookupString(&event.xkey, str, 25, &keysym, NULL);
+					uint8 key = _X11KeyConvertToABKeycode(window, keysym);
+
+					// Check if its actually repeat
+					// Checking for repeats and increment repeatCounter in KeyRelease
+					bool isRepeat = false;
+					if (event.type == KeyRelease && XEventsQueued(window->X11Display, QueuedAfterReading)) {
+						XEvent nextEvent;
+						XPeekEvent(window->X11Display, &nextEvent);
+						if (nextEvent.type == KeyPress && nextEvent.xkey.time == event.xkey.time &&
+							nextEvent.xkey.keycode == event.xkey.keycode) {
+							// This is repeat
+							isRepeat = true;
+							window->keys[key].repeatCount++;
 						}
-					} break;
-
-					case KeymapNotify: {
-						XRefreshKeyboardMapping(&event.xmapping);
-					} break;
-
-					case KeyPress: {
-						char str[25];
-						KeySym keysym;
-						uint32 length = XLookupString(&event.xkey, str, 25, &keysym, NULL);
-						uint8 key = _X11KeyConvertToABKeycode(s_WindowProperties, keysym);
-
-						s_WindowProperties->keys[key].prevState = s_WindowProperties->keys[key].currentState;
-						s_WindowProperties->keys[key].currentState = true;
-
-						KeyboardKey kbKey = static_cast<KeyboardKey>(key);
-						// Check for Shift
-						if (kbKey == KeyboardKey::LeftShift || kbKey == KeyboardKey::RightShift) {
+					}
+#if 0
+					KeyboardKey kbKey = static_cast<KeyboardKey>(key);
+					// Check for Shift
+					if (kbKey == KeyboardKey::LeftShift || kbKey == KeyboardKey::RightShift) {
+						if (isRepeat) {
+							s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Shift)].repeatCount++;
+						}
+						else {
 							s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Shift)].prevState =
 								s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Shift)].currentState;
-							s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Shift)].currentState = true;
+							s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Shift)].currentState = false;
 						}
-						// Check for Ctrl
-						if (kbKey == KeyboardKey::LeftCtrl || kbKey == KeyboardKey::RightCtrl) {
+					}
+
+					// Check for Ctrl
+					if (kbKey == KeyboardKey::LeftCtrl || kbKey == KeyboardKey::RightCtrl) {
+						if (isRepeat) {
+							s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Ctrl)].repeatCount++;
+						}
+						else {
 							s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Ctrl)].prevState =
 								s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Ctrl)].currentState;
-							s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Ctrl)].currentState = true;
+							s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Ctrl)].currentState = false;
 						}
+					}
+#endif
+					if (!isRepeat) {
+						window->keys[key].prevState = window->keys[key].currentState;
+						window->keys[key].currentState = false;
 
-						// Callback for press and repeat events here
-						if (s_WindowProperties->keyCallback)
-							s_WindowProperties->keyCallback(static_cast<KeyboardKey>(key), true, s_WindowProperties->keys[key].prevState, 
-															s_WindowProperties->keys[key].repeatCount);
+						// Callback for release event here
+						PlatformKeyCallback(static_cast<KeyboardKey>(key), false, window->keys[key].repeatCount);
+
+						// TODO: Should repeat count be reset after callback in order to work as windows?
+						window->keys[key].repeatCount = 0;
+					}
+				} break;
+
+				case ButtonPress: {
+					switch (event.xbutton.button) {
+					case AB_X11_MB_LEFT: {
+						PlatformMouseButtonCallback(MouseButton::Left, true);
+					} break;
+								
+					case AB_X11_MB_RIGHT: {
+						PlatformMouseButtonCallback(MouseButton::Right, true);
 					} break;
 
-					case KeyRelease: {
-						char str[25];
-						KeySym keysym;
-						uint32 length = XLookupString(&event.xkey, str, 25, &keysym, NULL);
-						uint8 key = _X11KeyConvertToABKeycode(s_WindowProperties, keysym);
-
-						// Check if its actually repeat
-						// Checking for repeats and increment repeatCounter in KeyRelease
-						bool isRepeat = false;
-						if (event.type == KeyRelease && XEventsQueued(s_WindowProperties->X11Display, QueuedAfterReading)) {
-							XEvent nextEvent;
-							XPeekEvent(s_WindowProperties->X11Display, &nextEvent);
-							if (nextEvent.type == KeyPress && nextEvent.xkey.time == event.xkey.time &&
-								nextEvent.xkey.keycode == event.xkey.keycode) {
-								// This is repeat
-								isRepeat = true;
-								s_WindowProperties->keys[key].repeatCount++;
-							}
-						}
-
-						KeyboardKey kbKey = static_cast<KeyboardKey>(key);
-						// Check for Shift
-						if (kbKey == KeyboardKey::LeftShift || kbKey == KeyboardKey::RightShift) {
-							if (isRepeat) {
-								s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Shift)].repeatCount++;
-							}
-							else {
-								s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Shift)].prevState =
-									s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Shift)].currentState;
-								s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Shift)].currentState = false;
-							}
-						}
-
-						// Check for Ctrl
-						if (kbKey == KeyboardKey::LeftCtrl || kbKey == KeyboardKey::RightCtrl) {
-							if (isRepeat) {
-								s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Ctrl)].repeatCount++;
-							}
-							else {
-								s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Ctrl)].prevState =
-									s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Ctrl)].currentState;
-								s_WindowProperties->keys[static_cast<uint8>(KeyboardKey::Ctrl)].currentState = false;
-							}
-						}
-
-						if (!isRepeat) {
-							s_WindowProperties->keys[key].prevState = s_WindowProperties->keys[key].currentState;
-							s_WindowProperties->keys[key].currentState = false;
-
-							// Callback for release event here
-							if (s_WindowProperties->keyCallback)
-								s_WindowProperties->keyCallback(kbKey, false, s_WindowProperties->keys[key].prevState, s_WindowProperties->keys[key].repeatCount);
-							
-							s_WindowProperties->keys[key].repeatCount = 0;
-						}
+					case AB_X11_MB_MIDDLE: {
+						PlatformMouseButtonCallback(MouseButton::Middle, true);
 					} break;
 
-					case ButtonPress: {
-						switch (event.xbutton.button) {
-							case AB_X11_MB_LEFT: {
-								s_WindowProperties->mouseButtonsCurrentState[static_cast<uint8>(MouseButton::Left)] = true;
-								if (s_WindowProperties->mouseButtonCallback)
-									s_WindowProperties->mouseButtonCallback(MouseButton::Left, true);
-							} break;
-
-							case AB_X11_MB_RIGHT: {
-								s_WindowProperties->mouseButtonsCurrentState[static_cast<uint8>(MouseButton::Right)] = true;
-								if (s_WindowProperties->mouseButtonCallback)
-									s_WindowProperties->mouseButtonCallback(MouseButton::Right, true);
-							} break;
-
-							case AB_X11_MB_MIDDLE: {
-								s_WindowProperties->mouseButtonsCurrentState[static_cast<uint8>(MouseButton::Middle)] = true;
-								if (s_WindowProperties->mouseButtonCallback)
-									s_WindowProperties->mouseButtonCallback(MouseButton::Middle, true);
-							} break;
-
-							case AB_X11_MB_XB1: {
-								s_WindowProperties->mouseButtonsCurrentState[static_cast<uint8>(MouseButton::XButton1)] = true;
-								if (s_WindowProperties->mouseButtonCallback)
-									s_WindowProperties->mouseButtonCallback(MouseButton::XButton1, true);
-							} break;
-
-							case AB_X11_MB_XB2: {
-								s_WindowProperties->mouseButtonsCurrentState[static_cast<uint8>(MouseButton::XButton2)] = true;
-								if (s_WindowProperties->mouseButtonCallback)
-									s_WindowProperties->mouseButtonCallback(MouseButton::XButton2, true);
-							} break;
-						}
+					case AB_X11_MB_XB1: {
+						PlatformMouseButtonCallback(MouseButton::XButton1, true);
 					} break;
 
-					case ButtonRelease: {
-						switch (event.xbutton.button) {
-							case AB_X11_MB_LEFT: {
-								s_WindowProperties->mouseButtonsCurrentState[static_cast<uint8>(MouseButton::Left)] = false;
-								if (s_WindowProperties->mouseButtonCallback)
-									s_WindowProperties->mouseButtonCallback(MouseButton::Left, false);
-							} break;
+					case AB_X11_MB_XB2: {
+						PlatformMouseButtonCallback(MouseButton::XButton2, true);
+					} break;
+					}
+				} break;
 
-							case AB_X11_MB_RIGHT: {
-								s_WindowProperties->mouseButtonsCurrentState[static_cast<uint8>(MouseButton::Right)] = false;
-								if (s_WindowProperties->mouseButtonCallback)
-									s_WindowProperties->mouseButtonCallback(MouseButton::Right, false);
-							} break;
-
-							case AB_X11_MB_MIDDLE: {
-								s_WindowProperties->mouseButtonsCurrentState[static_cast<uint8>(MouseButton::Middle)] = false;
-								if (s_WindowProperties->mouseButtonCallback)
-									s_WindowProperties->mouseButtonCallback(MouseButton::Middle, false);
-							} break;
-
-							case AB_X11_MB_XB1: {
-								s_WindowProperties->mouseButtonsCurrentState[static_cast<uint8>(MouseButton::XButton1)] = false;
-								if (s_WindowProperties->mouseButtonCallback)
-									s_WindowProperties->mouseButtonCallback(MouseButton::XButton1, false);
-							} break;
-
-							case AB_X11_MB_XB2: {
-								s_WindowProperties->mouseButtonsCurrentState[static_cast<uint8>(MouseButton::XButton2)] = false;
-								if (s_WindowProperties->mouseButtonCallback)
-									s_WindowProperties->mouseButtonCallback(MouseButton::XButton2, false);
-							} break;
-						}
+				case ButtonRelease: {
+					switch (event.xbutton.button) {
+					case AB_X11_MB_LEFT: {
+						PlatformMouseButtonCallback(MouseButton::Left, false);
+					} break;
+								
+					case AB_X11_MB_RIGHT: {
+						PlatformMouseButtonCallback(MouseButton::Right, false);
 					} break;
 
-					case MotionNotify: {
-						s_WindowProperties->mousePositionX = event.xmotion.x;
-						s_WindowProperties->mousePositionY = event.xmotion.y;
-						if (s_WindowProperties->mouseMoveCallback)
-							s_WindowProperties->mouseMoveCallback(event.xmotion.x, event.xmotion.y, s_WindowProperties->mouseMoveCallbackUserData);
-
+					case AB_X11_MB_MIDDLE: {
+						PlatformMouseButtonCallback(MouseButton::Middle, false);
 					} break;
 
-					case EnterNotify: {
-						s_WindowProperties->mouseInClientArea = true;
+					case AB_X11_MB_XB1: {
+						PlatformMouseButtonCallback(MouseButton::XButton1, false);
 					} break;
 
-					case LeaveNotify: {
-						s_WindowProperties->mouseInClientArea = false;
+					case AB_X11_MB_XB2: {
+						PlatformMouseButtonCallback(MouseButton::XButton2, false);
 					} break;
+					}
+				} break;
+						
+				case MotionNotify: {
+					PlatformMouseCallback(event.xmotion.x, window->height - event.xmotion.y);
+				} break;
 
-					case Expose: {
-						XWindowAttributes attribs;
-						XGetWindowAttributes(s_WindowProperties->X11Display, s_WindowProperties->X11Window, &attribs);
-						s_WindowProperties->width = attribs.width;
-						s_WindowProperties->height = attribs.height;
-						if (s_WindowProperties->resizeCallback)
-							s_WindowProperties->resizeCallback(attribs.width, attribs.height);
-						RenderGroupResizeCallback(attribs.width, attribs.height);
-					} break;
+				case EnterNotify: {
+					window->mouseInClientArea = true;
+					PlatformMouseLeaveCallback(true);
+				} break;
 
-					case FocusIn: {
-						s_WindowProperties->activeWindow = true;
-						if (s_WindowProperties->focusCallback) {
-							s_WindowProperties->focusCallback(true, s_WindowProperties->focusCallbackUserData);
-						}
-					} break;
+				case LeaveNotify: {
+					window->mouseInClientArea = false;
+					PlatformMouseLeaveCallback(false);
+				} break;
 
-					case FocusOut: {
-						s_WindowProperties->activeWindow = false;
-						if (s_WindowProperties->focusCallback) {
-							s_WindowProperties->focusCallback(false, s_WindowProperties->focusCallbackUserData);
-						}
-					} break;
+				case Expose: {
+					XWindowAttributes attribs;
+					XGetWindowAttributes(window->X11Display, window->X11Window, &attribs);
+					window->width = attribs.width;
+					window->height = attribs.height;
+					if (window->resizeCallback)
+						window->resizeCallback(attribs.width, attribs.height);
+					RenderGroupResizeCallback(attribs.width, attribs.height);
+				} break;
+
+				case FocusIn: {
+					window->activeWindow = true;
+					PlatformFocusCallback(true);
 				}
+					break;
 
-
+				case FocusOut: {
+					window->activeWindow = false;
+					PlatformFocusCallback(false);
+				}  break;
+				}
 			}
-
 		}
 	}
+		
+	
 
-	void Window::SwapBuffers() {
-		glXSwapBuffers(s_WindowProperties->X11Display, s_WindowProperties->X11Window);
+	void WindowSwapBuffers() {
+		auto window = PermStorage()->window;
+		glXSwapBuffers(window->X11Display, window->X11Window);
 	}
 
-	void Window::EnableVSync(bool32 enable) {
+	void WindowEnableVSync(bool32 enable) {
+		auto window = PermStorage()->window;
 		if (glXSwapIntervalEXT) {
 			GLXDrawable drawable = glXGetCurrentDrawable();
 			if (drawable) {
 				if (enable)
-					glXSwapIntervalEXT(s_WindowProperties->X11Display, drawable, 1);
+					glXSwapIntervalEXT(window->X11Display, drawable, 1);
 				else
-					glXSwapIntervalEXT(s_WindowProperties->X11Display, drawable, 0);
+					glXSwapIntervalEXT(window->X11Display, drawable, 0);
 			}
 		}
 		else {
@@ -378,43 +387,26 @@ namespace AB {
 		}
 	}
 
-	void Window::GetSize(uint32* width, uint32* height) {
-		*width = s_WindowProperties->width;
-		*height = s_WindowProperties->height;
+	void WindowGetSize(uint32* width, uint32* height) {
+		auto window = PermStorage()->window;
+		*width = window->width;
+		*height = window->height;
 	}
 
-	void Window::SetCloseCallback(PlatformCloseCallback* func) {
-		s_WindowProperties->closeCallback = func;
+	void WindowSetCloseCallback(PlatformCloseCallback* func) {
+		auto window = PermStorage()->window;
+		window->closeCallback = func;
 	}
 
-	void Window::SetResizeCallback(PlatformResizeCallback* func) {
-		s_WindowProperties->resizeCallback = func;
+	void WindowSetResizeCallback(PlatformResizeCallback* func) {
+		auto window = PermStorage()->window;
+		window->resizeCallback = func;
 	}
 
-	bool Window::KeyPressed(KeyboardKey key) {
-		return !(s_WindowProperties->keys[static_cast<uint8>(key)].prevState) && s_WindowProperties->keys[static_cast<uint8>(key)].currentState;
-	}
-
-	PlatformKeyInfo Window::GetKeyState(KeyboardKey key) {
-		PlatformKeyInfo state = {};
-		state.currentState =  s_WindowProperties->keys[(uint32)key].currentState;
-		state.prevState = s_WindowProperties->keys[(uint32)key].prevState;
-		return state;
-	}
-
-	PlatformMouseButtonInfo Window::GetMouseButtonState(MouseButton button) {
-		PlatformMouseButtonInfo state = {};
-		state.currentState = s_WindowProperties->mouseButtonsCurrentState[(uint32)button];
-		state.prevState = s_WindowProperties->mouseButtonsCurrentState[(uint32)button];
-		return state;
-	}
-
-	void Window::SetKeyCallback(PlatformKeyCallback* func) {
-		s_WindowProperties->keyCallback = func;
-	}
-
-	void Window::SetMousePosition(uint32 x, uint32 y) {
-		XWarpPointer(s_WindowProperties->X11Display, None, s_WindowProperties->X11Window, 0, 0, 0, 0, x, y);
+	// TODO: Flip y?
+	void WindowSetMousePosition(uint32 x, uint32 y) {
+		auto window = PermStorage()->window;
+		XWarpPointer(window->X11Display, None, window->X11Window, 0, 0, 0, 0, x, y);
 		#if 0
 		uint32 yFlipped = 0;
 		if (y < s_WindowProperties->height) {
@@ -427,77 +419,53 @@ namespace AB {
 		#endif 
 	}
 
-	void Window::ShowCursor(bool32 show) {
+	void WindowShowCursor(bool32 show) {
+		// TODO: Implement
 	}
 
-	void Window::SetFocusCallback(void* userData, PlatformFocusCallback* func) {
-		s_WindowProperties->focusCallback = func;
-		s_WindowProperties->focusCallbackUserData = userData;
+	bool32 WindowActive() {
+		auto window = PermStorage()->window;
+		return window->activeWindow;
 	}
 
-	bool32 Window::WindowActive() {
-		return s_WindowProperties->activeWindow;
-	}
-
-	void Window::GetMousePosition(uint32* xPos, uint32* yPos) {
-		*xPos = s_WindowProperties->mousePositionX;
-		*yPos = s_WindowProperties->height - s_WindowProperties->mousePositionY;
-	}
-
-	bool Window::MouseButtonPressed(MouseButton button) {
-		return s_WindowProperties->mouseButtonsCurrentState[static_cast<uint8>(button)];
-	}
-
-	bool Window::MouseInClientArea() {
-		return s_WindowProperties->mouseInClientArea;
-	}
-
-	void Window::SetMouseButtonCallback(PlatformMouseButtonCallback* func) {
-		s_WindowProperties->mouseButtonCallback = func;
-	}
-
-	void Window::SetMouseMoveCallback(PlatformMouseMoveCallback* func, void* userData) {
-		s_WindowProperties->mouseMoveCallback = func;
-		s_WindowProperties->mouseMoveCallbackUserData = userData;
-	}
 	// TODO: implement gamepad input in linux
 	// GAMEPAD INPUT (CURRENTLY NOT WORKING)
 
-	bool Window::GamepadButtonPressed(uint8 gamepadNumber, GamepadButton button) {
+	bool WindowGamepadButtonPressed(uint8 gamepadNumber, GamepadButton button) {
 		return false;
 	}
 
-	bool Window::GamepadButtonReleased(uint8 gamepadNumber, GamepadButton button) {
+	bool WindowGamepadButtonReleased(uint8 gamepadNumber, GamepadButton button) {
 		return false;
 	}
 
-	bool Window::GamepadButtonHeld(uint8 gamepadNumber, GamepadButton button) {
+	bool WindowGamepadButtonHeld(uint8 gamepadNumber, GamepadButton button) {
 		return false;
 	}
 
-	void Window::GetGamepadStickPosition(uint8 gamepadNumber, int16& leftX, int16& leftY, int16& rightX, int16& rightY) {
+	void WindowGetGamepadStickPosition(uint8 gamepadNumber, int16& leftX, int16& leftY, int16& rightX, int16& rightY) {
 
 	}
 
-	void Window::GetGamepadTriggerPosition(uint8 gamepadNumber, byte& lt, byte& rt) {
+	void WindowGetGamepadTriggerPosition(uint8 gamepadNumber, byte& lt, byte& rt) {
 
 	}
 
-	void Window::SetGamepadButtonCallback(PlatformGamepadButtonCallback* func) {
+	void WindowSetGamepadButtonCallback(PlatformGamepadButtonCallback* func) {
 		
 	}
 
-	void Window::SetGamepadStickCallback(PlatformGamepadStickCallback* func) {
+	void WindowSetGamepadStickCallback(PlatformGamepadStickCallback* func) {
 		
 	}
 
-	void Window::SetGamepadTriggerCallback(PlatformGamepadTriggerCallback* func) {
+	void WindowSetGamepadTriggerCallback(PlatformGamepadTriggerCallback* func) {
 		
 	}
 
 	// ^^^^ GAMEPAD INPUT
 
-	void Window::PlatformCreate() {
+	static void _PlatformCreateWindowAndContext(WindowProperties* s_WindowProperties) {
 		Display* display = XOpenDisplay(nullptr);
 		AB_CORE_ASSERT(display, "Failed to open display");
 
@@ -512,7 +480,7 @@ namespace AB {
 		if (majorGLX <= 1 && minorGLX <= 2) {
 			AB_CORE_FATAL("Failed to create OpenGL context. GLX 1.2 of greater is required.");
 
-		}
+			}
 		//AB_CORE_INFO("GLX version: ", majorGLX, ".", minorGLX);
 
 		GLint glxAttribs[] = {
@@ -537,7 +505,7 @@ namespace AB {
 		// TODO: Choose best fbConfig manually
 		// https://www.khronos.org/opengl/wiki/Tutorial:_OpenGL_3.0_Context_Creation_(GLX)
 		//GLXFBConfig bestFBC = fbConfigs[1];
-		XFree(fbConfigs);
+		//XFree(fbConfigs);
 
 		XVisualInfo* vInfo = glXGetVisualFromFBConfig(display, fbConfigs[1]);
 		//XVisualInfo* vInfo = glXChooseVisual(display, screenID, glxAttribs);

@@ -4,8 +4,8 @@ set BuildTools=FALSE
 
 
 project\ctime -begin _misc\ab_ctime.ctm
-set ObjOutDir=build\obj\Debug-windows\
-set BinOutDir=build\bin\Debug-windows\
+set ObjOutDir=build\obj\
+set BinOutDir=build\
 
 set IncludeDirs=/Iaberration /Ihypermath
 set CommonDefines=/DAB_CONFIG_DEBUG /DAB_PLATFORM_WINDOWS /D_CRT_SECURE_NO_WARNINGS 

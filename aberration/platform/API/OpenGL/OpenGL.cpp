@@ -471,22 +471,22 @@ bool32 AB::GL::LoadExtensions() {
 #include <dlfcn.h>
 
 typedef void* def_glXGetProcAddress(const GLubyte *procname);
-inline static def_glXGetProcAddress* glXGetProcAddress = nullptr;
+inline static def_glXGetProcAddress* _glXGetProcAddress = nullptr;
 
 bool32 AB::GL::LoadFunctions() {
 
-	if (!glXGetProcAddress) {
+	if (!_glXGetProcAddress) {
 		void* libgl = dlopen("libGL.so.1", RTLD_LAZY | RTLD_LOCAL);
 		if (!libgl)
 			return 0;
-		glXGetProcAddress = (def_glXGetProcAddress*)dlsym(libgl, "glXGetProcAddress");
-		if (!glXGetProcAddress)
+		_glXGetProcAddress = (def_glXGetProcAddress*)dlsym(libgl, "glXGetProcAddress");
+		if (!_glXGetProcAddress)
 			return 0;
 	}
 
 	bool32 success = 1;
 	for (unsigned int i = 0; i < AB_OPENGL_FUNCTIONS_COUNT; i++) {
-		_ABOpenGLProcs.procs[i] = (AB_GLFUNCPTR)glXGetProcAddress((const uchar*)procNames[i]);
+		_ABOpenGLProcs.procs[i] = (AB_GLFUNCPTR)_glXGetProcAddress((const uchar*)procNames[i]);
 		if (_ABOpenGLProcs.procs[i] == NULL) {
 			AB_CORE_ERROR("ERROR: Failed to load OpenGL procedure: %s\n", procNames[i]);
 			success = 0;
@@ -497,19 +497,19 @@ bool32 AB::GL::LoadFunctions() {
 
 bool32 AB::GL::LoadExtensions() {
 	bool32 result = true;
-	if (!glXGetProcAddress) {
+	if (!_glXGetProcAddress) {
 		void* libgl = dlopen("libGL.so.1", RTLD_LAZY | RTLD_LOCAL);
 		if (!libgl)
 			return 0;
-		glXGetProcAddress = (def_glXGetProcAddress*)dlsym(libgl, "glXGetProcAddress");
-		if (!glXGetProcAddress) {
+		_glXGetProcAddress = (def_glXGetProcAddress*)dlsym(libgl, "glXGetProcAddress");
+		if (!_glXGetProcAddress) {
 			result = false;
 			return 0;
 		}
 	}
 
 	for (unsigned int i = 0; i < AB_OPENGL_EXTENSIONS_FUNCTIONS_COUNT; i++) {
-		_ABOpenGLExtProcs.procs[i] = (AB_GLFUNCPTR)glXGetProcAddress((const uchar*)EXTprocNames[i]);
+		_ABOpenGLExtProcs.procs[i] = (AB_GLFUNCPTR)_glXGetProcAddress((const uchar*)EXTprocNames[i]);
 		if (_ABOpenGLExtProcs.procs[i] == NULL) {
 			AB_CORE_ERROR("ERROR: Failed to load OpenGL procedure: %s\n", EXTprocNames[i]);
 			result = false;

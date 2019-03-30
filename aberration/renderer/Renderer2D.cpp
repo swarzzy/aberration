@@ -508,7 +508,7 @@ namespace AB {
 		_GLInit((*ptr));
 		(*ptr)->viewSpaceDim = hpm::Vector2{ (float32)drawableSpaceX, (float32)drawableSpaceY };
 		// TODO: TEMPORARY
-		Renderer2DLoadFont("../../../assets/SourceCodePro.abf");
+		Renderer2DLoadFont("../assets/SourceCodePro.abf");
 	}
 
 	void Renderer2DDestroy() {

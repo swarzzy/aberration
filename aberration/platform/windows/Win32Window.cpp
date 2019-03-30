@@ -57,11 +57,12 @@ namespace AB {
 
 	static const char* AB_XINPUT_DLL = "xinput1_3.dll";
 	static const char* WINDOW_CLASS_NAME = "Aberration Engine Win32";
-	static constexpr uint32 GAMEPAD_STATE_ARRAY_SIZE = GAMEPAD_BUTTONS_COUNT * XUSER_MAX_COUNT;
 
 	static constexpr uint32 OPENGL_MAJOR_VERSION = 3;
 	static constexpr uint32 OPENGL_MINOR_VERSION = 3;
 
+	static constexpr uint32 GAMEPAD_STATE_ARRAY_SIZE = GAMEPAD_BUTTONS_COUNT * XUSER_MAX_COUNT;
+	
 	struct GamepadAnalogCtrl {
 		int16 leftStickX;
 		int16 leftStickY;
@@ -132,6 +133,7 @@ namespace AB {
 	}
 
 	void WindowDestroy() {
+		AB_CORE_FATAL("Cannot destroy window for now. System allocator cannot free");
 		auto window = PermStorage()->window;
 		window->running = false;
 		ShowWindow(window->Win32WindowHandle, SW_HIDE);
@@ -578,6 +580,7 @@ namespace AB {
 
 			case WM_SYSKEYDOWN:
 			case WM_KEYDOWN: {
+				// TODO: Repeat counts for now doesnt working on windows
 				uint32 key = _Win32KeyConvertToABKeycode(window, wParam);
 				bool32 state = true;
 				uint16 sys_repeat_count =  AB_KEY_REPEAT_COUNT_FROM_LPARAM(lParam);

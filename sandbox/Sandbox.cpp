@@ -1,13 +1,11 @@
 #include <hypermath.h>
 #include <Aberration.h>
-
 #include "Application.h"
 #include "renderer/Renderer3D.h"
 #include "platform/InputManager.h"
 #include "platform/API/OpenGL/OpenGL.h"
 #include "platform/Memory.h"
 #include "AssetManager.h"
-
 
 int32 mesh;
 int32 mesh2;
@@ -87,7 +85,6 @@ int32 a_h;
 int32 s_h;
 int32 d_h;
 
-
 void Subscribe() {
 	AB::EventQuery w_q = {};
 	w_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED | AB::EVENT_TYPE_KEY_RELEASED;
@@ -119,24 +116,16 @@ void Subscribe() {
 	d_h = AB::InputSubscribeEvent(g_Input, &d_q);
 }
 
-void Unsub() {
-	AB::InputUnsubscribeEvent(g_Input, w_h);
-	AB::InputUnsubscribeEvent(g_Input, a_h);
-	AB::InputUnsubscribeEvent(g_Input, s_h);
-	AB::InputUnsubscribeEvent(g_Input, d_h);
-
-}
-
 AB::Renderer* g_Renderer;
 
 void Init() {
 	g_Renderer = AB::RendererInit();
 	g_Input = AB::InputInitialize();
 	auto asset_mgr = AB::AssetInitialize();
-	mesh = AB::AssetCreateMeshAAB(asset_mgr, "../../../assets/barrels/barrel1.aab");
-	mesh2 = AB::AssetCreateMeshAAB(asset_mgr, "../../../assets/barrels/barrel2.aab");
-	mesh3 = AB::AssetCreateMeshAAB(asset_mgr, "../../../assets/barrels/barrel3.aab");
-	plane = AB::AssetCreateMeshAAB(asset_mgr, "../../../assets/Plane.aab");
+	mesh = AB::AssetCreateMeshAAB(asset_mgr, "../assets/barrels/barrel1.aab");
+	mesh2 = AB::AssetCreateMeshAAB(asset_mgr, "../assets/barrels/barrel2.aab");
+	mesh3 = AB::AssetCreateMeshAAB(asset_mgr, "../assets/barrels/barrel3.aab");
+	plane = AB::AssetCreateMeshAAB(asset_mgr, "../assets/Plane.aab");
 	Subscribe();
 
 	AB::EventQuery tab_q = {};
@@ -179,11 +168,8 @@ void Init() {
 
 	AB::InputSubscribeEvent(g_Input, &m_move_q);
 
-
-
 	AB::EventQuery click = {};
 	click.type = AB::EventType::EVENT_TYPE_MOUSE_BTN_PRESSED| AB::EVENT_TYPE_MOUSE_BTN_RELEASED;
-	//w_q.pass_through = true;
 	click.condition.mouse_button_event.button = AB::MouseButton::Left;
 	click.callback = [](AB::Event e) {
 		if (e.type == AB::EVENT_TYPE_MOUSE_BTN_PRESSED) {
@@ -225,22 +211,6 @@ void Render() {
 	cam_front = hpm::Normalize(cam_front);
 	AB::RendererSetCamera(g_Renderer, cam_front, cam_pos);
 
-	if (AB::InputKeyIsPressed(g_Input, AB::KeyboardKey::Space)) {
-		AB_CORE_INFO("space pressed\n");
-	}
-
-	if (AB::InputKeyIsReleased(g_Input, AB::KeyboardKey::Space)) {
-		AB_CORE_INFO("space released\n");
-	}
-
-	if (AB::InputMouseButtonIsPressed(g_Input, AB::MouseButton::Left)) {
-		AB_CORE_INFO("lb pressed\n");
-	}
-
-	if (AB::InputMouseButtonIsReleased(g_Input, AB::MouseButton::Left)) {
-		AB_CORE_INFO("lb released\n");
-	}
-
 	AB::InputEndFrame(g_Input);
 
 	auto tr = hpm::Translation({ 1, 0, 1 });
@@ -248,23 +218,6 @@ void Render() {
 	AB::RendererSubmit(g_Renderer, mesh2, material, &tr);
 	AB::RendererSubmit(g_Renderer, mesh3, material, &tr);
 	AB::RendererSubmit(g_Renderer, plane, material, &tr);
-
-
-	//AB::Submit(mesh2, material1, &hpm::Translation({ -1, 0, 2 }));
-
-	//DEBUG_OVERLAY_PUSH_VAR("mouse_pos", AB::InputGetMousePosition(g_Input));
-	//DEBUG_OVERLAY_PUSH_SLIDER("pitch", &pitch, -180.0f, 180.0f);
-	//DEBUG_OVERLAY_PUSH_SLIDER("yaw", &yaw, -360.0f, 360.0f);
-
-	//DEBUG_OVERLAY_PUSH_VAR("W", w_h);
-	//DEBUG_OVERLAY_PUSH_VAR("A", a_h);
-	//DEBUG_OVERLAY_PUSH_VAR("S", s_h);
-	//DEBUG_OVERLAY_PUSH_VAR("D", d_h);
-
-
-	//AB::PrintString("%u32\n", alignof(AB::InputManager::EventQuery));
-	//DEBUG_OVERLAY_PUSH_VAR("pitch", pitch);
-	//DEBUG_OVERLAY_PUSH_VAR("yaw", yaw);
 
 	DEBUG_OVERLAY_PUSH_SLIDER("x", &light.direction.x, -1, 1);
 	DEBUG_OVERLAY_PUSH_SLIDER("y", &light.direction.y, -1, 1);
@@ -290,7 +243,6 @@ void Render() {
 	AB::RendererSetDirectionalLight(g_Renderer, &light);
 	AB::RendererSetPointLight(g_Renderer, 0, &plights[0]);
 	AB::RendererSetPointLight(g_Renderer, 1, &plights[1]);
-
 
 	AB::RendererRender(g_Renderer);
 }

@@ -1,6 +1,10 @@
 #include "OBJLoader.h"
 #include "Utils.cpp"
 
+#if defined(AB_PLATFORM_LINUX)
+#include <cctype>
+#endif
+
 namespace AB {
 	
 	struct ParseVertexRet {

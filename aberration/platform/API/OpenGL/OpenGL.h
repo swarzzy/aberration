@@ -28,6 +28,7 @@
  *-------------------------------------------------------------------------
  * This precedes the return type of the function in the function prototype.
  */
+#if !defined(KHRONOS_APICALL)
 #if defined(_WIN32) && !defined(__SCITECH_SNAP__)
 #   define KHRONOS_APICALL __declspec(dllimport)
 #elif defined (__SYMBIAN32__)
@@ -36,6 +37,7 @@
 #   define KHRONOS_APICALL __attribute__((visibility("default")))
 #else
 #   define KHRONOS_APICALL
+#endif
 #endif
 
 /*-------------------------------------------------------------------------

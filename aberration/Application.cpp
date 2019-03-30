@@ -26,6 +26,7 @@ namespace AB {
 		
 		WindowCreate("Aberration", 1280, 720);
 		WindowEnableVSync(true);
+		
 
 		Renderer2DInitialize(1280, 720);
 

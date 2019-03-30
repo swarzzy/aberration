@@ -25,7 +25,7 @@ namespace AB {
 	void WindowSetCloseCallback(PlatformCloseCallback* func);
 	void WindowSetResizeCallback(PlatformResizeCallback* func);
 
-	bool WindowMouseInClientArea();
+	//	bool WindowMouseInClientArea();
 
 	// Currently not working on Linux
 	bool WindowGamepadButtonPressed(uint8 gamepadNumber, GamepadButton button);

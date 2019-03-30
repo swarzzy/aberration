@@ -23,10 +23,6 @@ namespace AB {
 	};
 
 	//
-	// TODO: Maybe there are doesn't need to be an event queue.
-	// Subscriber's callbacks may just be called at the time manager gets event.
-	// So then all events actually will be handled in platform PollEvents method.
-	//
 	// TODO: Data oriented optimizations. Make event structs traversing cache friendly
 	//
 

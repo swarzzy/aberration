@@ -167,7 +167,7 @@ struct ReadFileRet {
 ReadFileRet ReadEntireFile(const char* filename) {
 	uint32 bytesRead = 0;
 	void* ptr = nullptr;
-	*bytesRead = 0;
+	bytesRead = 0;
 	int fileHandle = open(filename, O_RDONLY);
 	if (fileHandle) {
 		off_t fileEnd = lseek(fileHandle, 0, SEEK_END);
@@ -198,7 +198,7 @@ ReadFileRet ReadEntireFile(const char* filename) {
 		return { nullptr, 0 };
 	}
 	close(fileHandle);
-	return { ptr, bytes_read };
+	return { ptr, bytesRead };
 }
 
 bool32 WriteFile(const char* filename, void* data, uint32 dataSize) {
@@ -220,6 +220,50 @@ bool32 WriteFile(const char* filename, void* data, uint32 dataSize) {
 	close(fileHandle);
 	return result;
 }
+
+struct ReadFileAsTextRet {
+	char* data;
+	uint64 size;
+};
+
+ReadFileAsTextRet ReadEntireFileAsText(const char* filename) {
+	char* ptr = nullptr;
+	uint32 bytesRead = 0;
+	int fileHandle = open(filename, O_RDONLY);
+	if (fileHandle) {
+		off_t fileEnd = lseek(fileHandle, 0, SEEK_END);
+		if (fileEnd) {
+			lseek(fileHandle, 0, SEEK_SET);
+			void* data = std::malloc(fileEnd + 1);
+			if (data) {
+				ssize_t result = read(fileHandle, data, fileEnd);
+				if (result == fileEnd) {
+					ptr = (char*)data;
+					ptr[fileEnd + 1] = '\0';
+					// NOTE: read can read less than fileEnd bytes
+					bytesRead = (uint32)(fileEnd + 1);
+				}
+				else {
+					std::free(data);
+					printf("File reading error. File: %s. Failed read data from file", filename);
+				}
+			}
+			else {
+				printf("File reading error. File: %s. Memory allocation failed", filename);
+			}
+		}
+		else {
+			printf("File reading error. File: %s", filename);
+		}
+	}
+	else {
+		printf("File reading error. File: %s. Failed to open file.", filename);
+		return {};
+	}
+	close(fileHandle);
+	return {ptr, bytesRead};
+}
+
 #else
 #error Unsupported platform.
 #endif

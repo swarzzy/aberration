@@ -3,15 +3,15 @@
 BuildTools=false
 
 project/ctime -begin _misc/ab_ctime.ctm
-ObjOutDir=build/obj/Debug-windows/
-BinOutDir=build/bin/Debug-windows/
+ObjOutDir=build/obj/
+BinOutDir=build/
 
 IncludeDirs="-Iaberration -Ihypermath"
 CommonDefines="-DAB_CONFIG_DEBUG -DAB_PLATFORM_WINDOWS -D_CRT_SECURE_NO_WARNINGS" 
 LibDefines="-DAB_BUILD_DLL -DWIN32_LEAN_AND_MEAN"
 CommonCompilerFlags="-std=c++17 -ffast-math -fno-rtti -fno-exceptions -static-libgcc -static-libstdc++ -fno-strict-aliasing -Werror"
-DebugCompilerFlags="-O0 -fno-inline-functions"
-ReleaseCompilerFlags="-O2 -finline-functions"
+DebugCompilerFlags="-O0 -fno-inline-functions -g"
+ReleaseCompilerFlags="-O2 -finline-functions -g"
 LibLinkerFlags="-lgdi32 -lopengl32"
 AppLinkerFlags="-L$BinOutDir/ -laberration"
 

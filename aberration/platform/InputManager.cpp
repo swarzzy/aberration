@@ -61,6 +61,7 @@ namespace AB {
 
 	void PlatformMouseButtonCallback(MouseButton button, bool32 state) {
 		auto* mgr = PermStorage()->input_manager;
+
 		if (mgr) {
 			MouseButtons* btns = mgr->mouse_buttons;
 			byte btn_idx = (byte)button;
@@ -84,6 +85,7 @@ namespace AB {
 
 	void PlatformMouseCallback(uint32 x_pos, uint32 y_pos) {
 		auto* mgr = PermStorage()->input_manager;
+
 		if (mgr) {
 			if (mgr->mouse_mode == MouseMode::Captured) {
 				if (mgr->window_active) {
