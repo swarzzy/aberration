@@ -6,7 +6,6 @@ configuration:
 - Release
 - Distrib
 platform: Windows
-before_build:
-  - cmd: call project\premake\premake5.exe vs2017
 build:
-  project: Aberration.sln
+  - cmd: call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
+  - cmd: project\build.bat
