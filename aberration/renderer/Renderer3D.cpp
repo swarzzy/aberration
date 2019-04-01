@@ -6,6 +6,26 @@
 #include "AssetManager.h"
 
 namespace AB {
+
+	// TODO: Inverse matrices in shaders might be too heavy.
+	// Especially for skyboxes
+	static constexpr char SKYBOX_VERTEX_PROGRAM[] = R"(
+out Vector3 skyboxUV;
+void main() {
+Matrix4 invProj = inverse(sys_ProjectionMatrix);
+Matrix3 invView = Matrix3(inverse(sys_ViewMatrix));
+skyboxUV = invView * (invProj * Vector4(v_Position, 1.0f)).xyz;
+out_Position = Vector4(v_Position.x, v_Position.y, 1.0f, 1.0f);
+}
+)";
+	static constexpr char SKYBOX_FRAGMENT_PROGRAM[] = R"(
+in Vector3 skyboxUV;
+uniform samplerCube skybox;
+void main() {
+out_FragColor = texture(skybox, skyboxUV);
+}
+)";
+
 	
 	struct DrawCommand {
 		int32 mesh_handle;
@@ -37,10 +57,14 @@ namespace AB {
 //#pragma pack(pop)
 
 	static constexpr int32 DRAW_BUFFER_SIZE = 256;
-	static constexpr uint32 SYSTEM_UBO_SIZE = sizeof(Matrix4) * 2 + sizeof(Vector4);
+	static constexpr uint32 SYSTEM_UBO_SIZE = sizeof(Matrix4) * 4 + sizeof(Vector4);
 	static constexpr uint32 SYSTEM_UBO_VERTEX_OFFSET = 0;
-	static constexpr uint32 SYSTEM_UBO_VERTEX_SIZE = sizeof(Matrix4) * 2;
-	static constexpr uint32 SYSTEM_UBO_FRAGMENT_OFFSET = sizeof(Matrix4) * 2;
+	static constexpr uint32 SYSTEM_UBO_VERTEX_SIZE = sizeof(Matrix4) * 4;
+	static constexpr uint32 SYSTEM_UBO_VERTEX_VIEWPROJ_OFFSET = 0;
+	static constexpr uint32 SYSTEM_UBO_VERTEX_VIEW_OFFSET = sizeof(Matrix4) * 1;
+	static constexpr uint32 SYSTEM_UBO_VERTEX_PROJ_OFFSET = sizeof(Matrix4) * 2;
+	static constexpr uint32 SYSTEM_UBO_VERTEX_NORMAL_OFFSET = sizeof(Matrix4) * 3;
+	static constexpr uint32 SYSTEM_UBO_FRAGMENT_OFFSET = sizeof(Matrix4) * 4;
 	static constexpr uint32 SYSTEM_UBO_FRAGMENT_SIZE= sizeof(Vector4);
 
 	static constexpr uint32 POINT_LIGHTS_NUMBER = 2;
@@ -51,6 +75,9 @@ namespace AB {
 	struct Renderer {
 		uint32 vertexSystemUBHandle;
 		uint32 pointLightUBHandle;
+		int32 skyboxHandle;
+		int32 skyboxProgramHandle;
+		uint32 skyboxVB;
 		int32 program_handle;
 		uint32 draw_buffer_at;
 		DrawCommand draw_buffer[DRAW_BUFFER_SIZE];
@@ -74,18 +101,22 @@ namespace AB {
 )";
 
 		const char* vertexShaderHeader = R"(
+#define out_Position gl_Position
 layout (location = 0) in Vector3 v_Position;
 layout (location = 1) in Vector2 v_UV;
 layout (location = 2) in Vector3 v_Normal;
 
 layout (std140) uniform _vertexSystemUniformBlock {
 Matrix4 sys_ViewProjMatrix;
+Matrix4 sys_ViewMatrix;
+Matrix4 sys_ProjectionMatrix;
 Matrix4 sys_NormalMatrix;
 };
 uniform Matrix4 sys_ModelMatrix;
 )";
 
 		const char* fragmentShaderHeader = R"(
+out vec4 out_FragColor;
 layout(std140) uniform _fragmentSystemUniformBlock {
 Vector3 sys_ViewPos;};
 )";
@@ -205,6 +236,23 @@ Vector3 sys_ViewPos;};
 		return resultHandle;
 	}
 
+	
+	static void BindSystemUniformBuffer(Renderer* renderer, int32 programHandle) {
+		uint32 sysUBOVertexIndex;
+		GLCall(sysUBOVertexIndex = glGetUniformBlockIndex(programHandle,
+														  "_vertexSystemUniformBlock"));
+		GLCall(glUniformBlockBinding(programHandle, sysUBOVertexIndex, 0));
+		GLCall(glBindBufferRange(GL_UNIFORM_BUFFER, 0, renderer->vertexSystemUBHandle,
+								 SYSTEM_UBO_VERTEX_OFFSET, SYSTEM_UBO_VERTEX_SIZE));
+
+		uint32 sysUBOFragIndex;
+		GLCall(sysUBOFragIndex = glGetUniformBlockIndex(programHandle,
+														"_fragmentSystemUniformBlock"));
+		GLCall(glUniformBlockBinding(programHandle, sysUBOFragIndex, 1));
+		GLCall(glBindBufferRange(GL_UNIFORM_BUFFER, 1, renderer->vertexSystemUBHandle,
+								 SYSTEM_UBO_FRAGMENT_OFFSET, SYSTEM_UBO_FRAGMENT_SIZE));
+	}  	
+
 
 	static uint32 LoadTexture(const char* filepath) {
 		Image image = LoadBMP(filepath);
@@ -275,11 +323,30 @@ Vector3 sys_ViewPos;};
 		DebugFreeFileMemory(vertexSource);
 		DebugFreeFileMemory(fragmentSource);
 
-
+		props->skyboxProgramHandle = RendererCreateProgram(SKYBOX_VERTEX_PROGRAM,
+														   SKYBOX_FRAGMENT_PROGRAM);
+		float32 fullscreenQuadVertices[18] = {
+			-1.0f,  -1.0f, 0.0f,
+			-1.0f, 1.0f, 0.0f,
+			1.0f, 1.0f, 0.0f,
+			1.0f, 1.0f, 0.0f,
+			1.0f,  -1.0f, 0.0f,
+			-1.0f, -1.0f, 0.0f
+		};
+			
+		GLCall(glGenBuffers(1, &props->skyboxVB));
+		GLCall(glBindBuffer(GL_ARRAY_BUFFER, props->skyboxVB));
+		GLCall(glBufferData(GL_ARRAY_BUFFER, 18 * sizeof(float32), fullscreenQuadVertices, GL_STATIC_DRAW));
+		GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
+		
 		props->projection = hpm::PerspectiveRH(45.0f, 16.0f / 9.0f, 0.1f, 100.0f);
 		AB::GetMemory()->perm_storage.forward_renderer = props;
 
 		return props;
+	}
+
+	void RendererSetSkybox(Renderer* renderer, int32 cubemapHandle) {
+		renderer->skyboxHandle = cubemapHandle;
 	}
 
 	void RendererSetDirectionalLight(Renderer* renderer, const DirectionalLight* light) {
@@ -306,29 +373,40 @@ Vector3 sys_ViewPos;};
 		}
 	}
 
+	static void DrawSkybox(Renderer* renderer) {
+		if (renderer->skyboxHandle) {
+			GLCall(glEnable(GL_DEPTH_TEST));
+			GLCall(glDepthMask(GL_FALSE));
+			AB_GLCALL(glDepthFunc(GL_LEQUAL));
+			GLCall(glUseProgram(renderer->skyboxProgramHandle));
+			GLCall(glActiveTexture(GL_TEXTURE0));
+			GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, renderer->skyboxHandle));
+			GLCall(glUniform1i(glGetUniformLocation(renderer->skyboxProgramHandle,
+													"skybox"), 0));
+			BindSystemUniformBuffer(renderer, renderer->skyboxProgramHandle);
+			GLCall(glBindBuffer(GL_ARRAY_BUFFER, renderer->skyboxVB));
+			GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(hpm::Vector3), (void*)0));
+			GLCall(glEnableVertexAttribArray(0));
+			GLCall(glDrawArrays(GL_TRIANGLES, 0, 6));
+			GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
+			GLCall(glUseProgram(0));
+		}
+	}
+	
 	void RendererRender(Renderer* renderer) {
 
-		GLCall(glUseProgram(renderer->program_handle));
-		uint32 sysUBOVertexIndex;
-		GLCall(sysUBOVertexIndex = glGetUniformBlockIndex(renderer->program_handle, "_vertexSystemUniformBlock"));
-		GLCall(glUniformBlockBinding(renderer->program_handle, sysUBOVertexIndex, 0));
-		GLCall(glBindBufferRange(GL_UNIFORM_BUFFER, 0, renderer->vertexSystemUBHandle, SYSTEM_UBO_VERTEX_OFFSET, SYSTEM_UBO_VERTEX_SIZE));
-
-		uint32 sysUBOFragIndex;
-		GLCall(sysUBOFragIndex = glGetUniformBlockIndex(renderer->program_handle, "_fragmentSystemUniformBlock"));
-		GLCall(glUniformBlockBinding(renderer->program_handle, sysUBOFragIndex, 1));
-		GLCall(glBindBufferRange(GL_UNIFORM_BUFFER, 1, renderer->vertexSystemUBHandle, SYSTEM_UBO_FRAGMENT_OFFSET, SYSTEM_UBO_FRAGMENT_SIZE));
-
-		uint32 pointLightsUBOIndex;
-		GLCall(pointLightsUBOIndex = glGetUniformBlockIndex(renderer->program_handle, "pointLightsData"));
-		GLCall(glUniformBlockBinding(renderer->program_handle, pointLightsUBOIndex, 2));
-		GLCall(glBindBufferBase(GL_UNIFORM_BUFFER, 2, renderer->pointLightUBHandle));
+		// TODO: Temporary setting culling here
+		GLCall(glDisable(GL_CULL_FACE));
+		GLCall(glCullFace(GL_BACK));
+		GLCall(glFrontFace(GL_CCW));
 
 		Matrix4 viewProj = Multiply(renderer->projection, renderer->camera.look_at);
 		hpm::Vector3* view_pos = &renderer->camera.position;
 
 		GLCall(glBindBuffer(GL_UNIFORM_BUFFER, renderer->vertexSystemUBHandle));
-		GLCall(glBufferSubData(GL_UNIFORM_BUFFER, SYSTEM_UBO_VERTEX_OFFSET, SYSTEM_UBO_VERTEX_SIZE - sizeof(Matrix4), viewProj.data));
+		GLCall(glBufferSubData(GL_UNIFORM_BUFFER, SYSTEM_UBO_VERTEX_VIEWPROJ_OFFSET, sizeof(Matrix4), viewProj.data));
+		GLCall(glBufferSubData(GL_UNIFORM_BUFFER, SYSTEM_UBO_VERTEX_VIEW_OFFSET, sizeof(Matrix4), renderer->camera.look_at.data));
+		GLCall(glBufferSubData(GL_UNIFORM_BUFFER, SYSTEM_UBO_VERTEX_PROJ_OFFSET, sizeof(Matrix4), renderer->projection.data));
 		GLCall(glBufferSubData(GL_UNIFORM_BUFFER, SYSTEM_UBO_FRAGMENT_OFFSET, SYSTEM_UBO_FRAGMENT_SIZE, view_pos->data));
 		GLCall(glBindBuffer(GL_UNIFORM_BUFFER, 0));
 
@@ -348,6 +426,21 @@ Vector3 sys_ViewPos;};
 		GLCall(glBindBuffer(GL_UNIFORM_BUFFER, 0));
 
 		GLCall(glUniformMatrix4fv(glGetUniformLocation(renderer->program_handle, "sys_ViewProjMatrix"), 1, GL_FALSE, viewProj.data));
+		
+		DrawSkybox(renderer);
+		
+		GLCall(glEnable(GL_DEPTH_TEST));
+		GLCall(glDepthMask(GL_TRUE));
+		GLCall(glDepthFunc(GL_LESS));
+		
+		GLCall(glUseProgram(renderer->program_handle));
+
+		BindSystemUniformBuffer(renderer, renderer->program_handle);
+		
+		uint32 pointLightsUBOIndex;
+		GLCall(pointLightsUBOIndex = glGetUniformBlockIndex(renderer->program_handle, "pointLightsData"));
+		GLCall(glUniformBlockBinding(renderer->program_handle, pointLightsUBOIndex, 2));
+		GLCall(glBindBufferBase(GL_UNIFORM_BUFFER, 2, renderer->pointLightUBHandle));
 
 		//GLCall(glUniformMatrix4fv(glGetUniformLocation(renderer->program_handle, "projection"), 1, GL_FALSE, renderer->projection.data));
 		//GLCall(glUniformMatrix4fv(glGetUniformLocation(renderer->program_handle, "view"), 1, GL_FALSE, renderer->camera.look_at.data));
@@ -394,8 +487,6 @@ Vector3 sys_ViewPos;};
 			GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->api_ib_handle));
 
 #endif
-			GLCall(glEnable(GL_DEPTH_TEST));
-			
 			GLCall(glUniform3fv(glGetUniformLocation(renderer->program_handle, "material.ambinet"), 1,  mesh->material->ambient.data));
 			GLCall(glUniform3fv(glGetUniformLocation(renderer->program_handle, "material.diffuse"), 1, mesh->material->diffuse.data));
 			GLCall(glUniform3fv(glGetUniformLocation(renderer->program_handle, "material.specular"), 1, mesh->material->specular.data));
@@ -408,7 +499,7 @@ Vector3 sys_ViewPos;};
 			Matrix4 normalMatrix = Transpose(inv);
 		
 			GLCall(glBindBuffer(GL_UNIFORM_BUFFER, renderer->vertexSystemUBHandle));
-			GLCall(glBufferSubData(GL_UNIFORM_BUFFER, SYSTEM_UBO_VERTEX_OFFSET + sizeof(Matrix4), SYSTEM_UBO_VERTEX_SIZE - sizeof(Matrix4), normalMatrix.data));
+			GLCall(glBufferSubData(GL_UNIFORM_BUFFER, SYSTEM_UBO_VERTEX_NORMAL_OFFSET, sizeof(Matrix4), normalMatrix.data));
 			GLCall(glBindBuffer(GL_UNIFORM_BUFFER, 0));
 			
 			GLCall(glActiveTexture(GL_TEXTURE0));

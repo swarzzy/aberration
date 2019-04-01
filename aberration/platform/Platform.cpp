@@ -2,7 +2,8 @@
 #include "Memory.cpp"
 #include "Common.cpp"
 
-#include "platform/API/OpenGL/OpenGL.cpp"
+#include "API/GraphicsAPI.cpp"
+#include "API/OpenGL/OpenGL.cpp"
 
 #if defined(AB_PLATFORM_WINDOWS)
 #include "windows/Win32Common.cpp"

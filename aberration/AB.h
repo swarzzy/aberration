@@ -65,3 +65,33 @@ union Color {
 #elif defined(AB_PLATFORM_LINUX)
 #define AB_DEBUG_BREAK() __builtin_debugtrap()
 #endif
+
+inline uint32 SafeCastU64U32(uint64 val) {
+	// TODO: Logging
+	if (val > 0xffffffff) {
+		AB_DEBUG_BREAK();
+		return 0;
+	} else {
+		return (uint32)val;
+	}
+}
+
+inline int32 SafeCastIntI32(int val) {
+	if (sizeof(int) <= sizeof(uint32)) {
+		return (uint32)val;
+	} else if (val <= 0xffffffff) {
+		return (uint32)val;
+	} else {
+		AB_DEBUG_BREAK();
+		return 0;
+	}
+}
+
+inline int SafeCastI32Int(int32 val) {
+	if (sizeof(int) >= sizeof(uint32)) {
+		return (int)val;
+	}
+	// TODO: Not aborting if int actually can hold the value 
+	AB_DEBUG_BREAK();
+	return 0;
+}

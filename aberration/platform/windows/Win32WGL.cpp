@@ -13,11 +13,13 @@ namespace AB::Win32 {
 			return 0;
 
 		const char* extensions = wglGetExtensionsStringARB(windowDC);
-		if (!std::strstr(extensions, "WGL_ARB_pixel_format"))
+		if (!strstr(extensions, "WGL_ARB_pixel_format"))
 			return 0;
-		if (!std::strstr(extensions, "WGL_ARB_create_context_profile"))
+		if (!strstr(extensions, "WGL_ARB_create_context_profile"))
 			return 0;
-		if (!std::strstr(extensions, "EXT_swap_control"))
+		if (!strstr(extensions, "EXT_swap_control"))
+			return 0;
+		if (!strstr(extensions, "WGL_ARB_multisample"))
 			return 0;
 
 		_wglProcs.ptr_wglChoosePixelFormatARB = reinterpret_cast<_proc_wglChoosePixelFormatARB*>(wglGetProcAddress("wglChoosePixelFormatARB"));

@@ -22,6 +22,7 @@ namespace AB {
 	};
 
 	AB_API Renderer* RendererInit();
+	AB_API void RendererSetSkybox(Renderer* renderer, int32 cubemapHandle);
 	AB_API void RendererSetDirectionalLight(Renderer* renderer, const DirectionalLight* light);
 	AB_API void RendererSetPointLight(Renderer* renderer, uint32 index, PointLight* light);
 	//AB_API int32 CreateMaterial(const char* diff_path, const char* spec_path, float32 shininess);

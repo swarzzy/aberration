@@ -724,6 +724,9 @@ namespace AB {
 		SortEntry* sortedBuffer = SortQueue(renderer);
 		GenVertexAndBatchBuffers(renderer, sortedBuffer);
 		GLCall(glDisable(GL_DEPTH_TEST));
+		// TODO: Temporary disabling face culling here.
+		// Because font using wrong CW vertex order
+		GLCall(glDisable(GL_CULL_FACE));
 		GLCall(glClearColor(0.2f, 0.3f, 0.3f, 1.0f));
 		// TODO: Requires GL_LESS Depth test with clear to 0.0 and range 0.0 - 1.0
 		//GLCall(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));

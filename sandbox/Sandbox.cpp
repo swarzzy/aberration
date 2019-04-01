@@ -6,7 +6,8 @@
 #include "platform/API/OpenGL/OpenGL.h"
 #include "platform/Memory.h"
 #include "AssetManager.h"
-
+#include "platform/API/GraphicsAPI.h"
+#include "utils/ImageLoader.h"
 int32 mesh;
 int32 mesh2;
 int32 mesh3;
@@ -128,6 +129,17 @@ void Init() {
 	plane = AB::AssetCreateMeshAAB(asset_mgr, "../assets/Plane.aab");
 	Subscribe();
 
+	AB::Image px = AB::LoadBMP("../assets/cubemap/posx.bmp");
+	AB::Image nx = AB::LoadBMP("../assets/cubemap/negx.bmp");
+	AB::Image py = AB::LoadBMP("../assets/cubemap/posy.bmp");
+	AB::Image ny = AB::LoadBMP("../assets/cubemap/negy.bmp");
+	AB::Image pz = AB::LoadBMP("../assets/cubemap/posz.bmp");
+	AB::Image nz = AB::LoadBMP("../assets/cubemap/negz.bmp");
+
+	AB::API::TextureParameters p = {AB::API::TextureFilter::Linear, AB::API:: TextureWrapMode::ClampToEdge};
+	uint32 cubemap = AB::API::CreateCubemap(p, px, nx, py, ny, pz, nz);
+	AB::RendererSetSkybox(g_Renderer, cubemap);
+	
 	AB::EventQuery tab_q = {};
 	tab_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED;
 	//tab_q.pass_through = true;
@@ -214,10 +226,10 @@ void Render() {
 	AB::InputEndFrame(g_Input);
 
 	auto tr = hpm::Translation({ 1, 0, 1 });
+	AB::RendererSubmit(g_Renderer, plane, material, &tr);
 	AB::RendererSubmit(g_Renderer, mesh, material, &tr);
 	AB::RendererSubmit(g_Renderer, mesh2, material, &tr);
 	AB::RendererSubmit(g_Renderer, mesh3, material, &tr);
-	AB::RendererSubmit(g_Renderer, plane, material, &tr);
 
 	DEBUG_OVERLAY_PUSH_SLIDER("x", &light.direction.x, -1, 1);
 	DEBUG_OVERLAY_PUSH_SLIDER("y", &light.direction.y, -1, 1);

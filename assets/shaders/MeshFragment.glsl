@@ -75,11 +75,14 @@ void main()
 	vec3 viewDir = normalize(sys_ViewPos - f_Position);
 
 	vec3 diffSample;
-	vec3 alpha = vec3(1.0f);
+	float32 alpha;
 	if (material.use_diff_map) {
-		diffSample = texture(material.diffuse_map, f_UV).xyz;
+		Vector4 _sample = texture(material.diffuse_map, f_UV); 
+		diffSample = _sample.rgb;
+		alpha = _sample.a;
 	} else {
 		diffSample = material.diffuse;
+		alpha = 1.0f;
 	}
 
 	vec3 specSample;

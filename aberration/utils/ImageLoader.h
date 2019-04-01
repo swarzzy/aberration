@@ -17,7 +17,7 @@ namespace AB {
 		byte* bitmap;
 	};
 
-	Image LoadBMP(const char* filename);
+	AB_API Image LoadBMP(const char* filename);
 	void DeleteBitmap(void* ptr);
 
 #pragma pack(push, 1)
