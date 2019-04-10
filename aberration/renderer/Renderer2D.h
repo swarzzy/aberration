@@ -39,11 +39,11 @@ namespace AB {
 
 	uint16 Renderer2DLoadTexture(const char* filepath);
 	// TODO: Make enum for texture formats
-	uint16 Renderer2DLoadTextureFromBitmap(PixelFormat format, uint32 width, uint32 height, const byte* bitmap);
+	uint16 Renderer2DLoadTextureFromBitmap(API::TextureFormat format, uint32 width, uint32 height, const byte* bitmap);
 	void Renderer2DFreeTexture(uint16 handle);
 	uint16 Renderer2DTextureCreateRegion(uint16 handle, hpm::Vector2 min, hpm::Vector2 max);
 	// TODO: TextureDeleteRegion
-	PixelFormat Renderer2DGetTextureFormat(uint16 handle);
+	API::TextureFormat Renderer2DGetTextureFormat(uint16 handle);
 	void Renderer2DFillRectangleColor(hpm::Vector2 position, uint16 depth, float32 angle, float32 anchor, hpm::Vector2 size, color32 color);
 	void Renderer2DFillRectangleTexture(hpm::Vector2 position, uint16 depth, float32 angle, float32 anchor, hpm::Vector2 size, uint16 textureHandle);
 

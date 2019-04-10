@@ -2,10 +2,13 @@
 
 set BuildTools=FALSE
 
-
-project\ctime -begin _misc\ab_ctime.ctm
 set ObjOutDir=build\obj\
 set BinOutDir=build\
+
+IF NOT EXIST %BinOutDir% mkdir %BinOutDir%
+IF NOT EXIST %ObjOutDir% mkdir %ObjOutDir%
+
+project\ctime -begin build\ab_ctime.ctm
 
 set IncludeDirs=/Iaberration /Ihypermath
 set CommonDefines=/DAB_CONFIG_DEBUG /DAB_PLATFORM_WINDOWS /D_CRT_SECURE_NO_WARNINGS 
@@ -18,9 +21,6 @@ set AppLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64
 
 set ConfigCompilerFlags=%DebugCompilerFlags%
 
-IF NOT EXIST %BinOutDir% mkdir %BinOutDir%
-IF NOT EXIST %ObjOutDir% mkdir %ObjOutDir%
-
 cl /MP /W3 /Fo%ObjOutDir% %CommonDefines% %LibDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% aberration\ab.cpp /LD /link %LibLinkerFlags%
 
 cl /MP /W3 /Fo%ObjOutDir% %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% sandbox\sandbox.cpp /link %AppLinkerFlags% /OUT:%BinOutDir%\Sandbox.exe /PDB:%BinOutDir%\Sandbox.pdb %BinOutDir%\Aberration.lib
@@ -30,4 +30,4 @@ IF %BuildTools%==TRUE (
 	cl /MP /W3 /Fo%ObjOutDir% %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% tools\FontPreprocessor\FontPreprocessor.cpp /link %AppLinkerFlags% /OUT:%BinOutDir%\FontPreprocessor.exe /PDB:%BinOutDir%\FontPreprocessor.pdb
 )
 
-project\ctime -end _misc\ab_ctime.ctm
+project\ctime -end build\ab_ctime.ctm

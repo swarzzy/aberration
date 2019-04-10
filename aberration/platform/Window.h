@@ -9,8 +9,7 @@ namespace AB {
 	typedef void(PlatformGamepadStickCallback)(uint8 gpNumber, int16 xLs, int16 yLs, int16 xRs, int16 yRs);
 	typedef void(PlatformGamepadTriggerCallback)(uint8 gpNumber, byte lt, byte rt);
 
-	void WindowCreate(const char* title, uint32 width, uint32 height,
-					  bool32 multisampling, uint32 samplesCount);
+	void WindowCreate(const char* title, uint32 width, uint32 height);
 	void WindowDestroy();
 	void WindowClose();
 	bool WindowIsOpen();

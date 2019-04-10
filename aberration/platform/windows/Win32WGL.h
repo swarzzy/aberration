@@ -31,6 +31,8 @@ extern "C" {
 #define	WGL_SAMPLE_BUFFERS_ARB            0x2041
 #define	WGL_SAMPLES_ARB                   0x2042
 
+#define WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB  0x20A9
+
 #define GL_SHADING_LANGUAGE_VERSION       0x8B8C
 
 	typedef const char* APIENTRY _proc_wglGetExtensionsStringARB(HDC);

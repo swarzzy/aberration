@@ -24,7 +24,7 @@ namespace AB {
 	void AppRun(Application* app) {
 		AB_CORE_INFO("Aberration engine");
 		
-		WindowCreate("Aberration", 1280, 720, true, 4);
+		WindowCreate("Aberration", 1280, 720);
 		WindowEnableVSync(true);
 		
 

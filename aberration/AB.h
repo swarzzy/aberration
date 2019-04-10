@@ -61,7 +61,8 @@ union Color {
 #define AB_BIT(shift) (1 << shift)
 
 #if defined(AB_PLATFORM_WINDOWS)
-#define AB_DEBUG_BREAK() __debugbreak()
+// TODO: Make this work
+#define AB_DEBUG_BREAK()  *(byte *)(0)//__debugbreak()
 #elif defined(AB_PLATFORM_LINUX)
 #define AB_DEBUG_BREAK() __builtin_debugtrap()
 #endif
@@ -77,7 +78,18 @@ inline uint32 SafeCastU64U32(uint64 val) {
 }
 
 inline int32 SafeCastIntI32(int val) {
-	if (sizeof(int) <= sizeof(uint32)) {
+	if (sizeof(int) <= sizeof(int32)) {
+		return (int32)val;
+	} else if (val <= 0xffffffff) {
+		return (int32)val;
+	} else {
+		AB_DEBUG_BREAK();
+		return 0;
+	}
+}
+
+inline uint32 SafeCastUintU32(unsigned int val) {
+	if (sizeof(unsigned int) <= sizeof(uint32)) {
 		return (uint32)val;
 	} else if (val <= 0xffffffff) {
 		return (uint32)val;

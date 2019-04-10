@@ -60,7 +60,7 @@ namespace hpm {
 		return sqrtf(num);
 	}
 
-#if 0
+#if 1
 	
 	HPM_INLINE int32 Abs(int32 val) {
 		return val > 0 ? val : -val;
@@ -78,14 +78,16 @@ namespace hpm {
 		return val > 0 ? val : -val;
 	}
 
-#endif
+#else
 
 	// TODO: This is temporary. Because clang for some reason complains on overloads.
 
 	template<typename T>
-	HPM_INLINE T Abs(T val) {
+		HPM_INLINE T Abs(T val) {
 		return val > 0 ? val : -val;
 	}
+
+#endif
 
 	
 	HPM_INLINE constexpr float32 ToDegrees(float32 radians) {
@@ -360,6 +362,24 @@ namespace hpm {
 		result._32 = m._32;
 		result._33 = m._33;
 		
+		return result;
+	}
+
+	HPM_INLINE Matrix4 HPM_CALL GetMatrix4(Matrix3 m) {
+		Matrix4 result = {};
+
+		
+		result._11 = m._11;
+		result._12 = m._12;
+		result._13 = m._13;
+		result._21 = m._21;
+		result._22 = m._22;
+		result._23 = m._23;
+		result._31 = m._31;
+		result._32 = m._32;
+		result._33 = m._33;
+		result._44 = 1.0f;
+
 		return result;
 	}
 

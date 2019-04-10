@@ -6,7 +6,7 @@
 
 namespace AB {
 	
-	Image LoadBMP(const char* filename) {
+	Image LoadBMP(const char* filename, API::ColorSpace cs) {
 		Image image = {};
 		uint32 dataSize;
 		byte* data = (byte*)AB::DebugReadFile(filename, &dataSize);
@@ -104,7 +104,14 @@ namespace AB {
 		*((uintptr*)image.bitmap - 1) = (uintptr)data;
 
 		if (bitsPerPixel == 32) {
-			image.format = PixelFormat::RGBA;
+			if (cs == API::TEX_COLOR_SPACE_SRGB) {
+				image.format = API::TEX_FORMAT_SRGB8_A8;				
+			} else if (cs == API::TEX_COLOR_SPACE_LINEAR) {
+				image.format = API::TEX_FORMAT_RGBA8;				
+			} else {
+				AB_CORE_FATAL("Invalid color space.");
+			}
+			
 			image.bit_per_pixel = bitsPerPixel;
 			for (int64 i = 0; i < image.height * image.width; i++) {
 				uint32 tmp;
@@ -119,7 +126,14 @@ namespace AB {
 			}
 		}
 		else if (bitsPerPixel == 24) {
-			image.format = PixelFormat::RGB;
+			if (cs == API::TEX_COLOR_SPACE_SRGB) {
+				image.format = API::TEX_FORMAT_SRGB8;				
+			} else if (cs == API::TEX_COLOR_SPACE_LINEAR) {
+				image.format = API::TEX_FORMAT_RGB8;				
+			} else {
+				AB_CORE_FATAL("Invalid color space.");
+			}
+			
 			image.bit_per_pixel = bitsPerPixel;
 			for (int64 i = 0; i < (image.height * image.width * 3) - 3; i += 3) {
 				byte* pixel = ((byte*)image.bitmap) + i;

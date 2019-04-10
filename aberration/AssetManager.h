@@ -41,6 +41,11 @@ namespace AB {
 		char* name;
 	};
 
+	enum class MapType : uint32 {
+		Diffuse,
+		Specular
+    };
+	
 	struct AssetManager {
 		byte mesh_storage_usage[MESH_STORAGE_CAPACITY];
 		byte texture_storage_usage[TEXTURE_STORAGE_CAPACITY];
@@ -55,8 +60,10 @@ namespace AB {
 	};
 
 	AB_API AssetManager* AssetInitialize();
-	AB_API int32 AssetCreateTexture(AssetManager* mgr, byte* bitmap, uint16 w, uint16 h, uint32 bits_per_pixel, const char* name);
-	AB_API int32 AssetCreateTextureBMP(AssetManager* mgr, const char* bmp_path);
+	AB_API int32 AssetCreateTexture(AssetManager* mgr, byte* bitmap,
+									uint16 w, uint16 h, uint32 bits_per_pixel,
+									const char* name, MapType mapType);
+	AB_API int32 AssetCreateTextureBMP(AssetManager* mgr, const char* bmp_path, MapType mapType);
 	AB_API int32 AssetCreateMesh(AssetManager* mgr, uint32 number_of_vertices, hpm::Vector3* positions, hpm::Vector2* uvs, hpm::Vector3* normals, uint32 num_of_indices, uint32* indices, Material* material);
 	AB_API int32 AssetCreateMeshAAB(AssetManager* mgr, const char* aab_path);
 	Mesh* AssetGetMeshData(AssetManager* mgr, int32 mesh_handle);

@@ -1513,15 +1513,18 @@ typedef void            (APIENTRYP PFNGLVERTEXATTRIBP4UIVPROC) (GLuint index, GL
 #define MAX_VERTEX_STREAMS                               0x8E71
 
 // GL_ARB_shader_subroutine
-#define ACTIVE_SUBROUTINES                               0x8DE5
-#define ACTIVE_SUBROUTINE_UNIFORMS                       0x8DE6
-#define ACTIVE_SUBROUTINE_UNIFORM_LOCATIONS              0x8E47
-#define ACTIVE_SUBROUTINE_MAX_LENGTH                     0x8E48
-#define ACTIVE_SUBROUTINE_UNIFORM_MAX_LENGTH             0x8E49
-#define MAX_SUBROUTINES                                  0x8DE7
-#define MAX_SUBROUTINE_UNIFORM_LOCATIONS                 0x8DE8
-#define NUM_COMPATIBLE_SUBROUTINES                       0x8E4A
-#define COMPATIBLE_SUBROUTINES                           0x8E4B
+#define GL_ACTIVE_SUBROUTINES                               0x8DE5
+#define GL_ACTIVE_SUBROUTINE_UNIFORMS                       0x8DE6
+#define GL_ACTIVE_SUBROUTINE_UNIFORM_LOCATIONS              0x8E47
+#define GL_ACTIVE_SUBROUTINE_MAX_LENGTH                     0x8E48
+#define GL_ACTIVE_SUBROUTINE_UNIFORM_MAX_LENGTH             0x8E49
+#define GL_MAX_SUBROUTINES                                  0x8DE7
+#define GL_MAX_SUBROUTINE_UNIFORM_LOCATIONS                 0x8DE8
+#define GL_NUM_COMPATIBLE_SUBROUTINES                       0x8E4A
+#define GL_COMPATIBLE_SUBROUTINES                           0x8E4B
+
+// ARB_framebuffer_sRGB
+#define GL_FRAMEBUFFER_SRGB                                  0x8DB9
 
 typedef GLint  (APIENTRYP PFNGLGETSUBROUTINEUNIFORMLOCATIONPROC) (GLuint program, GLenum shadertype, const GLchar *name);
 typedef GLuint (APIENTRYP PFNGLGETSUBROUTINEINDEXPROC) (GLuint program, GLenum shadertype, const GLchar *name);

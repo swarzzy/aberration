@@ -4,7 +4,7 @@ in Vector3 f_Normal;
 
 out vec4 color;
 
-#define POINT_LIGHTS_NUMBER  2
+#define POINT_LIGHTS_NUMBER  4
 
 struct Material {
 	bool use_diff_map;
@@ -57,7 +57,7 @@ vec3 CalcPointLight(PointLight light, Vector3 normal, Vector3 viewDir, Vector3 d
 	float32 distance = length(light.position - f_Position);
 	float32 attenuation = 1.0f / (1.0f + 
 								light.linear * distance + 
-								light.quadratic * distance * distance);
+								light.quadratic * distance * distance); 
 	
 	Vector3 lightDir = normalize(light.position - f_Position);
 	Vector3 reflectDir = reflect(-lightDir, normal);
@@ -96,12 +96,11 @@ void main()
 
 	vec3 point = vec3(0.0f);
 	for (int i = 0; i < POINT_LIGHTS_NUMBER; i++) {
-		point += CalcPointLight(pointLights[i], f_Normal, viewDir, diffSample, specSample);
+		point += CalcPointLight(pointLights[i], normal, viewDir, diffSample, specSample);
 	}
 
-	vec3 sum_point = clamp(point, 0.0f, 1.0f);
-
+	vec3 sum_point = point;//clamp(point, 0.0f, 1.0f);
 	color = vec4(sum_point + directional, alpha);
-	//color = vec4(sum_point + directional, 1.0f);
+	//color = Vector4(normal, 1.0f);
 
 }

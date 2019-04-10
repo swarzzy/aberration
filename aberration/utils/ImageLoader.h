@@ -1,23 +1,18 @@
 #pragma once
 #include "AB.h"
+#include "platform/API/GraphicsAPI.h"
 
 namespace AB {
-
-	enum class PixelFormat : uint32 {
-		RGB = 0,
-		RGBA,
-		RED
-	};
 
 	struct Image {
 		uint32 width;
 		uint32 height;
 		uint32 bit_per_pixel;
-		PixelFormat format;
+		API::TextureFormat format;
 		byte* bitmap;
 	};
 
-	AB_API Image LoadBMP(const char* filename);
+	AB_API Image LoadBMP(const char* filename, API::ColorSpace cs);
 	void DeleteBitmap(void* ptr);
 
 #pragma pack(push, 1)

@@ -212,4 +212,61 @@ namespace AB {
 		_DebugOverlayPushSlider(properties, title, &val->w, min, max, DEBUG_OVERLAY_LINE_GAP);
 	}
 
+	void DebugOverlayPushToggle(DebugOverlayProperties* properties, const char* title, bool32* val) {
+		Renderer2DDebugDrawString({ properties->overlayBeginPos.x, properties->overlayBeginPos.y - properties->overlayAdvance },
+								  20.0f,
+								  (uint32)DebugUIColors::Clouds,
+								  title
+								  );
+		hpm::Rectangle bRect = Renderer2DGetStringBoundingRect({}, 20.0f, title);
+		
+		float32 outerRectSize = 20.0f;
+		float32 innerRectSize = 14.0f;
+		float32 halfRectDiff = (outerRectSize - innerRectSize) / 2.0f;
+
+
+		hpm::Rectangle outerRect;
+		outerRect.min.x = properties->overlayBeginPos.x + bRect.max.x + 5.0f;
+		outerRect.min.y = properties->overlayBeginPos.y - properties->overlayAdvance - outerRectSize;
+		outerRect.max.x = outerRect.min.x + outerRectSize;
+		outerRect.max.y = outerRect.min.y + outerRectSize;
+
+		hpm::Rectangle innerRect;
+		innerRect.min.x = outerRect.min.x + halfRectDiff;
+		innerRect.min.y = outerRect.min.y + halfRectDiff;
+		innerRect.max.x = innerRect.min.x + innerRectSize;
+		innerRect.max.y = innerRect.min.y + innerRectSize;
+
+		Renderer2DFillRectangleColor(
+									 outerRect.min,
+									 8, // TODO: Make some const instead of this magic var
+									 0.0f,
+									 0.0f,
+									 hpm::Subtract(outerRect.max, outerRect.min),
+									 (uint32)DebugUIColors::Midnightblue & 0xeeffffff
+									 );
+
+		if (*val) {
+			Renderer2DFillRectangleColor(
+										 innerRect.min,
+										 9, // TODO: Make some const instead of this magic var
+										 0.0f,
+										 0.0f,
+										 hpm::Subtract(innerRect.max, innerRect.min),
+										 (uint32)DebugUIColors::Pomegranate
+										 );
+
+		}
+		
+		if (InputMouseButtonIsPressed(PermStorage()->input_manager, MouseButton::Left)) {
+			hpm::Vector2 mousePos = Renderer2DGetMousePositionOnCanvas();
+			if (hpm::Contains(outerRect, { mousePos.x, mousePos.y })) {
+				*val = !(*val);
+			}
+		}
+
+		properties->overlayAdvance += outerRectSize + DEBUG_OVERLAY_LINE_GAP;
+		
+	}
+
 }

@@ -111,8 +111,8 @@ namespace AB {
 		uint32 width;
 		uint32 height;
 		bool32 running;
-		bool32 multisampling;
-		uint32 samples;
+		//bool32 multisampling;
+		//uint32 samples;
 
 		bool32 activeWindow;
 
@@ -135,8 +135,7 @@ namespace AB {
 	static bool32 _GLXLoadExtensions(WindowProperties* windowProps);
 	static void _PlatformCreateWindowAndContext(WindowProperties* s_WindowProperties);
 
-	void WindowCreate(const char* title, uint32 width, uint32 height,
-					  bool32 multisampling, uint32 samplesCount) {
+	void WindowCreate(const char* title, uint32 width, uint32 height) {
 		if ((PermStorage()->window)) {
 			AB_CORE_WARN("Window already initialized");
 			return;
@@ -146,8 +145,8 @@ namespace AB {
 		memcpy(properties->title, title, WINDOW_TITLE_SIZE);
 		properties->width = width;
 		properties->height = height;
-		properties->multisampling = multisampling;
-		properties->samples = samplesCount;
+		//properties->multisampling = multisampling;
+		//properties->samples = samplesCount;
 		
 		GetMemory()->perm_storage.window = properties;
 		_PlatformCreateWindowAndContext(properties);
@@ -492,7 +491,7 @@ namespace AB {
 			}
 		//AB_CORE_INFO("GLX version: ", majorGLX, ".", minorGLX);
 
-		int multisampling = s_WindowProperties->multisampling ? GLX_SAMPLE_BUFFERS_ARB : None;
+		//int multisampling = s_WindowProperties->multisampling ? GLX_SAMPLE_BUFFERS_ARB : None;
 		
 		GLint glxAttribs[] = {
 			GLX_X_RENDERABLE, True,
@@ -506,8 +505,8 @@ namespace AB {
 			GLX_ALPHA_SIZE, 8,
 			GLX_DEPTH_SIZE, 24,
 			GLX_STENCIL_SIZE, 8,
-			multisampling, 1,
-			GLX_SAMPLES_ARB, SafeCastI32Int(s_WindowProperties->samples),
+			//multisampling, 1,
+			//GLX_SAMPLES_ARB, SafeCastI32Int(s_WindowProperties->samples),
 			None
 		};
 

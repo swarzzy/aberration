@@ -2,9 +2,13 @@
 
 BuildTools=false
 
-project/ctime -begin _misc/ab_ctime.ctm
 ObjOutDir=build/obj/
 BinOutDir=build/
+
+mkdir -p $BinOutDir
+mkdir -p $ObjOutDir
+
+project/ctime -begin build/ab_ctime.ctm
 
 IncludeDirs="-Iaberration -Ihypermath"
 CommonDefines="-DAB_CONFIG_DEBUG -DAB_PLATFORM_WINDOWS -D_CRT_SECURE_NO_WARNINGS" 
@@ -17,9 +21,6 @@ AppLinkerFlags="-L$BinOutDir/ -laberration"
 
 ConfigCompilerFlags=$DebugCompilerFlags
 
-mkdir -p $BinOutDir
-mkdir -p $ObjOutDir
-
 clang++ -save-temps=obj -o $BinOutDir/aberration.lib $CommonDefines $LibDefines $IncludeDirs $CommonCompilerFlags $ConfigCompilerFlags -shared aberration/ab.cpp $LibLinkerFlags
 
 clang++ -save-temps=obj -o $BinOutDir/sandbox.exe $CommonDefines $IncludeDirs $CommonCompilerFlags $ConfigCompilerFlags sandbox/sandbox.cpp $AppLinkerFlags
@@ -29,4 +30,4 @@ then
 clang++ -save-temps=obj -o $BinOutDir/AssetBuilder.exe $CommonDefines $IncludeDirs $CommonCompilerFlags $ConfigCompilerFlags tools/AssetBuilder/AssetBuilder.cpp
 clang++ -save-temps=obj -o $BinOutDir/FontPreprocessor.exe $CommonDefines $IncludeDirs $CommonCompilerFlags $ConfigCompilerFlags tools/FontPreprocessor/FontPreprocessor.cpp	
 fi
-project/ctime -end _misc/ab_ctime.ctm
+project/ctime -end build/ab_ctime.ctm

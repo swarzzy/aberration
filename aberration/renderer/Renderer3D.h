@@ -4,13 +4,11 @@
 
 namespace AB {
 	struct AB_API DirectionalLight {
-		hpm::Vector3 direction;
-		hpm::Vector3 ambient;
-		hpm::Vector3 diffuse;
-		hpm::Vector3 specular;
+		Vector3 direction;
+		Vector3 ambient;
+		Vector3 diffuse;
+		Vector3 specular;
 	};
-
-	struct Renderer;
 
 	struct AB_API PointLight {
 		Vector3 position;
@@ -21,12 +19,26 @@ namespace AB {
 		float32 quadratic;
 	};
 
-	AB_API Renderer* RendererInit();
+	struct AB_API RendererFlySettings {
+		float32 gamma;
+		float32 exposure;
+	};
+
+	struct AB_API RendererConfig {
+		uint32 numSamples;
+		uint16 renderResolutionW;
+		uint16 renderResolutionH;
+	};
+
+	AB_API Renderer* RendererInit(RendererConfig config);
+	AB_API RendererFlySettings* RendererGetFlySettings(Renderer* renderer);
+	AB_API RendererConfig RendererGetConfig(Renderer* renderer);
+	AB_API void RendererApplyConfig(Renderer* renderer, RendererConfig* newConfig);
 	AB_API void RendererSetSkybox(Renderer* renderer, int32 cubemapHandle);
 	AB_API void RendererSetDirectionalLight(Renderer* renderer, const DirectionalLight* light);
-	AB_API void RendererSetPointLight(Renderer* renderer, uint32 index, PointLight* light);
+	AB_API void RendererSubmitPointLight(Renderer* renderer,  PointLight* light);
 	//AB_API int32 CreateMaterial(const char* diff_path, const char* spec_path, float32 shininess);
 	AB_API void RendererSetCamera(Renderer* renderer, hpm::Vector3 front, hpm::Vector3 position);
-	AB_API void RendererSubmit(Renderer* renderer, int32 mesh_handle, int32 material_handle, const hpm::Matrix4* transform);
+	AB_API void RendererSubmit(Renderer* renderer, int32 mesh_handle, const hpm::Matrix4* transform);
 	AB_API void RendererRender(Renderer* renderer);
 }

@@ -100,7 +100,7 @@ namespace AB {
 		bool32 used;
 		GLuint glHandle;
 		uint32 refCount;
-		PixelFormat format;
+		API::TextureFormat format;
 		UV uv;
 		uint16 parent;
 	};
@@ -319,17 +319,18 @@ namespace AB {
 		}
 
 		if (hasFreeCell) {
-			Image image = LoadBMP(filepath);
+			// TODO: Gamma correction
+			Image image = LoadBMP(filepath, API::TEX_COLOR_SPACE_LINEAR);
 			if (image.bitmap) {
 				GLuint texHandle;
 				uint32 format = GL_RED;
 				uint32 inFormat = GL_RED;
 				switch (image.format) {
-				case PixelFormat::RGB: {
+				case API::TEX_FORMAT_RGB8: {
 					format = GL_RGB;
 					inFormat = GL_RGB8;
 				} break;
-				case PixelFormat::RGBA: {
+				case API::TEX_FORMAT_RGBA8: {
 					format = GL_RGBA;
 					inFormat = GL_RGBA8;
 				} break;
@@ -372,7 +373,7 @@ namespace AB {
 		return resultHandle;
 	}
 
-	uint16 Renderer2DLoadTextureFromBitmap(PixelFormat format, uint32 width, uint32 height, const byte* bitmap) {
+	uint16 Renderer2DLoadTextureFromBitmap(API::TextureFormat format, uint32 width, uint32 height, const byte* bitmap) {
 		auto renderer = PermStorage()->renderer2d;
 
 		uint16 resultHandle = 0;
@@ -393,21 +394,21 @@ namespace AB {
 				uint32 glGormat = GL_RED;
 				uint32 glInternalFormat = GL_RED;
 				switch (format) {
-				case PixelFormat::RGB: {
+				case API::TEX_FORMAT_RGB8: {
 					glGormat = GL_RGB;
 					glInternalFormat = GL_RGB8;
 				} break;
-				case PixelFormat::RGBA: {
+				case API::TEX_FORMAT_RGBA8: {
 					glGormat = GL_RGBA;
 					glInternalFormat = GL_RGBA8;
 				} break;
-				case PixelFormat::RED: {
+				case API::TEX_FORMAT_RED8: {
 					glGormat = GL_RED;
 					glInternalFormat = GL_R8;
 				} break;
 				default: {
-					// TODO: FIX THIS
-					AB_CORE_ERROR("Wrong image format");
+					// TODO: Gamma correction
+					AB_CORE_FATAL("Renderer2D doesn't support sRGB for now!");
 				} break;
 				}
 
@@ -485,7 +486,7 @@ namespace AB {
 		return resultHandle;
 	}
 
-	PixelFormat Renderer2DGetTextureFormat(uint16 handle) {
+	API::TextureFormat Renderer2DGetTextureFormat(uint16 handle) {
 		if (handle > 0) {
 			auto renderer = PermStorage()->renderer2d;
 
@@ -493,7 +494,7 @@ namespace AB {
 		}
 		else {
 			// TODO: Distinct enum for textures and return some error value
-			return  PixelFormat::RED;
+			return  API::TEX_FORMAT_RED8;
 		}
 	}
 
@@ -820,7 +821,7 @@ namespace AB {
 					byte* bitmap = fileData + header->bitmapBeginOffset;
 					uint64 bitmapSize = header->bitmapWidth * header->bitmapHeight;
 
-					uint16 handle = Renderer2DLoadTextureFromBitmap(PixelFormat::RED, header->bitmapWidth, header->bitmapHeight, bitmap);
+					uint16 handle = Renderer2DLoadTextureFromBitmap(API::TEX_FORMAT_RED8, header->bitmapWidth, header->bitmapHeight, bitmap);
 
 					if (handle) {
 

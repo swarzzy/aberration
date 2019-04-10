@@ -86,8 +86,8 @@ namespace AB {
 		char title[32];
 		uint32 width;
 		uint32 height;
-		bool32 multisampling;
-		uint32 samples;
+		//bool32 multisampling;
+		//uint32 samples;
 		bool32 running;
 		HWND Win32WindowHandle;
 		HDC Win32WindowDC;
@@ -118,8 +118,7 @@ namespace AB {
 	static void _Win32Initialize();
 
 
-	void WindowCreate(const char* title, uint32 width, uint32 height,
-					  bool32 multisamping, uint32 samplesCount) {
+	void WindowCreate(const char* title, uint32 width, uint32 height) {
 		WindowProperties** ptr = &GetMemory()->perm_storage.window;
 		if (*(ptr)) {
 			AB_CORE_WARN("Window already initialized");
@@ -130,8 +129,8 @@ namespace AB {
 		strcpy_s((*ptr)->title, WINDOW_TITLE_SIZE, title);
 		(*ptr)->width = width;
 		(*ptr)->height = height;
-		(*ptr)->multisampling = multisamping;
-		(*ptr)->samples = samplesCount;
+		//(*ptr)->multisampling = multisamping;
+		//(*ptr)->samples = samplesCount;
 		_Win32Initialize();
 	}
 
@@ -399,19 +398,20 @@ namespace AB {
 
 		// ^^^^ ACTUAL WINDOW
 
-		int multisampling = window->multisampling ? WGL_SAMPLE_BUFFERS_ARB : 0;
+		//int multisampling = window->multisampling ? WGL_SAMPLE_BUFFERS_ARB : 0;
 
 		int attribList[] = {
 			WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
 			WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
 			WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+			//WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, GL_TRUE, 
 			WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
 			WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
 			WGL_COLOR_BITS_ARB, 32,
 			WGL_DEPTH_BITS_ARB, 24,
 			WGL_STENCIL_BITS_ARB, 8,
-			SafeCastI32Int(multisampling), 1,
-			WGL_SAMPLES_ARB, SafeCastI32Int(window->samples),
+			//SafeCastI32Int(multisampling), 1,
+			//WGL_SAMPLES_ARB, SafeCastI32Int(window->samples),
 			0
 		};
 

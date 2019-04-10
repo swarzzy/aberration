@@ -31,11 +31,13 @@ namespace AB {
 	AB_API void DebugOverlayPushSlider(DebugOverlayProperties* properties, const char* title, Vector2* val, float32 min, float32 max);
 	AB_API void DebugOverlayPushSlider(DebugOverlayProperties* properties, const char* title, Vector3* val, float32 min, float32 max);
 	AB_API void DebugOverlayPushSlider(DebugOverlayProperties* properties, const char* title, Vector4* val, float32 min, float32 max);
+	AB_API void DebugOverlayPushToggle(DebugOverlayProperties* properties, const char* title, bool32* val);
 
 
 
 #define DEBUG_OVERLAY_PUSH_STR(str) AB::DebugOverlayPushString(AB::PermStorage()->debug_overlay, str)
 #define DEBUG_OVERLAY_PUSH_VAR(title, var) AB::DebugOverlayPushVar(AB::PermStorage()->debug_overlay, title, var)
+#define DEBUG_OVERLAY_PUSH_TOGGLE(title, varPtr) AB::DebugOverlayPushToggle(AB::PermStorage()->debug_overlay, title, varPtr)
 
 #define DEBUG_OVERLAY_PUSH_SLIDER(title, val, min, max) AB::DebugOverlayPushSlider(AB::PermStorage()->debug_overlay, title, val, min, max)
 }

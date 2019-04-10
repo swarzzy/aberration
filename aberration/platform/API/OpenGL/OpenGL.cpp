@@ -536,6 +536,7 @@ namespace AB::GL {
 		GLCall(glCullFace(GL_BACK));
 		GLCall(glFrontFace(GL_CCW));
 		GLCall(glEnable(GL_MULTISAMPLE));
+		//GLCall(glEnable(GL_FRAMEBUFFER_SRGB));
 	}
 
 	ABGLProcs* GetFunctions() {

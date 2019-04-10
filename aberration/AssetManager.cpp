@@ -6,6 +6,7 @@
 #include "FileFormats.h"
 #include <vector>
 #include "utils/ImageLoader.h"
+#include "platform/API/GraphicsAPI.h"
 
 namespace AB {
 
@@ -206,7 +207,7 @@ namespace AB {
 								auto[result, written] = GetDirectory(aab_path, path_buff, 256);
 								AB_CORE_ASSERT(result, "Too long path.");
 								strcat(path_buff, diff_name_ptr);
-								material.diff_map_handle = AssetCreateTextureBMP(mgr, path_buff);
+								material.diff_map_handle = AssetCreateTextureBMP(mgr, path_buff, MapType::Diffuse);
 							} else {
 								material.diff_map_handle = ASSET_INVALID_HANDLE;
 							}
@@ -217,7 +218,7 @@ namespace AB {
 								auto[result, written] = GetDirectory(aab_path, path_buff, 256);
 								AB_CORE_ASSERT(result, "Too long path.");
 								strcat(path_buff, spec_name_ptr);
-								material.spec_map_handle = AssetCreateTextureBMP(mgr, path_buff);
+								material.spec_map_handle = AssetCreateTextureBMP(mgr, path_buff, MapType::Specular);
 							}
 							else {
 								material.spec_map_handle = ASSET_INVALID_HANDLE;
@@ -268,51 +269,9 @@ namespace AB {
 		}
 	}
 
-	static uint32 APICreateTexture(uint16 w, uint16 h, uint32 bits_per_pixel, void* bitmap) {
-		uint32 handle;
-
-		uint32 format = 0;
-		uint32 in_format = 0;
-		switch (bits_per_pixel) {
-		case 24: {
-			format = GL_RGB;
-			in_format = GL_RGB8;
-		} break;
-		case 32: {
-			format = GL_RGBA;
-			in_format = GL_RGBA8;
-		} break;
-		default: {
-			AB_CORE_ERROR("Wrong image format");
-		} break;
-		}
-
-		if (format) {
-			GLCall(glGenTextures(1, &handle));
-			GLCall(glBindTexture(GL_TEXTURE_2D, handle));
-
-			GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-			GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
-			GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-			GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-			GLCall(glTexImage2D(
-				GL_TEXTURE_2D,
-				0,
-				in_format,
-				w,
-				h,
-				0,
-				format,
-				GL_UNSIGNED_BYTE,
-				bitmap
-			));
-
-			GLCall(glBindTexture(GL_TEXTURE_2D, 0));
-		}
-		return handle;
-	}
-
-	int32 AssetCreateTexture(AssetManager* mgr, byte* bitmap, uint16 w, uint16 h, uint32 bits_per_pixel, const char* name) {
+	int32 AssetCreateTexture(AssetManager* mgr, byte* bitmap, uint16 w, uint16 h,
+							 uint32 bits_per_pixel, const char* name,
+							 MapType mapType) {
 		int32 result_handle = ASSET_INVALID_HANDLE;
 		int32 free_index = ASSET_INVALID_HANDLE;
 		bool32 found = false;
@@ -339,8 +298,20 @@ namespace AB {
 
 				CopyArray(byte, bitmap_size, tx->bitmap, bitmap);
 				CopyArray(char, name_size , tx->name, name);
-
-				tx->api_handle = APICreateTexture(w, h, bits_per_pixel, tx->bitmap);
+				API::ColorSpace cs;
+				if (mapType == MapType::Diffuse) {
+					cs = API::TEX_COLOR_SPACE_SRGB;
+				} else {
+					cs = API::TEX_COLOR_SPACE_LINEAR;
+				}
+				
+				API::TextureFormat format = API::GetTextureFormat(bits_per_pixel, cs);
+				
+				API::TextureParameters p = {
+					API::TEX_FILTER_LINEAR,
+					API::TEX_WRAP_CLAMP_TO_EDGE,
+				};
+				tx->api_handle = API::CreateTexture(p, format, w, h, bitmap);
 				if (!tx->api_handle) {
 					AB_CORE_ERROR("Texture loading error. OpenGL API Error. Texture: %s", name);
 				}
@@ -357,14 +328,24 @@ namespace AB {
 		return result_handle;
 	}
 
-	int32 AssetCreateTextureBMP(AssetManager* mgr, const char* bmp_path) {
-		Image bmp = LoadBMP(bmp_path);
+	int32 AssetCreateTextureBMP(AssetManager* mgr, const char* bmp_path,
+								MapType mapType) {
+		API::ColorSpace cs;
+		if (mapType == MapType::Diffuse) {
+			cs = API::TEX_COLOR_SPACE_SRGB;
+		} else {
+			cs = API::TEX_COLOR_SPACE_LINEAR;			
+		}
+		
+		Image bmp = LoadBMP(bmp_path, cs);
+
 		if (bmp.bitmap) {
 			char name_buf[256];
 			auto[result, written] = GetFilenameFromPath(bmp_path, name_buf, 256);
 			// TODO: this in only test code
 			AB_CORE_ASSERT(result, "Too long filename: %s", bmp_path);
-			return AssetCreateTexture(mgr, bmp.bitmap, bmp.width, bmp.height, bmp.bit_per_pixel, name_buf);
+			return AssetCreateTexture(mgr, bmp.bitmap, bmp.width, bmp.height,
+									  bmp.bit_per_pixel, name_buf, mapType);
 		} else {
 			AB_CORE_ERROR("Faied to create texture forom file: %s", bmp_path);
 			return ASSET_INVALID_HANDLE;
