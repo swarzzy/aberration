@@ -35,15 +35,13 @@ typedef __m128				float128;
 
 namespace hpm {
 
+	constexpr float32 PI_32 = 3.14159265358979323846f;
+
 	HPM_INLINE float32 Map(float32 t, float32 a, float32 b, float32 c, float32 d) {
 		if (a == b || d == c) return 0.0f;
 		return c + (d - c) / (b - a) * (t - a);
 	}
 
-	HPM_INLINE constexpr float32 Pi() {
-		return 3.14159265358979323846f;
-	}
-	
 	HPM_INLINE float32 Sin(float32 radians) {
 		return sinf(radians);
 	}
@@ -91,11 +89,11 @@ namespace hpm {
 
 	
 	HPM_INLINE constexpr float32 ToDegrees(float32 radians) {
-		return 180.0f / Pi() * radians;
+		return 180.0f / PI_32 * radians;
 	}
 
 	HPM_INLINE constexpr float32 ToRadians(float32 degrees) {
-		return Pi() / 180.0f * degrees;
+		return PI_32 / 180.0f * degrees;
 	}
 
 	union Vector2 {
@@ -141,10 +139,6 @@ namespace hpm {
 		float128 _packed;
 	};
 
-	struct Rectangle {
-		Vector2 min;
-		Vector2 max;
-	};
 
 	union Matrix4 {
 		Vector4 columns[4];
@@ -167,13 +161,34 @@ namespace hpm {
 		};
 	};
 
-	HPM_INLINE bool32 HPM_CALL Contains(Rectangle rect, Vector2 point) {
-		return	point.x > rect.min.x && 
-			point.y > rect.min.y && 
-			point.x < rect.max.x &&
-			point.y < rect.max.y;
+	HPM_INLINE Vector2 V2(float32 x, float32 y) {
+		return Vector2{x, y};
 	}
 
+	HPM_INLINE Vector3 V3(float32 x, float32 y, float32 z) {
+		return Vector3{x, y, z};
+	}
+
+	HPM_INLINE Vector3 V3(Vector2 v, float32 z) {
+		return Vector3{v.x, v.y, z};
+	}
+
+	HPM_INLINE Vector3 V3(Vector4 v) {
+		return Vector3{v.x, v.y, v.z};
+	}
+
+	HPM_INLINE Vector4 V4(float32 x, float32 y, float32 z, float32 w) {
+		return Vector4{x, y ,z, w};
+	}
+
+	HPM_INLINE Vector4 V4(Vector2 v, float32 z, float32 w) {
+		return Vector4{v.x, v.y ,z, w};
+	}
+
+	HPM_INLINE Vector4 V4(Vector3 v, float32 w) {
+		return Vector4{v.x, v.y ,v.z, w};
+	}
+ 
 	HPM_INLINE Vector2 HPM_CALL Add(Vector2 left, Vector2 right) {
 		return Vector2{ left.x + right.x, left.y + right.y };
 	}
@@ -190,11 +205,11 @@ namespace hpm {
 		return Vector2{ left.x - scalar, left.y - scalar };
 	}
 
-	HPM_INLINE Vector2 HPM_CALL Multiply(Vector2 left, Vector2 right) {
+	HPM_INLINE Vector2 HPM_CALL MulV2V2(Vector2 left, Vector2 right) {
 		return Vector2{ left.x * right.x, left.y * right.y };
 	}
 
-	HPM_INLINE Vector2 HPM_CALL Multiply(Vector2 left, float32 scalar) {
+	HPM_INLINE Vector2 HPM_CALL MulV2F32(Vector2 left, float32 scalar) {
 		return Vector2{ left.x * scalar, left.y * scalar};
 	}
 
@@ -223,11 +238,11 @@ namespace hpm {
 		return Vector3{ left.x - scalar, left.y - scalar, left.z - scalar};
 	}
 
-	HPM_INLINE Vector3 HPM_CALL Multiply(Vector3 left, Vector3 right) {
+	HPM_INLINE Vector3 HPM_CALL MulV3V3(Vector3 left, Vector3 right) {
 		return Vector3{ left.x * right.x, left.y * right.y, left.z * right.z };
 	}
 
-	HPM_INLINE Vector3 HPM_CALL Multiply(Vector3 left, float32 scalar) {
+	HPM_INLINE Vector3 HPM_CALL MulV3F32(Vector3 left, float32 scalar) {
 		return Vector3{ left.x * scalar, left.y * scalar, left.z * scalar};
 	}
 
@@ -256,11 +271,11 @@ namespace hpm {
 		return Vector4{ left.x - scalar, left.y - scalar, left.z - scalar, left.w - scalar};
 	}
 
-	HPM_INLINE Vector4 HPM_CALL Multiply(Vector4 left, Vector4 right) {
+	HPM_INLINE Vector4 HPM_CALL MulV4V4(Vector4 left, Vector4 right) {
 		return Vector4{ left.x * right.x, left.y * right.y, left.z * right.z, left.w * right.w };
 	}
 
-	HPM_INLINE Vector4 HPM_CALL Multiply(Vector4 left, float32 scalar) {
+	HPM_INLINE Vector4 HPM_CALL MulV4F32(Vector4 left, float32 scalar) {
 		return Vector4{ left.x * scalar, left.y * scalar, left.z * scalar, left.w * scalar };
 	}
 
@@ -284,6 +299,15 @@ namespace hpm {
 	HPM_INLINE float32 HPM_CALL Length(Vector4 vector) {
 		return Sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z + vector.w * vector.w);
 	}
+
+	HPM_INLINE float32 HPM_CALL DistanceSq(Vector2 v1, Vector2 v2) {
+		return (v2.x - v1.x) * (v2.x - v1.x) + (v2.y - v1.y) * (v2.y - v1.y);
+	}
+
+	HPM_INLINE float32 HPM_CALL DistanceSq(Vector3 v1, Vector3 v2) {
+		return (v2.x - v1.x) * (v2.x - v1.x) + (v2.y - v1.y) * (v2.y - v1.y) + (v2.z - v1.z) * (v2.z - v1.z);
+	}
+
 
 	HPM_INLINE Vector2 HPM_CALL Normalize(Vector2 vector) {
 		Vector2 result;
@@ -446,27 +470,97 @@ namespace hpm {
 			+ m._13 * m._21 * m._32 - m._13 * m._22 * m._31;
 	}
 
-	HPM_INLINE float32 HPM_CALL Determinant(Matrix4 m) {
-		float32 minor1 = m._11 * (m._22 * m._33 * m._44 - m._22 * m._34 * m._43
-								  - m._23 * m._32 * m._44 + m._23 * m._34 * m._42
-								  + m._24 * m._32 * m._43 - m._24 * m._33 * m._42);
+	HPM_INLINE Matrix4 HPM_CALL OrthogonalRH(float32 left, float32 right, float32 bottom, float32 top, float32 n, float32 f) {
+		Matrix4 result = {};
 
-		float32 minor2 = m._12 * (m._21 * m._33 * m._44 - m._21 * m._34 * m._43
-								  - m._23 * m._31 * m._44 + m._23 * m._41 * m._34
-								  +m._24 * m._31 * m._43 - m._24 * m._33 * m._41);
+		result._11 = 2.0f / (right - left);
+		result._22 = 2.0f / (top - bottom);
+		result._33 = -2.0f / (f - n);
+		result._14 = -(right + left) / (right - left);
+		result._24 = -(top + bottom) / (top - bottom);
+		result._34 = -(f + n) / (f - n);
+		result._44 = 1.0f;
 
-		float32 minor3 = m._13 * (m._21 * m._32 * m._44 - m._21 * m._34 * m._42
-								  - m._22 * m._31 * m._44 + m._22 * m._34 * m._41
-								  + m._24 * m._31 * m._42 - m._24 * m._32 * m._41);
-
-		float32 minor4 = m._14 * (m._21 * m._32 * m._43 - m._21 * m._33 * m._42
-								  - m._22 * m._31 * m._43 + m._22 * m._41 * m._33
-								  + m._23 * m._31 * m._42 - m._23 * m._32 * m._41);
-
-		return minor1 - minor2 + minor3 - minor4;
+		return result;
 	}
 
-	HPM_INLINE Matrix3 HPM_CALL Inverse(Matrix3 m) {
+		HPM_INLINE Matrix4 HPM_CALL PerspectiveRH(float32 fovDeg, float32 aspectRatio, float32 n, float32 f) {
+		Matrix4 result = {};
+
+		float32 tanHalfFov = Tan(ToRadians(fovDeg / 2.0f));
+
+		result._11 = 1.0f / (aspectRatio * tanHalfFov);
+		result._22 = 1.0f / tanHalfFov;
+		result._33 = - (f + n) / (f - n);
+		result._43 = -1.0f;
+		result._34 = (-2.0f * n * f) / (f - n);
+
+		return result;
+	}
+
+	HPM_INLINE Matrix4 HPM_CALL Translation(Vector3 trans) {
+		Matrix4 result = {};
+		result._11 = 1.0f;
+		result._22 = 1.0f;
+		result._33 = 1.0f;
+		result._44 = 1.0f;
+
+		result._14 = trans.x;
+		result._24 = trans.y;
+		result._34 = trans.z;
+
+		return result;
+	}
+
+	HPM_INLINE Vector3 HPM_CALL GetPosition(Matrix4* m) {
+		return Vector3{m->_14, m->_24, m->_34};
+	}
+
+		HPM_INLINE Matrix4 HPM_CALL Translate(Matrix4 mtx, Vector3 trans) {
+		mtx.columns[3] = Add(Add(MulV4F32(mtx.columns[0], trans.x), MulV4F32(mtx.columns[1], trans.y)), 
+							 Add(MulV4F32(mtx.columns[2], trans.z), mtx.columns[3]));
+		return mtx;
+	}
+
+	HPM_INLINE Matrix4 HPM_CALL Scaling(Vector3 scale) {
+		Matrix4 result = {};
+		result._11 = scale.x;
+		result._22 = scale.y;
+		result._33 = scale.z;
+		result._44 = 1.0f;
+
+		return result;
+	}
+
+	HPM_INLINE Matrix4 HPM_CALL Scale(Matrix4 mtx, Vector3 scale) {
+		mtx.columns[0] = MulV4F32(mtx.columns[0], scale.x);
+		mtx.columns[1] = MulV4F32(mtx.columns[1], scale.y);
+		mtx.columns[2] = MulV4F32(mtx.columns[2], scale.z);
+		return mtx;
+	}
+
+	HPM_INLINE Vector3 HPM_CALL MulM3V3(Matrix3 m, Vector3 v) {
+		Vector3 r;
+		r.x = m._11 * v.x + m._12 * v.y + m._13 * v.z;
+		r.y = m._21 * v.x + m._22 * v.y + m._23 * v.z;
+		r.z = m._31 * v.x + m._32 * v.y + m._33 * v.z;
+		return r;
+	}
+
+	HPM_INLINE Vector4 HPM_CALL MulM4V4(Matrix4 m, Vector4 v) {
+		Vector4 r;
+		r.x = m._11 * v.x + m._12 * v.y + m._13 * v.z + m._14 * v.w;
+		r.y = m._21 * v.x + m._22 * v.y + m._23 * v.z + m._24 * v.w;
+		r.z = m._31 * v.x + m._32 * v.y + m._33 * v.z + m._34 * v.w;
+		r.w = m._41 * v.x + m._42 * v.y + m._43 * v.z + m._44 * v.w;
+		return r;
+	}
+
+	Matrix3 HPM_CALL Inverse(Matrix3 m);
+	
+#if defined(HYPERMATH_IMPL)
+
+	Matrix3 HPM_CALL Inverse(Matrix3 m) {
 
 		float32 a11 = m._22 * m._33 - m._23 * m._32; 
 		float32 a12 = - (m._21 * m._33 - m._23 * m._31);
@@ -503,7 +597,13 @@ namespace hpm {
 		}
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL Inverse(Matrix4 m) {
+#endif
+
+	Matrix4 HPM_CALL Inverse(Matrix4 m);
+
+#if defined(HYPERMATH_IMPL)
+	
+	Matrix4 HPM_CALL Inverse(Matrix4 m) {
 
 		float32 a11_22 = m._33 * m._44 - m._34 * m._43;
 		float32 a11_23 = m._32 * m._44 - m._34 * m._42;
@@ -631,50 +731,39 @@ namespace hpm {
 		}
 	}
 
+#endif
+
+	float32 HPM_CALL Determinant(Matrix4 m);
+
+#if defined(HYPERMATH_IMPL)
+
+	float32 HPM_CALL Determinant(Matrix4 m) {
+		float32 minor1 = m._11 * (m._22 * m._33 * m._44 - m._22 * m._34 * m._43
+								  - m._23 * m._32 * m._44 + m._23 * m._34 * m._42
+								  + m._24 * m._32 * m._43 - m._24 * m._33 * m._42);
+
+		float32 minor2 = m._12 * (m._21 * m._33 * m._44 - m._21 * m._34 * m._43
+								  - m._23 * m._31 * m._44 + m._23 * m._41 * m._34
+								  +m._24 * m._31 * m._43 - m._24 * m._33 * m._41);
+
+		float32 minor3 = m._13 * (m._21 * m._32 * m._44 - m._21 * m._34 * m._42
+								  - m._22 * m._31 * m._44 + m._22 * m._34 * m._41
+								  + m._24 * m._31 * m._42 - m._24 * m._32 * m._41);
+
+		float32 minor4 = m._14 * (m._21 * m._32 * m._43 - m._21 * m._33 * m._42
+								  - m._22 * m._31 * m._43 + m._22 * m._41 * m._33
+								  + m._23 * m._31 * m._42 - m._23 * m._32 * m._41);
+
+		return minor1 - minor2 + minor3 - minor4;
+	}
+
+#endif
+
+	Matrix4 HPM_CALL LookAtRH(Vector3 from, Vector3 at, Vector3 up);
 	
-	HPM_INLINE Matrix4 HPM_CALL OrthogonalRH(float32 left, float32 right, float32 bottom, float32 top, float32 n, float32 f) {
-		Matrix4 result = {};
-
-		result._11 = 2.0f / (right - left);
-		result._22 = 2.0f / (top - bottom);
-		result._33 = -2.0f / (f - n);
-		result._14 = -(right + left) / (right - left);
-		result._24 = -(top + bottom) / (top - bottom);
-		result._34 = -(f + n) / (f - n);
-		result._44 = 1.0f;
-
-		return result;
-	}
-
-	HPM_INLINE Matrix4 HPM_CALL PerspectiveRH(float32 fovDeg, float32 aspectRatio, float32 n, float32 f) {
-		Matrix4 result = {};
-
-		float32 tanHalfFov = Tan(ToRadians(fovDeg / 2.0f));
-
-		result._11 = 1.0f / (aspectRatio * tanHalfFov);
-		result._22 = 1.0f / tanHalfFov;
-		result._33 = - (f + n) / (f - n);
-		result._43 = -1.0f;
-		result._34 = (-2.0f * n * f) / (f - n);
-
-		return result;
-	}
-
-	HPM_INLINE Matrix4 HPM_CALL Translation(Vector3 trans) {
-		Matrix4 result = {};
-		result._11 = 1.0f;
-		result._22 = 1.0f;
-		result._33 = 1.0f;
-		result._44 = 1.0f;
-
-		result._14 = trans.x;
-		result._24 = trans.y;
-		result._34 = trans.z;
-
-		return result;
-	}
-
-	HPM_INLINE Matrix4 HPM_CALL LookAtRH(Vector3 from, Vector3 at, Vector3 up) {
+#if defined(HYPERMATH_IMPL) 
+	
+	Matrix4 HPM_CALL LookAtRH(Vector3 from, Vector3 at, Vector3 up) {
 		Vector3 zAxis = Normalize(Subtract(at, from));
 		Vector3 xAxis = Normalize(Cross(zAxis, up));
 		Vector3 yAxis = Cross(xAxis, zAxis);
@@ -703,30 +792,13 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL Translate(Matrix4 mtx, Vector3 trans) {
-		mtx.columns[3] = Add(Add(Multiply(mtx.columns[0], trans.x), Multiply(mtx.columns[1], trans.y)), 
-							 Add(Multiply(mtx.columns[2], trans.z), mtx.columns[3]));
-		return mtx;
-	}
+#endif
 
-	HPM_INLINE Matrix4 HPM_CALL Scaling(Vector3 scale) {
-		Matrix4 result = {};
-		result._11 = scale.x;
-		result._22 = scale.y;
-		result._33 = scale.z;
-		result._44 = 1.0f;
+	Matrix4 HPM_CALL Rotation(float32 angleDeg, Vector3 axis);
 
-		return result;
-	}
+#if defined(HYPERMATH_IMPL)
 
-	HPM_INLINE Matrix4 HPM_CALL Scale(Matrix4 mtx, Vector3 scale) {
-		mtx.columns[0] = Multiply(mtx.columns[0], scale.x);
-		mtx.columns[1] = Multiply(mtx.columns[1], scale.y);
-		mtx.columns[2] = Multiply(mtx.columns[2], scale.z);
-		return mtx;
-	}
-
-	HPM_INLINE Matrix4 HPM_CALL Rotation(float32 angleDeg, Vector3 axis) {
+	Matrix4 HPM_CALL Rotation(float32 angleDeg, Vector3 axis) {
 		Matrix4 result = {};
 
 		float32 c = Cos(ToRadians(angleDeg));
@@ -751,7 +823,13 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL Rotate(Matrix4 mtx, float32 angleDeg, Vector3 axis) {
+#endif
+
+	Matrix4 HPM_CALL Rotate(Matrix4 mtx, float32 angleDeg, Vector3 axis);
+
+#if defined(HYPERMATH_IMPL)
+
+	Matrix4 HPM_CALL Rotate(Matrix4 mtx, float32 angleDeg, Vector3 axis) {
 		Matrix4 rotation;
 
 		float32 c = Cos(ToRadians(angleDeg));
@@ -793,8 +871,13 @@ namespace hpm {
 		return result;
 	}
 
+#endif
+
+	Matrix3 HPM_CALL MulM3M3(Matrix3 left, Matrix3 right);
+
+#if defined(HYPERMATH_IMPL)
 	// TODO: Is passing matrices by value is efficient?
-	HPM_INLINE Matrix3 HPM_CALL Multiply(Matrix3 left, Matrix3 right) {
+	Matrix3 HPM_CALL MulM3M3(Matrix3 left, Matrix3 right) {
 		Matrix3 result;
 		result._11 = left._11 * right._11 + left._12 * right._21 + left._13 * right._31;
 		result._12 = left._11 * right._12 + left._12 * right._22 + left._13 * right._32;
@@ -811,7 +894,13 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL Multiply(Matrix4 left, Matrix4 right) {
+#endif
+
+	Matrix4 HPM_CALL MulM4M4(Matrix4 left, Matrix4 right);
+
+#if defined(HYPERMATH_IMPL)
+	
+	Matrix4 HPM_CALL MulM4M4(Matrix4 left, Matrix4 right) {
 		Matrix4 result;
 
 		result._11 = left._11 * right._11 + left._12 * right._21 + left._13 * right._31 + left._14 * right._41;
@@ -836,7 +925,16 @@ namespace hpm {
 
 		return result;
 	}
+	
+#endif
+	
 }
 #if defined(HPM_USE_NAMESPACE)
 using namespace hpm;
 #endif
+
+typedef Vector2 v2;
+typedef Vector3 v3;
+typedef Vector4 v4;
+typedef Matrix3 m3x3;
+typedef Matrix4 m4x4;

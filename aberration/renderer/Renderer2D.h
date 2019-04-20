@@ -4,10 +4,11 @@
 
 namespace hpm {
 	union Vector2;
-	struct Rectangle;
 }
 
 namespace AB {
+	struct Rectangle;
+
 	struct RendererDebugInfo {
 		uint32 drawCalls;
 		uint32 verticesDrawn;
@@ -34,8 +35,8 @@ namespace AB {
 	void Renderer2DDebugDrawString(hpm::Vector2 position, float32 height, color32 color, const char* string);
 	void Renderer2DDebugDrawString(hpm::Vector2 position, float32 height, color32 color, const wchar_t* string);
 
-	hpm::Rectangle Renderer2DGetStringBoundingRect(hpm::Vector2 position, float32 height, const char* string);
-	hpm::Rectangle Renderer2DGetStringBoundingRect(hpm::Vector2 position, float32 height, const wchar_t* string);
+	Rectangle Renderer2DGetStringBoundingRect(hpm::Vector2 position, float32 height, const char* string);
+	Rectangle Renderer2DGetStringBoundingRect(hpm::Vector2 position, float32 height, const wchar_t* string);
 
 	uint16 Renderer2DLoadTexture(const char* filepath);
 	// TODO: Make enum for texture formats

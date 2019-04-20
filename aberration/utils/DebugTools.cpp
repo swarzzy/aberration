@@ -5,8 +5,10 @@
 #include "platform/Window.h"
 #include "Application.h"
 #include "utils/Log.h"
-#include <cstring>
 #include "platform/Memory.h"
+#include "ExtendedMath.h"
+
+#include <cstring>
 
 namespace AB {
 
@@ -38,7 +40,7 @@ namespace AB {
 		}
 		char buffer[64];
 		AB::FormatString(buffer, 64, "%07.4f64 ms | %3i64 fps | %3i64 ups |%4u32 dc", properties->frameTime / 1000.0, properties->fps, properties->ups, properties->drawCalls);
-		hpm::Rectangle strr = AB::Renderer2DGetStringBoundingRect({ 0,0 }, 20.0, buffer);
+		Rectangle strr = AB::Renderer2DGetStringBoundingRect({ 0,0 }, 20.0, buffer);
 		float32 h = (strr.max.y - strr.min.y) / 2;
 		AB::Renderer2DDebugDrawString({ 35, canvas.y - h }, 20.0, (uint32)DebugUIColors::Clouds, buffer);
 	}
@@ -104,7 +106,7 @@ namespace AB {
 			(uint32)DebugUIColors::Clouds,
 			string
 		);
-		hpm::Rectangle bRect = Renderer2DGetStringBoundingRect({}, 20.0f, string);
+		Rectangle bRect = Renderer2DGetStringBoundingRect({}, 20.0f, string);
 		properties->overlayAdvance += hpm::Abs(bRect.min.y) + DEBUG_OVERLAY_LINE_GAP;
 	}
 
@@ -115,7 +117,7 @@ namespace AB {
 			(uint32)DebugUIColors::Clouds,
 			title
 		);
-		hpm::Rectangle bRect = Renderer2DGetStringBoundingRect({}, 20.0f, title);
+		Rectangle bRect = Renderer2DGetStringBoundingRect({}, 20.0f, title);
 		
 		float32 sliderActualWidth = 250.0f;
 		float32 sliderHeight = 20.0f;
@@ -125,13 +127,13 @@ namespace AB {
 
 		float32 mappedVal = hpm::Map(*val, min, max, 0.0f, sliderWidth);
 
-		hpm::Rectangle area;
+		Rectangle area;
 		area.min.x = properties->overlayBeginPos.x + bRect.max.x + 5.0f;
 		area.min.y = properties->overlayBeginPos.y - properties->overlayAdvance - sliderHeight;
 		area.max.x = area.min.x + sliderActualWidth;
 		area.max.y = area.min.y + sliderHeight;
 
-		hpm::Rectangle block;
+		Rectangle block;
 		block.min.x = area.min.x + mappedVal;
 		block.min.y = area.min.y;
 		block.max.x = block.min.x + blockWidth;
@@ -158,7 +160,7 @@ namespace AB {
 		if (InputMouseButtonIsDown(PermStorage()->input_manager, MouseButton::Left)) {
 			hpm::Vector2 mousePos = Renderer2DGetMousePositionOnCanvas();
 
-			if (hpm::Contains({ {area.min.x + blockCenterOff, area.min.y}, {area.max.x - blockCenterOff, area.max.y } }, { mousePos.x, mousePos.y })) {
+			if (Contains({ {area.min.x + blockCenterOff, area.min.y}, {area.max.x - blockCenterOff, area.max.y } }, { mousePos.x, mousePos.y })) {
 				Renderer2DFillRectangleColor(
 					block.min,
 					10, // TODO: Make some const instead of this magic var
@@ -218,20 +220,20 @@ namespace AB {
 								  (uint32)DebugUIColors::Clouds,
 								  title
 								  );
-		hpm::Rectangle bRect = Renderer2DGetStringBoundingRect({}, 20.0f, title);
+		Rectangle bRect = Renderer2DGetStringBoundingRect({}, 20.0f, title);
 		
 		float32 outerRectSize = 20.0f;
 		float32 innerRectSize = 14.0f;
 		float32 halfRectDiff = (outerRectSize - innerRectSize) / 2.0f;
 
 
-		hpm::Rectangle outerRect;
+		Rectangle outerRect;
 		outerRect.min.x = properties->overlayBeginPos.x + bRect.max.x + 5.0f;
 		outerRect.min.y = properties->overlayBeginPos.y - properties->overlayAdvance - outerRectSize;
 		outerRect.max.x = outerRect.min.x + outerRectSize;
 		outerRect.max.y = outerRect.min.y + outerRectSize;
 
-		hpm::Rectangle innerRect;
+		Rectangle innerRect;
 		innerRect.min.x = outerRect.min.x + halfRectDiff;
 		innerRect.min.y = outerRect.min.y + halfRectDiff;
 		innerRect.max.x = innerRect.min.x + innerRectSize;
@@ -260,7 +262,7 @@ namespace AB {
 		
 		if (InputMouseButtonIsPressed(PermStorage()->input_manager, MouseButton::Left)) {
 			hpm::Vector2 mousePos = Renderer2DGetMousePositionOnCanvas();
-			if (hpm::Contains(outerRect, { mousePos.x, mousePos.y })) {
+			if (Contains(outerRect, { mousePos.x, mousePos.y })) {
 				*val = !(*val);
 			}
 		}

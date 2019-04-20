@@ -12,12 +12,12 @@ namespace AB {
 	// Especially for skyboxes
 	static constexpr char SKYBOX_VERTEX_PROGRAM[] = R"(
 out Vector3 skyboxUV;
-const Vector2 fullscreenQuad[6] = {Vector2(-1.0f, -1.0f),
+const Vector2 fullscreenQuad[6] = Vector2[6](Vector2(-1.0f, -1.0f),
 								   Vector2(1.0f, -1.0f),
 								   Vector2(1.0f, 1.0f),
 								   Vector2(1.0f, 1.0f),
 								   Vector2(-1.0f, 1.0f),
-								   Vector2(-1.0f, -1.0f)};
+								   Vector2(-1.0f, -1.0f));
 void main() {
 Matrix4 invProj = inverse(sys_ProjectionMatrix);
 Matrix3 invView = Matrix3(inverse(sys_ViewMatrix));
@@ -36,19 +36,19 @@ out_FragColor = texture(skybox, skyboxUV);
 
 	static constexpr char POSTFX_VERTEX_PROGRAM[] = R"(
 out Vector2 UV;
-const Vector2 fullscreenQuad[6] = {Vector2(-1.0f, -1.0f),
+const Vector2 fullscreenQuad[6] = Vector2[6](Vector2(-1.0f, -1.0f),
 								   Vector2(1.0f, -1.0f),
 								   Vector2(1.0f, 1.0f),
 								   Vector2(1.0f, 1.0f),
 								   Vector2(-1.0f, 1.0f),
-								   Vector2(-1.0f, -1.0f)};
+								   Vector2(-1.0f, -1.0f));
 
-const Vector2 quadUV[6] = {Vector2(0.0f, 0.0f),
+const Vector2 quadUV[6] = Vector2[6](Vector2(0.0f, 0.0f),
 					   Vector2(1.0f, 0.0f),
 					   Vector2(1.0f, 1.0f),
 					   Vector2(1.0f, 1.0f),
 					   Vector2(0.0f, 1.0f),
-					   Vector2(0.0f, 0.0f)};
+					   Vector2(0.0f, 0.0f));
 void main() {
 UV = quadUV[gl_VertexID];
 out_Position = Vector4(fullscreenQuad[gl_VertexID], 1.0f, 1.0f);
@@ -75,6 +75,7 @@ out_FragColor = Vector4(pow(mappedColor, 1.0f / Vector3(u_Gamma)), sample.a);
 	struct DrawCommand {
 		int32 mesh_handle;
 		hpm::Matrix4 transform;
+		BlendMode blendMode;
 	};
 
 	struct Camera {
@@ -117,6 +118,17 @@ out_FragColor = Vector4(pow(mappedColor, 1.0f / Vector3(u_Gamma)), sample.a);
 	static constexpr uint32 POINT_LIGHT_UBO_SIZE = POINT_LIGHTS_NUMBER * (POINT_LIGHT_STRUCT_SIZE + sizeof(float32) * 2); 
 
 	struct Renderer {
+		
+		uint32 renderBufferSize;
+		uint32 renderBufferFree;
+		byte* renderBufferBegin;
+		byte* renderBufferAt;
+
+		uint32 commandQueueCapacity;
+		RenderBucket* commandQueueBegin;
+		RenderBucket* tmpCommandQueueBegin;
+		uint32 commandQueueAt;
+		
 		RendererConfig config;
 		RendererFlySettings flySettings;
 		uint32 vertexSystemUBHandle;
@@ -491,6 +503,202 @@ Vector3 sys_ViewPos;};
 			AB_CORE_ASSERT(framebuffer, "Downsampled framebuffer is incomplete");
 		}
 	}
+
+	void RendererAllocateBuffers(Memory* memory, Renderer* renderer,
+								 uint32 rbSize, uint32 commandQueueCap) {
+		// TODO: Check for free space
+		//AB_CORE_ASSERT(renderer->RenderBufferSize < memory->)
+		if (!renderer->renderBufferBegin) {
+			renderer->renderBufferSize = rbSize;
+			renderer->renderBufferBegin = (byte*)SysAlloc(renderer->renderBufferSize);
+			AB_CORE_ASSERT(renderer->renderBufferBegin, "Failed to allocate render buffer");
+			renderer->renderBufferAt = renderer->renderBufferBegin;
+			renderer->renderBufferFree = renderer->renderBufferSize;
+		} else {
+			AB_CORE_ASSERT(false);
+		};
+
+		if (!renderer->commandQueueBegin) {
+			renderer->commandQueueCapacity = commandQueueCap;
+			renderer->commandQueueAt = 0;
+			uint64 _commandQueueSize = commandQueueCap * sizeof(RenderBucket);
+			uint32 commandQueueSize = 0;
+			AB_CORE_ASSERT(_commandQueueSize < 0xffffffff,
+						   "Renderer command queue can't be bigger than 4gb.");
+		    commandQueueSize = (uint32)_commandQueueSize;
+			renderer->commandQueueBegin = (RenderBucket*)SysAllocAligned(commandQueueSize, alignof(RenderBucket));
+			renderer->tmpCommandQueueBegin = (RenderBucket*)SysAllocAligned(commandQueueSize, alignof(RenderBucket));
+			AB_CORE_ASSERT(renderer->commandQueueBegin,
+						   "Failed to allocate command queue.");
+			AB_CORE_ASSERT(renderer->tmpCommandQueueBegin,
+						   "Failed to allocate command queue.");
+
+		} else {
+			AB_CORE_ASSERT(false);
+		}
+	};
+
+	void RendererBeginFrame(Renderer* renderer) {
+		renderer->renderBufferAt = renderer->renderBufferBegin;
+		renderer->renderBufferFree = renderer->renderBufferSize;
+		renderer->commandQueueAt = 0;
+	}
+
+	inline static void* _PushRenderData(Renderer* renderer, uint32 size, uint32 aligment, void* data) {
+		uint32 padding = 0;
+		uint32 useAligment = 0;
+		byte* currentAt = renderer->renderBufferAt;
+
+		if (aligment == 0) {
+			AB_CORE_WARN("Zero aligment specified to render data. Assuming aligment = 1");
+			useAligment = 1;
+		} else {
+			useAligment = aligment;
+		}
+
+		if ((uintptr)currentAt % useAligment != 0) {
+			padding = (useAligment - (uintptr)currentAt % useAligment) % useAligment;
+		}
+
+		AB_CORE_ASSERT(size + padding < renderer->renderBufferFree,
+					   "Not enough space in render buffer.");
+
+		renderer->renderBufferAt += size + padding + 1;
+		renderer->renderBufferFree -= size + padding + 1;
+		byte* nextAt = currentAt + padding;
+
+		memcpy(nextAt, data, size);
+
+		AB_CORE_ASSERT((uintptr)nextAt % (uintptr)useAligment == 0, "Wrong aligment");
+
+		return (void*)nextAt;
+	}
+
+#define PushRenderBucket(rendr, cmd)														\
+	do{RenderBucket* _renderBucketDest = rendr->commandQueueBegin + rendr->commandQueueAt; 	\
+	CopyScalar(RenderBucket, _renderBucketDest, &cmd);										\
+	rendr->commandQueueAt++; }while(false)																
+#define RENDER_KEY_INSERT_KIND(key, type) key |= (uint64)type << 63
+#define RENDER_KEY_INSERT_BLEND_TYPE(key, type) key |= (uint64)type << 62
+#define RENDER_KEY_INSERT_DEPTH(key, depth) 				\
+	union {float32 flt; uint32 uint;} _pun_##type;			\
+	_pun_##type.flt = depth;								\
+	key |= (uint64)_pun_##type.uint << 30					
+
+	
+	void RendererPushCommand(Renderer* renderer, RenderCommandType rcType, void* rc) {
+		void* renderDataPtr = nullptr;
+		RenderBucket command = {};
+		
+		switch (rcType) {
+		// TODO: Move repetetive parts out of cases
+		case RENDER_COMMAND_DRAW_MESH: {
+			RenderCommandDrawMesh* renderData = (RenderCommandDrawMesh*)rc;
+			RENDER_KEY_INSERT_KIND(command.sortKey, KIND_BIT_DRAW_CALL);
+			RenderKeyBlendTypeBit blendBit = {};
+			if (renderData->blendMode == BLEND_MODE_OPAQUE) {
+				blendBit = BLEND_TYPE_BIT_OPAQUE;
+			} else {
+				blendBit = BLEND_TYPE_BIT_TRANSPARENT;					
+			}
+
+			RENDER_KEY_INSERT_BLEND_TYPE(command.sortKey, blendBit);
+
+			float32 distanceToCamSq;
+			if (renderData->sortCriteria == RENDER_SORT_CRITERIA_MESH_ORIGIN) {
+				Vector3 meshCenter = GetPosition(&renderData->transform.worldMatrix);
+				distanceToCamSq = DistanceSq(meshCenter, renderer->camera.position);
+				
+			} else if (renderData->sortCriteria == RENDER_SORT_CRITERIA_NEAREST_VERTEX) {
+				Mesh* mesh = AssetGetMeshData(PermStorage()->asset_manager,
+											  renderData->meshHandle);
+				AB_CORE_ASSERT(mesh, "Mesh pointer was nullptr");
+				BBoxAligned bbox = mesh->aabb;
+
+				v4 points[8];
+				
+				points[0] = V4(bbox.min, 1.0f);
+				points[1] = V4(bbox.max.x, bbox.min.y, bbox.min.z, 1.0f);
+				points[2] = V4(bbox.max.x, bbox.min.y, bbox.max.z, 1.0f);
+				points[3] = V4(bbox.min.x, bbox.min.y, bbox.max.z, 1.0f);
+				points[4] = V4(bbox.min.x, bbox.max.y, bbox.min.z, 1.0f);
+				points[5] = V4(bbox.max.x, bbox.max.y, bbox.min.z, 1.0f);
+				points[6] = V4(bbox.max.x, bbox.max.y, bbox.max.z, 1.0f);
+				points[7] = V4(bbox.min.x, bbox.max.y, bbox.max.z, 1.0f);
+
+				v4 point0 = MulM4V4(renderData->transform.worldMatrix,
+									points[0]);
+				
+				float32 minDistanceSq = DistanceSq(V3(point0),
+												   renderer->camera.position);
+				
+				for (int i = 1; i < 8; i++) {
+					v4 pointInWorld = MulM4V4(renderData->transform.worldMatrix,
+											  points[i]);
+					float32 d = DistanceSq(V3(pointInWorld),
+										   renderer->camera.position);
+					if (d < minDistanceSq) {
+						minDistanceSq = d;
+					}
+				}
+
+				distanceToCamSq = minDistanceSq;				
+			} else {
+				AB_CORE_FATAL("Undefined RenderSortCriteria value.");
+			}
+			
+			float32 sortValue;
+			if (renderData->blendMode == BLEND_MODE_OPAQUE) {
+				sortValue = distanceToCamSq;
+			} else {
+				// NOTE: Inverting distance in order to sort
+				// transparent sprites from less significant to most
+				if (distanceToCamSq < 0.001f) {
+					sortValue = FLT_MAX;
+				} else {
+					sortValue = 1.0f / distanceToCamSq;
+				}
+
+				DEBUG_OVERLAY_PUSH_VAR("Distance to cam", distanceToCamSq);
+
+			}
+			RENDER_KEY_INSERT_DEPTH(command.sortKey, sortValue);
+			command.commandType = RENDER_COMMAND_DRAW_MESH;
+
+			renderDataPtr = _PushRenderData(renderer,
+											sizeof(RenderCommandDrawMesh),
+											alignof(RenderCommandDrawMesh),
+											rc);
+		} break;
+		case RENDER_COMMAND_DRAW_MESH_WIREFRAME: {
+			RenderCommandDrawMeshWireframe* renderData = (RenderCommandDrawMeshWireframe*)rc;
+			RENDER_KEY_INSERT_KIND(command.sortKey, KIND_BIT_DRAW_CALL);
+			RenderKeyBlendTypeBit blendBit = {};
+			if (renderData->blendMode == BLEND_MODE_OPAQUE) {
+				blendBit = BLEND_TYPE_BIT_OPAQUE;
+			} else {
+				blendBit = BLEND_TYPE_BIT_TRANSPARENT;					
+			}
+				
+			RENDER_KEY_INSERT_BLEND_TYPE(command.sortKey, blendBit);
+			RENDER_KEY_INSERT_DEPTH(command.sortKey, 0xffffffff);
+			command.commandType = RENDER_COMMAND_DRAW_MESH_WIREFRAME;
+
+			renderDataPtr = _PushRenderData(renderer,
+											sizeof(RenderCommandDrawMeshWireframe),
+											alignof(RenderCommandDrawMeshWireframe),
+											rc);
+		} break;
+			default: { AB_CORE_ASSERT(FALSE);} break;
+		}
+
+		uintptr offset = (uintptr)renderDataPtr - (uintptr)renderer->renderBufferBegin;
+		command.rbOffset = SafeCastUptrU32(offset);
+		PushRenderBucket(renderer, command);
+	}
+
+	void RendererEndFrame(Renderer* renderer) {
+	}
 	
 	Renderer* RendererInit(RendererConfig config) {
 		Renderer* props = nullptr;
@@ -505,7 +713,7 @@ Vector3 sys_ViewPos;};
 		auto[vertexSource, vSize] = DebugReadTextFile("../assets/shaders/MeshVertex.glsl");
 		auto[fragmentSource, fSize] = DebugReadTextFile("../assets/shaders/MeshFragment.glsl");
 
-		props->program_handle = RendererCreateProgram(vertexSource, fragmentSource);
+   		props->program_handle = RendererCreateProgram(vertexSource, fragmentSource);
 		props->postFXProgramHandle = RendererCreateProgram(POSTFX_VERTEX_PROGRAM, POSTFX_FRAGMENT_PROGRAM);
 
 		uint32 sysVertexUB;
@@ -577,6 +785,7 @@ Vector3 sys_ViewPos;};
 			renderer->projection = hpm::PerspectiveRH(45.0f, aspectRatio, 0.1f, 100.0f);
 		}
 		CopyScalar(RendererConfig, &renderer->config, newConfig);
+		
 	}
 	
 	void RendererSetSkybox(Renderer* renderer, int32 cubemapHandle) {
@@ -599,10 +808,11 @@ Vector3 sys_ViewPos;};
 	}
 
 
-	void RendererSubmit(Renderer* renderer, int32 mesh_handle, const hpm::Matrix4* transform) {
+	void RendererSubmit(Renderer* renderer, int32 mesh_handle, const hpm::Matrix4* transform, BlendMode blendMode) {
 		if (renderer->draw_buffer_at < DRAW_BUFFER_SIZE) {
 			renderer->draw_buffer[renderer->draw_buffer_at].mesh_handle = mesh_handle;
 			renderer->draw_buffer[renderer->draw_buffer_at].transform = *transform;
+			renderer->draw_buffer[renderer->draw_buffer_at].blendMode = blendMode;
 			renderer->draw_buffer_at++;
 		}
 	}
@@ -641,18 +851,81 @@ Vector3 sys_ViewPos;};
 		GLCall(glDrawArrays(GL_TRIANGLES, 0, 6));
 		GLCall(glUseProgram(0));			
 	}
+
+	typedef bool32(RenderSortPred)(uint64 a, uint64 b);
+
+	static RenderBucket* SortBuckets(RenderBucket* bufferA, RenderBucket* bufferB, uint32 beg, uint32 end, RenderSortPred* pred) {
+		RenderBucket* targetBuffer = bufferA;
+		if (beg < end) {
+			uint32 mid = beg + (end - beg) / 2;
+			RenderBucket* left = SortBuckets(bufferA, bufferB, beg, mid, pred);
+			RenderBucket* right = SortBuckets(bufferA, bufferB, mid + 1, end, pred);
+
+			targetBuffer = left == bufferA ? bufferB : bufferA;
+
+			uint32 leftAt = beg;
+			uint32 rightAt = mid + 1;
+			uint32 tempAt = beg;
+			while (leftAt <= mid && rightAt <= end) {
+				AB_CORE_ASSERT(tempAt <= end, "Merge sort error. Buffer overflow.");
+				if (pred(left[leftAt].sortKey, right[rightAt].sortKey)) {
+					targetBuffer[tempAt] = left[leftAt];
+					tempAt++;
+					leftAt++;
+				}
+				else {
+					targetBuffer[tempAt] = right[rightAt];
+					tempAt++;
+					rightAt++;
+					
+				}
+			}
+			while (leftAt <= mid) {
+				targetBuffer[tempAt] = left[leftAt];
+				tempAt++;
+				leftAt++;
+			}
+			while (rightAt <= end) {
+				targetBuffer[tempAt] = right[rightAt];
+				tempAt++;
+				rightAt++;
+			}
+		}
+		return targetBuffer;
+	}
+
+	inline static bool32 SortPred(uint64 a, uint64 b) {
+		return a < b;
+	}
 	
 	void RendererRender(Renderer* renderer) {
+		CopyArray(RenderBucket,
+				  renderer->commandQueueCapacity,
+				  renderer->tmpCommandQueueBegin,
+				  renderer->commandQueueBegin);
+
+		RenderBucket* commandBuffer = SortBuckets(renderer->commandQueueBegin,
+												  renderer->tmpCommandQueueBegin,
+												  0,
+												  renderer->commandQueueAt - 1,
+												  SortPred);
+		
 		glViewport(0, 0, renderer->config.renderResolutionW, renderer->config.renderResolutionH);
 		API::BindFramebuffer(renderer->multisampledFBOHandle, API::FB_TARGET_DRAW);
-		API::ClearCurrentFramebuffer(API::CLEAR_COLOR | API::CLEAR_DEPTH);
-		
-		// TODO: Temporary setting culling here
-		GLCall(glDisable(GL_CULL_FACE));
+
+		GLCall(glEnable(GL_DEPTH_TEST));
+		GLCall(glDepthMask(GL_TRUE));
+		GLCall(glDepthFunc(GL_LESS));
+		GLCall(glEnable(GL_BLEND));
+		GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+		GLCall(glBlendEquation(GL_FUNC_ADD));
+		GLCall(glEnable(GL_CULL_FACE));
 		GLCall(glCullFace(GL_BACK));
 		GLCall(glFrontFace(GL_CCW));
+	  
+		API::ClearCurrentFramebuffer(API::CLEAR_COLOR | API::CLEAR_DEPTH);
 
-		Matrix4 viewProj = Multiply(renderer->projection, renderer->camera.look_at);
+		Matrix4 viewProj = MulM4M4(renderer->projection, renderer->camera.look_at);
 		hpm::Vector3* view_pos = &renderer->camera.position;
 
 		GLCall(glBindBuffer(GL_UNIFORM_BUFFER, renderer->vertexSystemUBHandle));
@@ -678,10 +951,6 @@ Vector3 sys_ViewPos;};
 		GLCall(glBindBuffer(GL_UNIFORM_BUFFER, 0));
 
 		GLCall(glUniformMatrix4fv(glGetUniformLocation(renderer->program_handle, "sys_ViewProjMatrix"), 1, GL_FALSE, viewProj.data));
-				
-		GLCall(glEnable(GL_DEPTH_TEST));
-		GLCall(glDepthMask(GL_TRUE));
-		GLCall(glDepthFunc(GL_LESS));
 		
 		GLCall(glUseProgram(renderer->program_handle));
 
@@ -703,9 +972,44 @@ Vector3 sys_ViewPos;};
 		GLCall(glUniform3fv(glGetUniformLocation(renderer->program_handle, "dir_light.diffuse"), 1, renderer->dir_light.diffuse.data));
 		GLCall(glUniform3fv(glGetUniformLocation(renderer->program_handle, "dir_light.specular"), 1, renderer->dir_light.specular.data));
 
-		for (uint32 i = 0; i < renderer->draw_buffer_at; i++) {
-			DrawCommand* command = &renderer->draw_buffer[i];
-			Mesh* mesh = AB::AssetGetMeshData(PermStorage()->asset_manager, command->mesh_handle);
+		for (uint32 at = 0; at < renderer->commandQueueAt; at++) {
+			RenderBucket* command = commandBuffer + at;
+
+			Transform* transform = {};
+			BlendMode blendMode = {};
+			uint32 meshHandle = 0;
+			switch (command->commandType) {
+			case RENDER_COMMAND_DRAW_MESH: {
+				auto* renderData = (RenderCommandDrawMesh*)(renderer->renderBufferBegin + command->rbOffset);
+				transform = &renderData->transform;
+				blendMode = renderData->blendMode;
+				meshHandle = renderData->meshHandle;
+				GLCall(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
+				GLCall(glEnable(GL_CULL_FACE));
+								
+			} break;
+			case RENDER_COMMAND_DRAW_MESH_WIREFRAME: {
+				auto* renderData = (RenderCommandDrawMeshWireframe*)(renderer->renderBufferBegin + command->rbOffset);
+				transform = &renderData->transform;
+				blendMode = renderData->blendMode;
+				meshHandle = renderData->meshHandle;
+				GLCall(glPolygonMode(GL_FRONT_AND_BACK, GL_LINE));
+				GLCall(glLineWidth(renderData->lineWidth));
+				GLCall(glDisable(GL_CULL_FACE));
+			} break;
+			default: {AB_CORE_ASSERT(false);} break;
+			}
+			
+#if  1
+			if (blendMode == BLEND_MODE_OPAQUE) {
+				GLCall(glDepthMask(GL_TRUE));
+			} else if (blendMode == BLEND_MODE_TRANSPARENT) {
+				GLCall(glDepthMask(GL_FALSE));				
+			} else {
+				AB_CORE_FATAL("Undefined blend mode");
+			}
+#endif
+			Mesh* mesh = AB::AssetGetMeshData(PermStorage()->asset_manager, meshHandle);
 
 			GLCall(glBindBuffer(GL_ARRAY_BUFFER, mesh->api_vb_handle));
 #if 1
@@ -740,10 +1044,10 @@ Vector3 sys_ViewPos;};
 			GLCall(glUniform3fv(glGetUniformLocation(renderer->program_handle, "material.specular"), 1, mesh->material->specular.data));
 			GLCall(glUniform1f(glGetUniformLocation(renderer->program_handle, "material.shininess"), mesh->material->shininess));
 
-			GLCall(glUniformMatrix4fv(glGetUniformLocation(renderer->program_handle, "sys_ModelMatrix"), 1, GL_FALSE, command->transform.data));
+			GLCall(glUniformMatrix4fv(glGetUniformLocation(renderer->program_handle, "sys_ModelMatrix"), 1, GL_FALSE, transform->worldMatrix.data));
 
 
-			Matrix4 inv = GetMatrix4(Inverse(GetMatrix3(command->transform)));
+			Matrix4 inv = GetMatrix4(Inverse(GetMatrix3(transform->worldMatrix)));
 			Matrix4 normalMatrix = Transpose(inv);
 		
 			GLCall(glBindBuffer(GL_UNIFORM_BUFFER, renderer->vertexSystemUBHandle));
@@ -777,9 +1081,10 @@ Vector3 sys_ViewPos;};
 				GLCall(glDrawArrays(GL_TRIANGLES, 0, mesh->num_vertices));
 			}
 		}
-
 		GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
-		DrawSkybox(renderer);
+		GLCall(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
+		//DrawSkybox(renderer);
+		//GLCall(glDisable(GL_DEPTH_TEST));
 		API::BindFramebuffer(renderer->multisampledFBOHandle, API::FB_TARGET_READ);
 		API::BindFramebuffer(renderer->postfxFBOHandle, API::FB_TARGET_DRAW);
 		// TODO: Framebuffers resolution, remove depth buffer frompostfx fbo?
@@ -793,11 +1098,15 @@ Vector3 sys_ViewPos;};
 								 ));
 
 		API::BindFramebuffer(API::DEFAULT_FB_HANDLE, API::FB_TARGET_DRAW);
+		//API::ClearCurrentFramebuffer(API::CLEAR_DEPTH | API::CLEAR_COLOR);
 		uint32 w, h;
 		WindowGetSize(&w, &h);
 		glViewport(0, 0, w, h);
+		// TODO: Cleanup this pipeline state mess!
+		glDisable(GL_DEPTH_TEST);
 		PostFXPass(renderer);
 
 		renderer->pointLightsAt = 0;
+		renderer->draw_buffer_at = 0;
 	}
 }

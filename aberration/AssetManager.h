@@ -1,6 +1,7 @@
 #pragma once
 #include "AB.h"
 #include <hypermath.h>
+#include "ExtendedMath.h"
 
 namespace AB {
 	constexpr uint32 MESH_STORAGE_CAPACITY = 128;
@@ -29,6 +30,7 @@ namespace AB {
 		hpm::Vector3* normals;
 		uint32* indices;
 		Material* material;
+		BBoxAligned aabb;
 	};
 
 	// TODO: Hash map for associating texture names and handles
@@ -59,13 +61,16 @@ namespace AB {
 		RGBA
 	};
 
+
 	AB_API AssetManager* AssetInitialize();
+	
+	AB_API BBoxAligned CreateAABBFromVertices(uint32 numVertices, Vector3* vertices);
 	AB_API int32 AssetCreateTexture(AssetManager* mgr, byte* bitmap,
 									uint16 w, uint16 h, uint32 bits_per_pixel,
 									const char* name, MapType mapType);
 	AB_API int32 AssetCreateTextureBMP(AssetManager* mgr, const char* bmp_path, MapType mapType);
 	AB_API int32 AssetCreateMesh(AssetManager* mgr, uint32 number_of_vertices, hpm::Vector3* positions, hpm::Vector2* uvs, hpm::Vector3* normals, uint32 num_of_indices, uint32* indices, Material* material);
 	AB_API int32 AssetCreateMeshAAB(AssetManager* mgr, const char* aab_path);
-	Mesh* AssetGetMeshData(AssetManager* mgr, int32 mesh_handle);
+	AB_API Mesh* AssetGetMeshData(AssetManager* mgr, int32 mesh_handle);
 	Texture* AssetGetTextureData(AssetManager* mgr, int32 texture_handle);
 }

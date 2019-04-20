@@ -1,4 +1,6 @@
+#define HYPERMATH_IMPL
 #include <hypermath.h>
+
 #include <Aberration.h>
 #include "Application.h"
 #include "renderer/Renderer3D.h"
@@ -8,6 +10,7 @@
 #include "AssetManager.h"
 #include "platform/API/GraphicsAPI.h"
 #include "utils/ImageLoader.h"
+#include "ExtendedMath.h"
 
 int32 mesh;
 int32 mesh2;
@@ -123,9 +126,13 @@ void Subscribe() {
 }
 
 AB::Renderer* g_Renderer;
+AB::AssetManager*  asset_mgr;
+int32 debugCubeMesh;
 
 void Init() {
 	GLint v;
+	AB::PrintString("Mtx4: %u64\n", alignof(Matrix4));
+	AB::PrintString("RenderCommandDrawMesh aligment: %u64", sizeof(AB::RenderCommandDrawMesh));
 	glGetIntegerv(GL_MAX_SAMPLES, &v);
 	AB::PrintString("Max Samples: %u32\n", v);
 	AB::RendererConfig config;
@@ -134,13 +141,15 @@ void Init() {
 	config.renderResolutionH = 720;
 	
 	g_Renderer = AB::RendererInit(config);
+	AB::RendererAllocateBuffers(AB::GetMemory(), g_Renderer, MEGABYTES(1), 256);
 	g_Input = AB::InputInitialize();
-	auto asset_mgr = AB::AssetInitialize();
+	asset_mgr = AB::AssetInitialize();
 	mesh = AB::AssetCreateMeshAAB(asset_mgr, "../assets/barrels/barrel1.aab");
 	mesh2 = AB::AssetCreateMeshAAB(asset_mgr, "../assets/barrels/barrel2.aab");
-	mesh3 = AB::AssetCreateMeshAAB(asset_mgr, "../assets/barrels/barrel3.aab");
+	mesh3 = AB::AssetCreateMeshAAB(asset_mgr, "../assets/barrels/alignedBarrel.aab");
 	plane = AB::AssetCreateMeshAAB(asset_mgr, "../assets/Plane.aab");
-	cubeMesh = AB::AssetCreateMeshAAB(asset_mgr, "../assets/Cube.aab");
+	cubeMesh = AB::AssetCreateMeshAAB(asset_mgr, "../assets/grass.aab");
+	debugCubeMesh = AB::AssetCreateMeshAAB(asset_mgr, "../assets/Cube.aab");
 	Subscribe();
 
 	AB::Image px = AB::LoadBMP("../assets/cubemap/posx.bmp", AB::API::TEX_COLOR_SPACE_SRGB);
@@ -170,6 +179,15 @@ void Init() {
 
 	AB::InputSubscribeEvent(g_Input, &tab_q);
 
+	m4x4 m = Translation({1, 2, 3});
+	v4 vec = MulM4V4(m, {9, 8, 7, 1});
+	AB::PrintString("Vector: %f32, %f32, %f32\n", vec.x, vec.y, vec.z);
+
+	v3 sd = V3(1, 2, 3);
+	v2 fee = {};
+	v3 f4 = V3(fee, 3.0f);
+	v4 vb = V4(1.0f, 2.0f, 3.0f, 4.0f);
+	v4 fff = V4(V3(V2(1.0f, 2.0f), 3.0f), 4.0f);
 	
 	AB::EventQuery m_move_q = {};
 	m_move_q.type = AB::EVENT_TYPE_MOUSE_MOVED;
@@ -219,23 +237,26 @@ float32 currScale = 1.0f;
 bool32 multisamplingPrev = false;
 bool32 multisampling = false;
 
+float32 g_Time = 0.0f;
+
 void Render() {
+	g_Time += 0.1;
 	AB::InputBeginFrame(g_Input);
 	
 	if (g_cam_w) {
-		cam_pos = hpm::Add(hpm::Multiply(cam_front, 0.2), cam_pos);
+		cam_pos = hpm::Add(hpm::MulV3F32(cam_front, 0.2), cam_pos);
 	}
 	if (g_cam_s) {
-		cam_pos = hpm::Subtract(cam_pos, hpm::Multiply(cam_front, 0.2));
+		cam_pos = hpm::Subtract(cam_pos, hpm::MulV3F32(cam_front, 0.2));
 	}
 
 	if (g_cam_a) {
 		hpm::Vector3 right = hpm::Normalize(hpm::Cross(cam_front, { 0, 1, 0 }));
-		cam_pos = hpm::Subtract(cam_pos, hpm::Multiply(right, 0.2));
+		cam_pos = hpm::Subtract(cam_pos, hpm::MulV3F32(right, 0.2));
 	}
 	if (g_cam_d) {
 		hpm::Vector3 right = hpm::Normalize(hpm::Cross(cam_front, { 0, 1, 0 }));
-		cam_pos = hpm::Add(hpm::Multiply(right, 0.2), cam_pos);
+		cam_pos = hpm::Add(hpm::MulV3F32(right, 0.2), cam_pos);
 	}
 
 	cam_front.x = hpm::Cos(hpm::ToRadians(pitch)) * hpm::Cos(hpm::ToRadians(yaw));
@@ -245,34 +266,211 @@ void Render() {
 	AB::RendererSetCamera(g_Renderer, cam_front, cam_pos);
 
 	auto tr = hpm::Translation({ 0, 0, 0 });
-	auto cubeTransform = Translation({0, 0, 25});
-	cubeTransform = Scale(cubeTransform, {2.5, 2.5, 27.5});
-	AB::RendererSubmit(g_Renderer, plane, &tr);
-	AB::RendererSubmit(g_Renderer, mesh, &tr);
-	AB::RendererSubmit(g_Renderer, mesh2, &tr);
-	AB::RendererSubmit(g_Renderer, mesh3, &tr);
-	AB::RendererSubmit(g_Renderer, cubeMesh, &cubeTransform);
+	auto cubeTransform = Translation({0, 0, 0});
+	cubeTransform = Scale(cubeTransform, {1, 1, 1});
+	m4x4 grass2Transform = Translation({1.0f, 0.0f, 0.0f});
+	AB::RendererBeginFrame(g_Renderer);
 
-	//DEBUG_OVERLAY_PUSH_SLIDER("x", &light.direction.x, -1, 1);
-	//DEBUG_OVERLAY_PUSH_SLIDER("y", &light.direction.y, -1, 1);
-	//DEBUG_OVERLAY_PUSH_SLIDER("z", &light.direction.z, -1, 1);
+	//to testTransform = Translation({g_Time / 2, 0, 0});
+	//testTransform = Scale(testTransform, {2,2,2});
+	auto testTransform = Identity4();//Rotation(g_Time, {0.2, 0.3, 0.7});
+	Vector3 trans = GetPosition(&testTransform);
 
-	//DEBUG_OVERLAY_PUSH_SLIDER("amb", &light.ambient.x, 0, 1);
-	//DEBUG_OVERLAY_PUSH_VAR("amb" , light.ambient.x);
-	//DEBUG_OVERLAY_PUSH_SLIDER("dif", &light.diffuse.x, 0, 1);
-	//DEBUG_OVERLAY_PUSH_SLIDER("spc", &light.specular.x, 0, 1);
+	auto boxTransform = Translation(trans);
 
-	//DEBUG_OVERLAY_PUSH_SLIDER("light0 diff", &(plights[0].diffuse), 0, 1);
-	//DEBUG_OVERLAY_PUSH_SLIDER("light0 pos", &(plights[0].position), -10, 10);
+	AB::BBoxAligned aabb = AB::AssetGetMeshData(asset_mgr, mesh2)->aabb;
+	
+	
+	Matrix4 aabbTr1 = Identity4();
+	Matrix4 aabbTr2 = Identity4();
+	Matrix4 aabbTr3 = Identity4();
+	Matrix4 aabbTr4 = Identity4();
+	Matrix4 aabbTr5 = Identity4();
+	Matrix4 aabbTr6 = Identity4();
+	Matrix4 aabbTr7 = Identity4();
+	Matrix4 aabbTr8 = Identity4();
 
-	//DEBUG_OVERLAY_PUSH_SLIDER("light1 diff", &(plights[1].diffuse), 0, 1);
-	//DEBUG_OVERLAY_PUSH_SLIDER("light1 pos", &(plights[1].position), -10, 10);
+	aabbTr1 = Rotate(aabbTr1, g_Time, {0.2, 0.3, 0.7});
+	aabbTr2 = Rotate(aabbTr2, g_Time, {0.2, 0.3, 0.7});
+	aabbTr3 = Rotate(aabbTr3, g_Time, {0.2, 0.3, 0.7});
+	aabbTr4 = Rotate(aabbTr4, g_Time, {0.2, 0.3, 0.7});
+	aabbTr5 = Rotate(aabbTr5, g_Time, {0.2, 0.3, 0.7});
+	aabbTr6 = Rotate(aabbTr6, g_Time, {0.2, 0.3, 0.7});
+	aabbTr7 = Rotate(aabbTr7, g_Time, {0.2, 0.3, 0.7});
+	aabbTr8 = Rotate(aabbTr8, g_Time, {0.2, 0.3, 0.7});
+
+	aabbTr1 = Translate(aabbTr1, {aabb.min.x, aabb.min.y, aabb.min.z});
+	aabbTr2 = Translate(aabbTr2, {aabb.min.x, aabb.min.y, aabb.max.z});
+	aabbTr3 = Translate(aabbTr3, {aabb.max.x, aabb.min.y, aabb.min.z});
+	aabbTr4 = Translate(aabbTr4, {aabb.max.x, aabb.min.y, aabb.max.z});
+	aabbTr5 = Translate(aabbTr5, {aabb.min.x, aabb.max.y, aabb.min.z});
+	aabbTr6 = Translate(aabbTr6, {aabb.min.x, aabb.max.y, aabb.max.z});
+	aabbTr7 = Translate(aabbTr7, {aabb.max.x, aabb.max.y, aabb.min.z});
+	aabbTr8 = Translate(aabbTr8, {aabb.max.x, aabb.max.y, aabb.max.z});
+	
+    aabbTr1 = Scale(aabbTr1, {0.2, 0.2, 0.2});
+	aabbTr2 = Scale(aabbTr2, {0.2, 0.2, 0.2});
+	aabbTr3 = Scale(aabbTr3, {0.2, 0.2, 0.2});
+	aabbTr4 = Scale(aabbTr4, {0.2, 0.2, 0.2});
+	aabbTr5 = Scale(aabbTr5, {0.2, 0.2, 0.2});
+	aabbTr6 = Scale(aabbTr6, {0.2, 0.2, 0.2});
+	aabbTr7 = Scale(aabbTr7, {0.2, 0.2, 0.2});
+	aabbTr8 = Scale(aabbTr8, {0.2, 0.2, 0.2});
+	
+	AB::RenderCommandDrawMesh planeCommand = {};
+	planeCommand.meshHandle = plane;
+	planeCommand.transform.worldMatrix = tr;
+	planeCommand.blendMode = AB::BLEND_MODE_OPAQUE;
+
+	AB::RenderCommandDrawMesh meshCommand = {};
+	meshCommand.meshHandle = mesh;
+	meshCommand.transform.worldMatrix = tr;
+	meshCommand.blendMode = AB::BLEND_MODE_OPAQUE;
+
+	AB::RenderCommandDrawMesh mesh1Command = {};
+	mesh1Command.meshHandle = mesh2;
+	mesh1Command.transform.worldMatrix = testTransform;
+	mesh1Command.blendMode = AB::BLEND_MODE_OPAQUE;
+
+	AB::RenderCommandDrawMesh mesh2Command = {};
+	mesh2Command.meshHandle = mesh3;
+	mesh2Command.transform.worldMatrix = testTransform;
+	mesh2Command.blendMode = AB::BLEND_MODE_OPAQUE;
+
+	AB::RenderCommandDrawMesh cubeMeshCommand = {};
+	cubeMeshCommand.meshHandle = cubeMesh;
+	cubeMeshCommand.transform.worldMatrix = cubeTransform;
+	cubeMeshCommand.blendMode = AB::BLEND_MODE_TRANSPARENT;
+	cubeMeshCommand.sortCriteria = AB::RENDER_SORT_CRITERIA_NEAREST_VERTEX;
+	
+	AB::RenderCommandDrawMesh grass2MeshCommand = {};
+	grass2MeshCommand.meshHandle = cubeMesh;
+	grass2MeshCommand.transform.worldMatrix = grass2Transform;
+	grass2MeshCommand.blendMode = AB::BLEND_MODE_TRANSPARENT;
+	grass2MeshCommand.sortCriteria = AB::RENDER_SORT_CRITERIA_NEAREST_VERTEX;
+
+	AB::RenderCommandDrawMeshWireframe debugBoxCommand = {};
+	debugBoxCommand.meshHandle = debugCubeMesh;
+	debugBoxCommand.transform.worldMatrix = boxTransform;
+	debugBoxCommand.blendMode = AB::BLEND_MODE_OPAQUE;
+	debugBoxCommand.lineWidth = 2.0f;
+
+	AB::RenderCommandDrawMesh aabb1 = {};
+	aabb1.meshHandle = debugCubeMesh;
+	aabb1.transform.worldMatrix = aabbTr1;
+	aabb1.blendMode = AB::BLEND_MODE_TRANSPARENT;
+
+	AB::RenderCommandDrawMesh aabb2 = {};
+	aabb2.meshHandle = debugCubeMesh;
+	aabb2.transform.worldMatrix = aabbTr2;
+	aabb2.blendMode = AB::BLEND_MODE_TRANSPARENT;
+
+	AB::RenderCommandDrawMesh aabb3 = {};
+	aabb3.meshHandle = debugCubeMesh;
+	aabb3.transform.worldMatrix = aabbTr3;
+	aabb3.blendMode = AB::BLEND_MODE_TRANSPARENT;
+
+	AB::RenderCommandDrawMesh aabb4 = {};
+	aabb4.meshHandle = debugCubeMesh;
+	aabb4.transform.worldMatrix = aabbTr4;
+	aabb4.blendMode = AB::BLEND_MODE_TRANSPARENT;
+
+	AB::RenderCommandDrawMesh aabb5 = {};
+	aabb5.meshHandle = debugCubeMesh;
+	aabb5.transform.worldMatrix = aabbTr5;
+	aabb5.blendMode = AB::BLEND_MODE_TRANSPARENT;
+
+	AB::RenderCommandDrawMesh aabb6 = {};
+	aabb6.meshHandle = debugCubeMesh;
+	aabb6.transform.worldMatrix = aabbTr6;
+	aabb6.blendMode = AB::BLEND_MODE_TRANSPARENT;
+
+	AB::RenderCommandDrawMesh aabb7 = {};
+	aabb7.meshHandle = debugCubeMesh;
+	aabb7.transform.worldMatrix = aabbTr7;
+	aabb7.blendMode = AB::BLEND_MODE_TRANSPARENT;
+
+	AB::RenderCommandDrawMesh aabb8 = {};
+	aabb8.meshHandle = debugCubeMesh;
+	aabb8.transform.worldMatrix = aabbTr8;
+	aabb8.blendMode = AB::BLEND_MODE_TRANSPARENT;
+
+	AB::PrintString("---------------\n");
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH,
+							(void*)(&cubeMeshCommand));
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH,
+							(void*)(&planeCommand));
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH,
+							(void*)(&grass2MeshCommand));
+
+
+#if 0
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH,
+							(void*)(&meshCommand));
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH,
+							(void*)(&mesh1Command));
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH,
+							(void*)(&mesh2Command));
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH_WIREFRAME,
+							(void*)(&debugBoxCommand));
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH,
+							(void*)(&aabb1));
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH,
+							(void*)(&aabb2));
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH,
+							(void*)(&aabb3));
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH,
+							(void*)(&aabb4));
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH,
+							(void*)(&aabb5));
+
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH,
+							(void*)(&aabb6));
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH,
+							(void*)(&aabb7));
+
+	AB::RendererPushCommand(g_Renderer,
+							AB::RENDER_COMMAND_DRAW_MESH,
+							(void*)(&aabb8));
+
+	AB::RendererEndFrame(g_Renderer);
+	
+#endif
+
 	DEBUG_OVERLAY_PUSH_SLIDER("gamma", &g_Gamma, -10, 10);
 	DEBUG_OVERLAY_PUSH_VAR("gamma ", g_Gamma);
 	DEBUG_OVERLAY_PUSH_SLIDER("Exp", &g_Exposure, -2, 5);
 	DEBUG_OVERLAY_PUSH_VAR("Exp", g_Exposure);
-	DEBUG_OVERLAY_PUSH_SLIDER("I", &redLightInt, 0, 100);
-	DEBUG_OVERLAY_PUSH_VAR("I", redLightInt);
+	//DEBUG_OVERLAY_PUSH_SLIDER("I", &redLightInt, 0, 100);
+	//DEBUG_OVERLAY_PUSH_VAR("I", redLightInt);
 	DEBUG_OVERLAY_PUSH_SLIDER("Resolution:", &currScale, 0.1f, 4.0f);
 	DEBUG_OVERLAY_PUSH_VAR("Resolution:", currScale);
 	DEBUG_OVERLAY_PUSH_TOGGLE("MSAA 8x", &multisampling);
@@ -301,21 +499,21 @@ void Render() {
 	settings->gamma = g_Gamma;
 	settings->exposure = g_Exposure;
 
-	DEBUG_OVERLAY_PUSH_SLIDER("l", &lpos, 0, 55);
+	//DEBUG_OVERLAY_PUSH_SLIDER("l", &lpos, 0, 55);
 
-	light.ambient = { light.ambient.x, light.ambient.x ,light.ambient.x };
-	light.diffuse = { light.diffuse.x , light.diffuse.x , light.diffuse.x };
-	light.specular = { light.specular.x, light.specular.x, light.specular.x };
-	plights[0] = {lpos, {0.1, 0.1, 0.1}, {10, 10, 10}, {}, 0.22, 0.20};
+	light.ambient = { 0.2, 0.2, 0.2 };
+	light.diffuse = { 3.0 , 3.0 , 3.0 };
+	light.specular = { 10.0, 10.0, 10.0 };
+	AB::RendererSetDirectionalLight(g_Renderer, &light);
+	//plights[0] = {lpos, {0.1, 0.1, 0.1}, {10, 10, 10}, {}, 0.22, 0.20};
 	//plights[0] = {{0, 0, 45.5}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.2}, {0.0,0.0, 0.0}, 0.22, 0.20};
-	plights[1] = {{-1.4, -1.9, 9.0}, {}, {redLightInt, 0, 0}, {}, 0, 1};
-	plights[2] = {{0, -1.8, 4.0}, {}, {0, 0, 0.2}, {}, 0, 1};
-	plights[3] = {{0.8, -1.7, 6.0}, {}, {0.0, 0.1, 0.0}, {}, 0, 1};
-	//AB::RendererSetDirectionalLight(g_Renderer, &light);
-	AB::RendererSubmitPointLight(g_Renderer, &plights[0]);
-	AB::RendererSubmitPointLight(g_Renderer, &plights[1]);
-	AB::RendererSubmitPointLight(g_Renderer, &plights[2]);
-	AB::RendererSubmitPointLight(g_Renderer, &plights[3]);
+	//plights[1] = {{-1.4, -1.9, 9.0}, {}, {redLightInt, 0, 0}, {}, 0, 1};
+	//plights[2] = {{0, -1.8, 4.0}, {}, {0, 0, 0.2}, {}, 0, 1};
+	//plights[3] = {{0.8, -1.7, 6.0}, {}, {0.0, 0.1, 0.0}, {}, 0, 1};
+	//AB::RendererSubmitPointLight(g_Renderer, &plights[0]);
+	//AB::RendererSubmitPointLight(g_Renderer, &plights[1]);
+	//AB::RendererSubmitPointLight(g_Renderer, &plights[2]);
+	//AB::RendererSubmitPointLight(g_Renderer, &plights[3]);
 
 	AB::RendererRender(g_Renderer);
 }

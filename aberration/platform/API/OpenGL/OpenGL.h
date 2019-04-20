@@ -199,7 +199,8 @@ namespace AB::GL {
 	void _GetLog(char* buffer, uint64 size);
 }
 
-#if defined(AB_CONFIG_DEBUG)
+//#define AB_DEBUG_OPENGL
+#if defined(AB_DEBUG_OPENGL)
 #define _AB_GLCALL(call) \
 	do {\
 		AB::GL::_ClearErrorQueue();\
@@ -209,7 +210,7 @@ namespace AB::GL {
 			AB::GL::_GetLog(buffer, 256);\
 			AB_CORE_ERROR(buffer, "Call: ", #call);\
 		}\
-	} while (false)\
+	} while (false)
 
 #define AB_GLCALL(proc) _AB_GLCALL(proc)
 #define GLCall(proc) _AB_GLCALL(proc)

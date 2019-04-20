@@ -85,6 +85,10 @@ void main()
 		alpha = 1.0f;
 	}
 
+	//if (alpha == 0.0f) {
+	//	discard;
+	//}	
+
 	vec3 specSample;
 	if (material.use_spec_map) {
 		specSample = texture(material.spec_map, f_UV).xyz;

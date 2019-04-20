@@ -8,6 +8,8 @@
 #include "utils/ImageLoader.h"
 #include "platform/API/GraphicsAPI.h"
 
+#include <float.h> // FLT_MAX
+
 namespace AB {
 
 	AssetManager* AssetInitialize() {
@@ -23,6 +25,50 @@ namespace AB {
 		hpm::Vector2 uv;
 		hpm::Vector3 normal;
 	};
+
+	BBoxAligned CreateAABBFromVertices(uint32 numVertices, Vector3* vertices) {
+		BBoxAligned result = {};
+		
+		float32 maxX = 0.0f;
+		float32 maxY = 0.0f;
+		float32 maxZ = 0.0f;
+
+		float32 minX = FLT_MAX;
+		float32 minY = FLT_MAX;
+		float32 minZ = FLT_MAX;
+		
+		for (uint32 i = 0; i < numVertices; i++) {
+			if (vertices[i].x > maxX) {
+				maxX = vertices[i].x;
+			}
+			if (vertices[i].y > maxY) {
+				maxY = vertices[i].y;
+			}
+			if (vertices[i].z > maxZ) {
+				maxZ = vertices[i].z;
+			}
+
+			if (vertices[i].x < minX) {
+				minX = vertices[i].x;
+			}
+			if (vertices[i].y < minY) {
+				minY = vertices[i].y;
+			}
+			if (vertices[i].z < minZ) {
+				minZ = vertices[i].z;
+			}
+		}
+		
+		result.min.x = minX;
+		result.min.y = minY;
+		result.min.z = minZ;
+
+		result.max.x = maxX;
+		result.max.y = maxY;
+		result.max.z = maxZ;
+
+		return result;
+	}
 
 	static uint32 GenAPIVertexBuffer(AssetManager* mgr, byte* mesh_mem_begin, uint64 size, uint32 num_vertices) {
 		uint32 vbo_handle;
@@ -136,6 +182,9 @@ namespace AB {
 			if (has_indices) {
 				CopyArray(uint32, num_of_indices, mgr->meshes[free_index].indices, indices);
 			}
+
+			mgr->meshes[free_index].aabb = CreateAABBFromVertices(mgr->meshes[free_index].num_vertices,
+																  mgr->meshes[free_index].positions);
 
 			mgr->meshes[free_index].api_vb_handle = GenAPIVertexBuffer(mgr, mgr->meshes[free_index].mem_begin, mem_size, number_of_vertices);
 			//mgr->meshes[free_index].api_vb_handle = GenAPIVertexBufferShuffle(mgr, &mgr->meshes[free_index]);

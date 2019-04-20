@@ -28,10 +28,9 @@ extern "C" {
 #define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
 
 // WGL_ARB_multisample
-#define	WGL_SAMPLE_BUFFERS_ARB            0x2041
-#define	WGL_SAMPLES_ARB                   0x2042
-
-#define WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB  0x20A9
+//#define	WGL_SAMPLE_BUFFERS_ARB            0x2041
+//#define	WGL_SAMPLES_ARB                   0x2042
+//#define WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB  0x20A9
 
 #define GL_SHADING_LANGUAGE_VERSION       0x8B8C
 

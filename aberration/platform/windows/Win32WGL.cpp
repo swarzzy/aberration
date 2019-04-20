@@ -19,10 +19,10 @@ namespace AB::Win32 {
 			return 0;
 		if (!strstr(extensions, "EXT_swap_control"))
 			return 0;
-		if (!strstr(extensions, "WGL_ARB_multisample"))
-			return 0;
-		if (!strstr(extensions, "WGL_ARB_framebuffer_sRGB"))
-			return 0;
+		//if (!strstr(extensions, "WGL_ARB_multisample"))
+		//return 0;
+		//if (!strstr(extensions, "WGL_ARB_framebuffer_sRGB"))
+		//return 0;
 
 		_wglProcs.ptr_wglChoosePixelFormatARB = reinterpret_cast<_proc_wglChoosePixelFormatARB*>(wglGetProcAddress("wglChoosePixelFormatARB"));
 		if (!_wglProcs.ptr_wglChoosePixelFormatARB)

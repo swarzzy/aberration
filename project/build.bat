@@ -8,6 +8,8 @@ set BinOutDir=build\
 IF NOT EXIST %BinOutDir% mkdir %BinOutDir%
 IF NOT EXIST %ObjOutDir% mkdir %ObjOutDir%
 
+cls
+
 project\ctime -begin build\ab_ctime.ctm
 
 set IncludeDirs=/Iaberration /Ihypermath

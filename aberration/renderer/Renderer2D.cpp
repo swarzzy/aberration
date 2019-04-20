@@ -724,6 +724,7 @@ namespace AB {
 
 		SortEntry* sortedBuffer = SortQueue(renderer);
 		GenVertexAndBatchBuffers(renderer, sortedBuffer);
+		GLCall(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
 		GLCall(glDisable(GL_DEPTH_TEST));
 		// TODO: Temporary disabling face culling here.
 		// Because font using wrong CW vertex order
@@ -985,10 +986,10 @@ namespace AB {
 	}
 
 	template <typename CharType>
-	static hpm::Rectangle _GetStringBoundingRectInternal(Renderer2DProperties* properties, hpm::Vector2 position, float32 height, const CharType* string) {
-		hpm::Rectangle rect;
+	static Rectangle _GetStringBoundingRectInternal(Renderer2DProperties* properties, hpm::Vector2 position, float32 height, const CharType* string) {
+		Rectangle rect;
 		// TODO: make vectors POD
-		memset(&rect, 0, sizeof(hpm::Rectangle));
+		memset(&rect, 0, sizeof(Rectangle));
 		if (string) {
 			Font* font = &properties->fonts[RENDERER2D_DEFAULT_FONT_HANDLE - 1];
 			// TODO: check if font is not loaded
@@ -1095,12 +1096,12 @@ namespace AB {
 		_DebugDrawStringInternal<wchar_t>(renderer, position, height, color, string);
 	}
 
-	hpm::Rectangle Renderer2DGetStringBoundingRect(hpm::Vector2 position, float32 height, const char* string) {
+	Rectangle Renderer2DGetStringBoundingRect(hpm::Vector2 position, float32 height, const char* string) {
 		auto renderer = PermStorage()->renderer2d;
 
 		return _GetStringBoundingRectInternal<char>(renderer, position, height, string);
 	}
-	hpm::Rectangle GetStringBoundingRect(hpm::Vector2 position, float32 height, const wchar_t* string) {
+	Rectangle GetStringBoundingRect(hpm::Vector2 position, float32 height, const wchar_t* string) {
 		auto renderer = PermStorage()->renderer2d;
 
 		return _GetStringBoundingRectInternal<wchar_t>(renderer, position, height, string);

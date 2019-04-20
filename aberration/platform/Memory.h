@@ -51,7 +51,7 @@ namespace AB {
 	};
 
 	AB_API Memory* CreateMemoryContext();
-	Memory* GetMemory();
+	AB_API Memory* GetMemory();
 	AB_API void* SysStorageAlloc(uint64 size, uint64 aligment = 0);
 	AB_API void* SysStorageAllocDebug(uint64 size, const char* file, const char* func, uint32 line, uint64 aligment = 0);
 
@@ -59,7 +59,9 @@ namespace AB {
 
 #if defined(AB_CONFIG_DEBUG)
 #define SysAlloc(size) SysStorageAllocDebug(size, __FILE__, __func__, __LINE__)
+#define SysAllocAligned(size, aligment) SysStorageAllocDebug(size, __FILE__, __func__, __LINE__, aligment)
 #else
 #define SysAlloc(size) SysStorageAlloc(size)
+#define SysAllocAligned(size, aligment) SysStorageAlloc(size, aligment)
 #endif
 }

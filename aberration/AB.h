@@ -38,6 +38,28 @@ union Color {
 	};
 };
 
+// new typedefs
+typedef int8_t				i8;	
+typedef int16_t				i16;	
+typedef int32_t				i32;	
+typedef int64_t				i64;	
+
+typedef uint8_t				u8;	
+typedef uint16_t			u16;	
+typedef uint32_t			u32;	
+typedef uint64_t			u64;
+
+typedef uintptr_t			uptr;
+
+#undef byte // Defined as unsigned char in rpcndr.h
+typedef uint32				b32;
+
+typedef float				f32;
+typedef double				f64;
+
+typedef byte				b8;
+
+
 #if defined(AB_BUILD_DLL)
 #	if defined(AB_PLATFORM_WINDOWS)
 #		define AB_API __declspec(dllexport)
@@ -106,4 +128,22 @@ inline int SafeCastI32Int(int32 val) {
 	// TODO: Not aborting if int actually can hold the value 
 	AB_DEBUG_BREAK();
 	return 0;
+}
+
+inline uint8 SafeCastUptrU8(uintptr uptr) {
+	if (uptr <= 255) {
+		return (uint8)uptr;
+	} else {
+		AB_DEBUG_BREAK();
+		return 0;
+	}
+}
+
+inline uint32 SafeCastUptrU32(uintptr uptr) {
+	if (uptr <= 0xffffffff) {
+		return (uint32)uptr;
+	} else {
+		AB_DEBUG_BREAK();
+		return 0;		
+	}
 }

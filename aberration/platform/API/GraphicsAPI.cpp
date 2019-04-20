@@ -69,7 +69,7 @@ namespace AB::API {
 		} break;
 		case TEX_FORMAT_SRGB8_A8: {
 			intFormat = GL_SRGB8_ALPHA8;				
-			format = GL_RGB;
+			format = GL_RGBA;
 		} break;
 		case TEX_FORMAT_RGB16F: {
 			intFormat = GL_RGB16F;				
