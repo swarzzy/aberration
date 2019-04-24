@@ -3,14 +3,17 @@
 
 #include <Aberration.h>
 #include "Application.h"
-#include "renderer/Renderer3D.h"
+#include "render/Renderer.h"
 #include "platform/InputManager.h"
 #include "platform/API/OpenGL/OpenGL.h"
 #include "platform/Memory.h"
 #include "AssetManager.h"
 #include "platform/API/GraphicsAPI.h"
+#include "platform/API/GraphicsPipeline.h"
 #include "utils/ImageLoader.h"
 #include "ExtendedMath.h"
+
+using namespace AB;
 
 int32 mesh;
 int32 mesh2;
@@ -129,7 +132,10 @@ AB::Renderer* g_Renderer;
 AB::AssetManager*  asset_mgr;
 int32 debugCubeMesh;
 
+RenderGroup* g_RenderGroup;
+
 void Init() {
+	
 	GLint v;
 	AB::PrintString("Mtx4: %u64\n", alignof(Matrix4));
 	AB::PrintString("RenderCommandDrawMesh aligment: %u64", sizeof(AB::RenderCommandDrawMesh));
@@ -139,9 +145,18 @@ void Init() {
 	config.numSamples = 4;
 	config.renderResolutionW = 1280;
 	config.renderResolutionH = 720;
+
+	API::Pipeline* pipeline = (API::Pipeline*)SysAlloc(sizeof(API::Pipeline));
+	API::InitPipeline(pipeline);
 	
-	g_Renderer = AB::RendererInit(config);
-	AB::RendererAllocateBuffers(AB::GetMemory(), g_Renderer, MEGABYTES(1), 256);
+	g_Renderer = AB::RendererInit(config, pipeline);
+	g_RenderGroup = RenderGroupAllocate(AB::GetMemory(), MEGABYTES(1), 256, 32);
+	g_RenderGroup->projectionMatrix = PerspectiveRH(45.0f,
+													16.0f / 9.0f,
+													0.1f,
+													100.0f);
+	//g_RenderGroup->projectionMatrix = OrthogonalRH(0, 16, 0, 9, 0.1, 1000);
+
 	g_Input = AB::InputInitialize();
 	asset_mgr = AB::AssetInitialize();
 	mesh = AB::AssetCreateMeshAAB(asset_mgr, "../assets/barrels/barrel1.aab");
@@ -263,13 +278,14 @@ void Render() {
 	cam_front.y = hpm::Sin(hpm::ToRadians(pitch));
 	cam_front.z = hpm::Cos(hpm::ToRadians(pitch)) * hpm::Sin(hpm::ToRadians(yaw));
 	cam_front = hpm::Normalize(cam_front);
-	AB::RendererSetCamera(g_Renderer, cam_front, cam_pos);
+	RenderGroupSetCamera(g_RenderGroup, cam_front, cam_pos);
 
 	auto tr = hpm::Translation({ 0, 0, 0 });
 	auto cubeTransform = Translation({0, 0, 0});
 	cubeTransform = Scale(cubeTransform, {1, 1, 1});
 	m4x4 grass2Transform = Translation({1.0f, 0.0f, 0.0f});
-	AB::RendererBeginFrame(g_Renderer);
+	//AB::RendererBeginFrame(g_Renderer);
+	RenderGroupResetQueue(g_RenderGroup);
 
 	//to testTransform = Translation({g_Time / 2, 0, 0});
 	//testTransform = Scale(testTransform, {2,2,2});
@@ -395,26 +411,119 @@ void Render() {
 	aabb8.transform.worldMatrix = aabbTr8;
 	aabb8.blendMode = AB::BLEND_MODE_TRANSPARENT;
 
-	AB::PrintString("---------------\n");
+	light.ambient = { 0.002, 0.002, 0.002 };
+	light.diffuse = { 0.3 , 0.3 , 0.3 };
+	light.specular = { 0.5, 0.5, 0.5 };
 
-	AB::RendererPushCommand(g_Renderer,
-							AB::RENDER_COMMAND_DRAW_MESH,
-							(void*)(&cubeMeshCommand));
+	f32 ka = light.ambient.r;
+	f32 kd = light.diffuse.r;
+	
+	DEBUG_OVERLAY_PUSH_SLIDER("Ka", &ka, 0.0f, 1.0f);
+	DEBUG_OVERLAY_PUSH_VAR("Ka", ka);
 
-	AB::RendererPushCommand(g_Renderer,
-							AB::RENDER_COMMAND_DRAW_MESH,
-							(void*)(&planeCommand));
+	DEBUG_OVERLAY_PUSH_SLIDER("Kd", &kd, 0.0f, 10.0f);
+	DEBUG_OVERLAY_PUSH_VAR("Kd", kd);
 
-	AB::RendererPushCommand(g_Renderer,
-							AB::RENDER_COMMAND_DRAW_MESH,
-							(void*)(&grass2MeshCommand));
+	light.ambient = V3(ka);
+	light.diffuse = V3(kd);
+
+	RenderCommandSetDirLight dirLightCommand = {};
+	dirLightCommand.light = light;
+
+	f32 p1ka = plights[0].ambient.r;
+	f32 p1kd = plights[0].diffuse.r;
+	f32 p1ks = plights[0].specular.r;
+
+#if 0
+	
+	DEBUG_OVERLAY_PUSH_SLIDER("Ka", &p1ka, 0.0f, 1.0f);
+	DEBUG_OVERLAY_PUSH_VAR("Ka", p1ka);
+
+	DEBUG_OVERLAY_PUSH_SLIDER("Kd", &p1kd, 0.0f, 10.0f);
+	DEBUG_OVERLAY_PUSH_VAR("Kd", p1kd);
+
+	DEBUG_OVERLAY_PUSH_SLIDER("Ks", &p1ks, 0.0f, 30.0f);
+	DEBUG_OVERLAY_PUSH_VAR("Ks", p1ks);
+
+	DEBUG_OVERLAY_PUSH_SLIDER("l1 pos", &plights[0].position, -10, 10);
+	DEBUG_OVERLAY_PUSH_VAR("l1 pos", plights[0].position);
+#endif
+	
+	plights[0].ambient = V3(p1ka, p1ka, p1ka);
+	plights[0].diffuse = V3(p1kd, p1kd, p1kd);
+	plights[0].specular = V3(p1ks, p1ks, p1ks);
+	plights[0].linear = 0.22f;
+	plights[0].quadratic = 0.20f;
+
+
+	RenderCommandSetPointLight pl1 = {};
+	pl1.light = plights[0];
+
+	f32 p2ka = plights[1].ambient.r;
+	f32 p2kd = plights[1].diffuse.r;
+	f32 p2ks = plights[1].specular.r;
+	
+#if 0	
+	DEBUG_OVERLAY_PUSH_SLIDER("Ka", &p2ka, 0.0f, 1.0f);
+	DEBUG_OVERLAY_PUSH_VAR("Ka", p2ka);
+
+	DEBUG_OVERLAY_PUSH_SLIDER("Kd", &p2kd, 0.0f, 10.0f);
+	DEBUG_OVERLAY_PUSH_VAR("Kd", p2kd);
+
+	DEBUG_OVERLAY_PUSH_SLIDER("Ks", &p2ks, 0.0f, 30.0f);
+	DEBUG_OVERLAY_PUSH_VAR("Ks", p2ks);
+
+	DEBUG_OVERLAY_PUSH_SLIDER("l1 pos", &plights[1].position, -10, 10);
+	DEBUG_OVERLAY_PUSH_VAR("l1 pos", plights[1].position);
+#endif
+	
+	plights[1].ambient = V3(p2ka, p2ka, 0);
+	plights[1].diffuse = V3(p2kd, p2kd, 0);
+	plights[1].specular = V3(p2ks, p2ks, 0);
+	plights[1].linear = 0.22f;
+	plights[1].quadratic = 0.20f;
+
+
+	RenderCommandSetPointLight pl2 = {};
+	pl2.light = plights[1];
+
+
+
+
+	AB::RenderGroupPushCommand(g_RenderGroup,
+							   AB::RENDER_COMMAND_DRAW_MESH,
+							   (void*)(&cubeMeshCommand));
+
+	RenderGroupPushCommand(g_RenderGroup,
+						   AB::RENDER_COMMAND_DRAW_MESH,
+						   (void*)(&meshCommand));
+
+	AB::RenderGroupPushCommand(g_RenderGroup,
+							   AB::RENDER_COMMAND_DRAW_MESH,
+							   (void*)(&planeCommand));
+
+
+
+	AB::RenderGroupPushCommand(g_RenderGroup,
+							   AB::RENDER_COMMAND_DRAW_MESH,
+							   (void*)(&grass2MeshCommand));
+
+	RenderGroupPushCommand(g_RenderGroup,
+						   RENDER_COMMAND_SET_DIR_LIGHT,
+						   (void*)(&dirLightCommand));
+
+	RenderGroupPushCommand(g_RenderGroup,
+						   RENDER_COMMAND_SET_POINT_LIGHT,
+						   (void*)(&pl1));
+
+	RenderGroupPushCommand(g_RenderGroup,
+						   RENDER_COMMAND_SET_POINT_LIGHT,
+						   (void*)(&pl2));
+
 
 
 #if 0
 
-	AB::RendererPushCommand(g_Renderer,
-							AB::RENDER_COMMAND_DRAW_MESH,
-							(void*)(&meshCommand));
 
 	AB::RendererPushCommand(g_Renderer,
 							AB::RENDER_COMMAND_DRAW_MESH,
@@ -495,16 +604,12 @@ void Render() {
 	plights[0].linear = 0.14;
 	plights[0].quadratic = 0.07;
 
-	auto* settings = AB::RendererGetFlySettings(g_Renderer);
-	settings->gamma = g_Gamma;
-	settings->exposure = g_Exposure;
+	g_Renderer->cc.gamma = g_Gamma;
+	g_Renderer->cc.exposure = g_Exposure;
 
 	//DEBUG_OVERLAY_PUSH_SLIDER("l", &lpos, 0, 55);
 
-	light.ambient = { 0.2, 0.2, 0.2 };
-	light.diffuse = { 3.0 , 3.0 , 3.0 };
-	light.specular = { 10.0, 10.0, 10.0 };
-	AB::RendererSetDirectionalLight(g_Renderer, &light);
+	//AB::RendererSetDirectionalLight(g_Renderer, &light);
 	//plights[0] = {lpos, {0.1, 0.1, 0.1}, {10, 10, 10}, {}, 0.22, 0.20};
 	//plights[0] = {{0, 0, 45.5}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.2}, {0.0,0.0, 0.0}, 0.22, 0.20};
 	//plights[1] = {{-1.4, -1.9, 9.0}, {}, {redLightInt, 0, 0}, {}, 0, 1};
@@ -515,7 +620,7 @@ void Render() {
 	//AB::RendererSubmitPointLight(g_Renderer, &plights[2]);
 	//AB::RendererSubmitPointLight(g_Renderer, &plights[3]);
 
-	AB::RendererRender(g_Renderer);
+	AB::RendererRender(g_Renderer, g_RenderGroup);
 }
 
 int EntryPoint() {

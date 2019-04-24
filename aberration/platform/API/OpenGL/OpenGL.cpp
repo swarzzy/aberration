@@ -360,11 +360,7 @@ static const char* procNames[AB_OPENGL_FUNCTIONS_COUNT] = {
 	"glVertexAttribP3uiv",
 	"glVertexAttribP4ui",
 	"glVertexAttribP4uiv",
-};
 
-ABGLExtensionsProcs _ABOpenGLExtProcs = {};
-
-static const char* EXTprocNames[AB_OPENGL_EXTENSIONS_FUNCTIONS_COUNT] = {
 	"glGetSubroutineUniformLocation",
 	"glGetSubroutineIndex",
 	"glGetActiveSubroutineUniformiv",
@@ -373,7 +369,9 @@ static const char* EXTprocNames[AB_OPENGL_EXTENSIONS_FUNCTIONS_COUNT] = {
 	"glUniformSubroutinesuiv",
 	"glGetUniformSubroutineuiv",
 	"glGetProgramStageiv"
+
 };
+
 
 #if defined(AB_PLATFORM_WINDOWS)
 #include <Windows.h>
@@ -407,6 +405,7 @@ bool32 AB::GL::LoadFunctions() {
 		return success;
 }
 
+#if 0
 bool32 AB::GL::LoadExtensions() {
 	bool32 result = false;
 	GLint numExtensions;
@@ -466,6 +465,7 @@ bool32 AB::GL::LoadExtensions() {
 	}
 	return result;
 }
+#endif
 
 #elif defined(AB_PLATFORM_LINUX)
 #include <dlfcn.h>
@@ -495,6 +495,7 @@ bool32 AB::GL::LoadFunctions() {
 	return success;
 }
 
+#if 0
 bool32 AB::GL::LoadExtensions() {
 	bool32 result = true;
 	if (!_glXGetProcAddress) {
@@ -517,6 +518,7 @@ bool32 AB::GL::LoadExtensions() {
 	}
 	return result;
 }
+#endif
 
 #endif
 
@@ -535,7 +537,7 @@ namespace AB::GL {
 		GLCall(glEnable(GL_CULL_FACE));
 		GLCall(glCullFace(GL_BACK));
 		GLCall(glFrontFace(GL_CCW));
-		GLCall(glEnable(GL_MULTISAMPLE));
+		//GLCall(glEnable(GL_MULTISAMPLE));
 		//GLCall(glEnable(GL_FRAMEBUFFER_SRGB));
 	}
 

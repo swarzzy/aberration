@@ -84,7 +84,7 @@ typedef byte				b8;
 
 #if defined(AB_PLATFORM_WINDOWS)
 // TODO: Make this work
-#define AB_DEBUG_BREAK()  *(byte *)(0)//__debugbreak()
+#define AB_DEBUG_BREAK() __debugbreak()
 #elif defined(AB_PLATFORM_LINUX)
 #define AB_DEBUG_BREAK() __builtin_debugtrap()
 #endif

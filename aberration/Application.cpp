@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include "utils/Log.h"
 #include "platform/Window.h"
-#include "renderer/Renderer2D.h"
+#include "render/DebugRenderer.h"
 #include "platform/Common.h"
 #include "platform/API/OpenGL/OpenGL.h"
 #include "platform/Memory.h"

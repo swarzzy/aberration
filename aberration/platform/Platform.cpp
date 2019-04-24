@@ -3,6 +3,7 @@
 #include "Common.cpp"
 
 #include "API/GraphicsAPI.cpp"
+#include "API/GraphicsPipeline.cpp"
 #include "API/OpenGL/OpenGL.cpp"
 
 #if defined(AB_PLATFORM_WINDOWS)

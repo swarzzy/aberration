@@ -82,8 +82,8 @@ namespace AB {
 	static constexpr uint32 AB_X11_MB_XB1		= 8;
 	static constexpr uint32 AB_X11_MB_XB2		= 9;
 
-	static constexpr uint32 OPENGL_MAJOR_VERSION = 3;
-	static constexpr uint32 OPENGL_MINOR_VERSION = 3;
+	static constexpr uint32 OPENGL_MAJOR_VERSION = 4;
+	static constexpr uint32 OPENGL_MINOR_VERSION = 5;
 
 	// GLX Extensions
 
@@ -503,8 +503,8 @@ namespace AB {
 			GLX_GREEN_SIZE, 8,
 			GLX_BLUE_SIZE, 8,
 			GLX_ALPHA_SIZE, 8,
-			GLX_DEPTH_SIZE, 24,
-			GLX_STENCIL_SIZE, 8,
+			//GLX_DEPTH_SIZE, 24,
+			//GLX_STENCIL_SIZE, 8,
 			//multisampling, 1,
 			//GLX_SAMPLES_ARB, SafeCastI32Int(s_WindowProperties->samples),
 			None
@@ -583,8 +583,8 @@ namespace AB {
 
 		bool32 glLoadResult = GL::LoadFunctions();
 		AB_CORE_ASSERT(glLoadResult, "Failed to load OpenGL");
-		bool32 glEXTLoadResult = GL::LoadExtensions();
-		AB_CORE_ASSERT(glLoadResult, "Failed to load OpenGL Extensions");
+		//bool32 glEXTLoadResult = GL::LoadExtensions();
+		//AB_CORE_ASSERT(glLoadResult, "Failed to load OpenGL Extensions");
 		GL::InitAPI();
 
 		// ^^^^ GL context

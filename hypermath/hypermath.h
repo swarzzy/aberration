@@ -72,9 +72,10 @@ namespace hpm {
 		return val > 0 ? val : -val;
 	}
 
-	HPM_INLINE int64 Abs(int64 val) {
+	HPM_INLINE long Abs(long val) {
 		return val > 0 ? val : -val;
 	}
+
 
 #else
 
@@ -164,9 +165,17 @@ namespace hpm {
 	HPM_INLINE Vector2 V2(float32 x, float32 y) {
 		return Vector2{x, y};
 	}
+	
+	HPM_INLINE Vector2 V2(float32 val) {
+		return Vector2{val, val};
+	}
 
 	HPM_INLINE Vector3 V3(float32 x, float32 y, float32 z) {
 		return Vector3{x, y, z};
+	}
+	
+	HPM_INLINE Vector3 V3(float32 val) {
+		return Vector3{val, val, val};
 	}
 
 	HPM_INLINE Vector3 V3(Vector2 v, float32 z) {
@@ -179,6 +188,10 @@ namespace hpm {
 
 	HPM_INLINE Vector4 V4(float32 x, float32 y, float32 z, float32 w) {
 		return Vector4{x, y ,z, w};
+	}
+	
+	HPM_INLINE Vector4 V4(float32 val) {
+		return Vector4{val, val , val, val};
 	}
 
 	HPM_INLINE Vector4 V4(Vector2 v, float32 z, float32 w) {
@@ -373,7 +386,7 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Matrix3 HPM_CALL GetMatrix3(Matrix4 m) {
+	HPM_INLINE Matrix3 HPM_CALL M3x3(Matrix4 m) {
 		Matrix3 result;
 		
 		result._11 = m._11;
@@ -389,7 +402,7 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL GetMatrix4(Matrix3 m) {
+	HPM_INLINE Matrix4 HPM_CALL M4x4(Matrix3 m) {
 		Matrix4 result = {};
 
 		

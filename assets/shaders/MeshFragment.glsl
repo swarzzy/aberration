@@ -1,8 +1,8 @@
-in Vector3 f_Position;
-in Vector2 f_UV;
-in Vector3 f_Normal;
+in v3 f_Position;
+in v2 f_UV;
+in v3 f_Normal;
 
-out vec4 color;
+out v4 color;
 
 #define POINT_LIGHTS_NUMBER  4
 
@@ -11,19 +11,19 @@ struct Material {
 	bool use_spec_map;
 	sampler2D diffuse_map;
 	sampler2D spec_map;
-	float shininess;
+	f32 shininess;
 	vec3 ambient;
 	vec3 diffuse;
 	vec3 specular;
 };
 
 struct PointLight {
-	Vector3 position;
-	Vector3 ambient;
-	Vector3 diffuse;
-	Vector3 specular;
-	float32 linear;
-	float32 quadratic;
+	v3 position;
+	v3 ambient;
+	v3 diffuse;
+	v3 specular;
+	f32 linear;
+	f32 quadratic;
 };
 
 struct DirLight {
@@ -53,19 +53,19 @@ vec3 CalcDirectionalLight(DirLight light, vec3 normal, vec3 view_dir, vec3 diff_
 	return ambient + diffuse + specular;
 }
 
-vec3 CalcPointLight(PointLight light, Vector3 normal, Vector3 viewDir, Vector3 diffSample, Vector3 specSample) {
-	float32 distance = length(light.position - f_Position);
-	float32 attenuation = 1.0f / (1.0f + 
+vec3 CalcPointLight(PointLight light, v3 normal, v3 viewDir, v3 diffSample, v3 specSample) {
+	f32 distance = length(light.position - f_Position);
+	f32 attenuation = 1.0f / (1.0f + 
 								light.linear * distance + 
 								light.quadratic * distance * distance); 
 	
-	Vector3 lightDir = normalize(light.position - f_Position);
-	Vector3 reflectDir = reflect(-lightDir, normal);
-	float32 Kd = max(dot(normal, lightDir), 0.0);
-	float32 Ks = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-	Vector3 ambient = light.ambient * diffSample * attenuation;
-	Vector3 diffuse = light.diffuse * Kd * diffSample * attenuation;
-	Vector3 specular = Ks * light.specular * specSample * attenuation;
+	v3 lightDir = normalize(light.position - f_Position);
+	v3 reflectDir = reflect(-lightDir, normal);
+	f32 Kd = max(dot(normal, lightDir), 0.0);
+	f32 Ks = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+	v3 ambient = light.ambient * diffSample * attenuation;
+	v3 diffuse = light.diffuse * Kd * diffSample * attenuation;
+	v3 specular = Ks * light.specular * specSample * attenuation;
 	return ambient + diffuse + specular;
 }
 
@@ -75,9 +75,9 @@ void main()
 	vec3 viewDir = normalize(sys_ViewPos - f_Position);
 
 	vec3 diffSample;
-	float32 alpha;
+	f32 alpha;
 	if (material.use_diff_map) {
-		Vector4 _sample = texture(material.diffuse_map, f_UV); 
+		v4 _sample = texture(material.diffuse_map, f_UV); 
 		diffSample = _sample.rgb;
 		alpha = _sample.a;
 	} else {
@@ -87,7 +87,9 @@ void main()
 
 	//if (alpha == 0.0f) {
 	//	discard;
-	//}	
+	//}
+
+	//alpha = (alpha - 0.1) / max(fwidth(alpha), 0.0001) - 0.5;
 
 	vec3 specSample;
 	if (material.use_spec_map) {
@@ -103,8 +105,8 @@ void main()
 		point += CalcPointLight(pointLights[i], normal, viewDir, diffSample, specSample);
 	}
 
-	vec3 sum_point = point;//clamp(point, 0.0f, 1.0f);
-	color = vec4(sum_point + directional, alpha);
-	//color = Vector4(normal, 1.0f);
+	vec3 sum_point = point;
+	color = v4(sum_point + directional, alpha);
+	//color = v4(alpha, alpha, alpha, 1.0);
 
 }

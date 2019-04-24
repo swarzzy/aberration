@@ -57,8 +57,8 @@ namespace AB {
 	static const char* AB_XINPUT_DLL = "xinput1_3.dll";
 	static const char* WINDOW_CLASS_NAME = "Aberration Engine Win32";
 
-	static constexpr uint32 OPENGL_MAJOR_VERSION = 3;
-	static constexpr uint32 OPENGL_MINOR_VERSION = 3;
+	static constexpr uint32 OPENGL_MAJOR_VERSION = 4;
+	static constexpr uint32 OPENGL_MINOR_VERSION = 5;
 
 	static constexpr uint32 GAMEPAD_STATE_ARRAY_SIZE = GAMEPAD_BUTTONS_COUNT * XUSER_MAX_COUNT;
 	
@@ -408,8 +408,8 @@ namespace AB {
 			WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
 			WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
 			WGL_COLOR_BITS_ARB, 32,
-			WGL_DEPTH_BITS_ARB, 24,
-			WGL_STENCIL_BITS_ARB, 8,
+			//WGL_DEPTH_BITS_ARB, 24,
+			//WGL_STENCIL_BITS_ARB, 8,
 			//SafeCastI32Int(multisampling), 1,
 			//WGL_SAMPLES_ARB, SafeCastI32Int(window->samples),
 			0
@@ -426,11 +426,10 @@ namespace AB {
 		AB_CORE_ASSERT(resultDPF, "Failed to initialize OpenGL extended context.");
 		SetPixelFormat(actualWindowDC, actualPixelFormatID, &actualPixelFormat);
 
-		// NOTE: Using compatible profile because for some reason extensions doesn't work on in core profile
 		int contextAttribs[] = {
 			WGL_CONTEXT_MAJOR_VERSION_ARB, OPENGL_MAJOR_VERSION,
 			WGL_CONTEXT_MINOR_VERSION_ARB, OPENGL_MINOR_VERSION,
-			WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+			WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
 			0
 		};
 
@@ -447,8 +446,8 @@ namespace AB {
 
 		bool32 glLoadResult = GL::LoadFunctions();
 		AB_CORE_ASSERT(glLoadResult, "Failed to load OpenGL");
-		bool32 glEXTLoadResult = GL::LoadExtensions();
-		AB_CORE_ASSERT(glEXTLoadResult, "Failed to load OpenGL extensions");
+		//bool32 glEXTLoadResult = GL::LoadExtensions();
+		//AB_CORE_ASSERT(glEXTLoadResult, "Failed to load OpenGL extensions");
 
 		window->Win32WindowHandle = actualWindowHandle;
 		window->Win32WindowDC = actualWindowDC;

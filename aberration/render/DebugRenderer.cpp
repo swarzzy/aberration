@@ -1,4 +1,4 @@
-#include "Renderer2D.h"
+#include "DebugRenderer.h"
 #include "utils/Log.h"
 #include <hypermath.h>
 #include "platform/API/OpenGL/OpenGL.h"
@@ -729,7 +729,8 @@ namespace AB {
 		// TODO: Temporary disabling face culling here.
 		// Because font using wrong CW vertex order
 		GLCall(glDisable(GL_CULL_FACE));
-		GLCall(glClearColor(0.2f, 0.3f, 0.3f, 1.0f));
+		GLCall(glClearColor(1.0f, 1.0f, 1.0f, 1.0f));
+		GLCall(glEnable(GL_BLEND));
 		// TODO: Requires GL_LESS Depth test with clear to 0.0 and range 0.0 - 1.0
 		//GLCall(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 		GLCall(glBindBuffer(GL_ARRAY_BUFFER, renderer->GLVBOHandle));
@@ -753,17 +754,17 @@ namespace AB {
 		for (uint64 i = 0; i < renderer->batchesUsed; i++) {
 			BatchData* batch = &renderer->batches[i];
 			if (batch->type == DrawableType::Textured) {
-				GLCall(glUniformSubroutinesuivARB(GL_FRAGMENT_SHADER, 1, &renderer->subroutineTextureIndex));
+				GLCall(glUniformSubroutinesuiv(GL_FRAGMENT_SHADER, 1, &renderer->subroutineTextureIndex));
 				if (batch->textureHandle > 0) {
 					GLCall(glBindTexture(GL_TEXTURE_2D, GetTextureRegionAPIHandle(renderer, batch->textureHandle)));
 				}
 			}
 			else if (batch->type == DrawableType::Glyph) {
-				GLCall(glUniformSubroutinesuivARB(GL_FRAGMENT_SHADER, 1, &renderer->subroutineGlyphIndex));
+				GLCall(glUniformSubroutinesuiv(GL_FRAGMENT_SHADER, 1, &renderer->subroutineGlyphIndex));
 				GLCall(glBindTexture(GL_TEXTURE_2D, GetTextureRegionAPIHandle(renderer, batch->textureHandle)));
 			}
 			else if (batch->type == DrawableType::SolidColor) {
-				GLCall(glUniformSubroutinesuivARB(GL_FRAGMENT_SHADER, 1, &renderer->subroutineSolidIndex));
+				GLCall(glUniformSubroutinesuiv(GL_FRAGMENT_SHADER, 1, &renderer->subroutineSolidIndex));
 			}
 			GLCall(glDrawElements(GL_TRIANGLES, 6 * renderer->batches[i].count, GL_UNSIGNED_SHORT, (void*)verticesDrawn));
 			renderer->drawCallCount++;
@@ -1206,9 +1207,9 @@ namespace AB {
 		GLCall(glDeleteShader(spritefragmentShader));
 
 		GLCall(glUseProgram(properties->shaderHandle));
-		GLCall(properties->subroutineTextureIndex = glGetSubroutineIndexARB(properties->shaderHandle, GL_FRAGMENT_SHADER, "FetchPixelTexture"));
-		GLCall(properties->subroutineGlyphIndex = glGetSubroutineIndexARB(properties->shaderHandle, GL_FRAGMENT_SHADER, "FetchPixelGlyph"));
-		GLCall(properties->subroutineSolidIndex = glGetSubroutineIndexARB(properties->shaderHandle, GL_FRAGMENT_SHADER, "FetchPixelSolid"));
+		GLCall(properties->subroutineTextureIndex = glGetSubroutineIndex(properties->shaderHandle, GL_FRAGMENT_SHADER, "FetchPixelTexture"));
+		GLCall(properties->subroutineGlyphIndex = glGetSubroutineIndex(properties->shaderHandle, GL_FRAGMENT_SHADER, "FetchPixelGlyph"));
+		GLCall(properties->subroutineSolidIndex = glGetSubroutineIndex(properties->shaderHandle, GL_FRAGMENT_SHADER, "FetchPixelSolid"));
 
 		GLCall(properties->uniformSamplerIndex = glGetUniformLocation(properties->shaderHandle, "sys_Texture"));
 		}

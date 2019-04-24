@@ -1537,22 +1537,7 @@ typedef GLvoid (APIENTRYP PFNGLGETUNIFORMSUBROUTINEUIVPROC) (GLenum shadertype, 
 typedef GLvoid (APIENTRYP PFNGLGETPROGRAMSTAGEIVPROC) (GLuint program, GLenum shadertype, GLenum pname, GLint *values);
 
 
-#define AB_OPENGL_FUNCTIONS_COUNT 345
-#define AB_OPENGL_EXTENSIONS_FUNCTIONS_COUNT 8
-
-union ABGLExtensionsProcs {
-	AB_GLFUNCPTR procs[AB_OPENGL_EXTENSIONS_FUNCTIONS_COUNT];
-	struct {
-		PFNGLGETSUBROUTINEUNIFORMLOCATIONPROC   _glGetSubroutineUniformLocationARB;
-		PFNGLGETSUBROUTINEINDEXPROC             _glGetSubroutineIndexARB;
-		PFNGLGETACTIVESUBROUTINEUNIFORMIVPROC   _glGetActiveSubroutineUniformivARB;
-		PFNGLGETACTIVESUBROUTINEUNIFORMNAMEPROC _glGetActiveSubroutineUniformNameARB;
-		PFNGLGETACTIVESUBROUTINENAMEPROC        _glGetActiveSubroutineNameARB;
-		PFNGLUNIFORMSUBROUTINESUIVPROC          _glUniformSubroutinesuivARB;
-		PFNGLGETUNIFORMSUBROUTINEUIVPROC        _glGetUniformSubroutineuivARB;
-		PFNGLGETPROGRAMSTAGEIVPROC              _glGetProgramStageivARB;
-	};
-};
+#define AB_OPENGL_FUNCTIONS_COUNT (345 + 8)
 
 union ABGLProcs {
 	AB_GLFUNCPTR procs[AB_OPENGL_FUNCTIONS_COUNT];
@@ -1914,21 +1899,30 @@ union ABGLProcs {
 		PFNGLVERTEXATTRIBP3UIVPROC						_glVertexAttribP3uiv;
 		PFNGLVERTEXATTRIBP4UIPROC						_glVertexAttribP4ui;
 		PFNGLVERTEXATTRIBP4UIVPROC						_glVertexAttribP4uiv;
+// GL_ARB_shader_subroutine of GL4.0   
+		PFNGLGETSUBROUTINEUNIFORMLOCATIONPROC   		_glGetSubroutineUniformLocation;
+		PFNGLGETSUBROUTINEINDEXPROC             		_glGetSubroutineIndex;
+		PFNGLGETACTIVESUBROUTINEUNIFORMIVPROC 		  	_glGetActiveSubroutineUniformiv;
+		PFNGLGETACTIVESUBROUTINEUNIFORMNAMEPROC 	   	_glGetActiveSubroutineUniformName;
+		PFNGLGETACTIVESUBROUTINENAMEPROC        		_glGetActiveSubroutineName;
+		PFNGLUNIFORMSUBROUTINESUIVPROC          		_glUniformSubroutinesuiv;
+		PFNGLGETUNIFORMSUBROUTINEUIVPROC        		_glGetUniformSubroutineuiv;
+		PFNGLGETPROGRAMSTAGEIVPROC              		_glGetProgramStageivARB;
+
 	};
 };
 
 extern AB_API ABGLProcs _ABOpenGLProcs;
-extern AB_API ABGLExtensionsProcs _ABOpenGLExtProcs;
 
 // GL_ARB_shader_subroutine
-#define glGetSubroutineUniformLocationARB          _ABOpenGLExtProcs._glGetSubroutineUniformLocationARB
-#define glGetSubroutineIndexARB					   _ABOpenGLExtProcs._glGetSubroutineIndexARB
-#define glGetActiveSubroutineUniformivARB		   _ABOpenGLExtProcs._glGetActiveSubroutineUniformivARB
-#define glGetActiveSubroutineUniformNameARB		   _ABOpenGLExtProcs._glGetActiveSubroutineUniformNameARB
-#define glGetActiveSubroutineNameARB			   _ABOpenGLExtProcs._glGetActiveSubroutineNameARB
-#define glUniformSubroutinesuivARB				   _ABOpenGLExtProcs._glUniformSubroutinesuivARB
-#define glGetUniformSubroutineuivARB			   _ABOpenGLExtProcs._glGetUniformSubroutineuivARB
-#define glGetProgramStageivARB					   _ABOpenGLExtProcs._glGetProgramStageivARB
+#define glGetSubroutineUniformLocation             _ABOpenGLProcs._glGetSubroutineUniformLocation
+#define glGetSubroutineIndex                       _ABOpenGLProcs._glGetSubroutineIndex
+#define glGetActiveSubroutineUniformiv             _ABOpenGLProcs._glGetActiveSubroutineUniformiv
+#define glGetActiveSubroutineUniformName           _ABOpenGLProcs._glGetActiveSubroutineUniformName
+#define glGetActiveSubroutineName                  _ABOpenGLProcs._glGetActiveSubroutineName
+#define glUniformSubroutinesuiv                    _ABOpenGLProcs._glUniformSubroutinesuiv
+#define glGetUniformSubroutineuiv                  _ABOpenGLProcs._glGetUniformSubroutineuiv
+#define glGetProgramStageiv                        _ABOpenGLProcs._glGetProgramStageiv
 
 // OpenGL 1.0
 #define glCullFace					_ABOpenGLProcs._glCullFace

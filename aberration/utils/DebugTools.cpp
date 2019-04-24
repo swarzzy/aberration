@@ -1,5 +1,5 @@
 #include "DebugTools.h"
-#include "renderer/Renderer2D.h"
+#include "render/DebugRenderer.h"
 #include "platform/Common.h"
 #include "platform/InputManager.h"
 #include "platform/Window.h"
