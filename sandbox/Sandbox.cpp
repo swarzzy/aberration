@@ -15,6 +15,60 @@
 
 using namespace AB;
 
+struct InputState
+{
+	b32 mouseCaptured;
+	f32 lastMouseX;
+	f32 lastMouseY;
+};
+
+struct FPCamera
+{
+	f32 smoothness;
+	f32 pitch;
+	f32 yaw;
+	quat rotation;
+	v3 pos;
+	v3 front;
+	v3 initDir;
+
+	struct
+	{
+		b32 forward;
+		b32 back;
+		b32 left;
+		b32 right;
+	} frameMovementFlags;
+};
+
+struct AnnoCamera
+{
+	f32 smoothness;
+	f32 pitch;
+	f32 yaw;
+	quat rotation;
+	v3 pos;
+	v3 front;
+	v3 initDir;
+	v3 target;
+	f32 distance;
+	f32 latitude;
+	v2 lastMousePos;
+	f32 mouseBegPos;
+	f32 mouseEndPos;
+	f32 mouseUntrackedOffset;
+	f32 currMouseOrigin;
+
+	struct
+	{
+		b32 forward;
+		b32 back;
+		b32 left;
+		b32 right;
+	} frameMovementFlags;
+};
+
+
 int32 mesh;
 int32 mesh2;
 int32 mesh3;
@@ -23,11 +77,6 @@ int32 cubeMesh;
 
 int32 material;
 int32 material1;
-
-float32 pitch = 0;
-float32 yaw = 0;
-hpm::Vector3 cam_pos = {0, 0, 0};
-hpm::Vector3 cam_front = { 0, 0, -1 };
 
 bool32 mouse_captured = false;
 float32 last_mouse_x = 0.0f;
@@ -38,95 +87,10 @@ AB::PointLight plights[4];
 
 AB::InputMgr* g_Input = nullptr;
 
-bool32 g_cam_w = 0;
-bool32 g_cam_s = 0;
-bool32 g_cam_a = 0;
-bool32 g_cam_d = 0;
+InputState g_InputState;
 
 float32 g_Gamma = 2.2f;
 float32 g_Exposure = 1.0f;
-
-void MouseCallback(AB::Event e) {
-	if (mouse_captured) {
-		pitch += e.mouse_moved_event.y;
-		yaw += e.mouse_moved_event.x;
-		last_mouse_x = e.mouse_moved_event.x;
-		last_mouse_y = e.mouse_moved_event.y;
-		if (pitch > 89.0f)
-			pitch = 89.0f;
-		if (pitch < -89.0f)
-			pitch = -89.0f;
-
-		if (yaw > 360.0f)
-			yaw -= 360.0f;
-		if (yaw < -360.0f)
-			yaw -= -360.0f;
-	}
-}
-
-auto move_callback = [](AB::Event e) {
-	int32 action = -1;
-	if (e.type == AB::EVENT_TYPE_KEY_PRESSED) {
-		action = 1;
-	}
-	else if (e.type == AB::EVENT_TYPE_KEY_RELEASED) {
-		action = 0;
-	}
-	if (action != -1) {
-		switch (e.key_event.key) {
-		case AB::KeyboardKey::W: {
-			g_cam_w = action;
-		} break;
-		case AB::KeyboardKey::S: {
-			g_cam_s = action;
-		} break;
-		case AB::KeyboardKey::A: {
-			g_cam_a = action;
-		} break;
-		case AB::KeyboardKey::D: {
-			g_cam_d = action;
-		} break;
-		default: {
-		} break;
-		}
-	}
-};
-
-int32 w_h;
-int32 a_h;
-int32 s_h;
-int32 d_h;
-
-void Subscribe() {
-	AB::EventQuery w_q = {};
-	w_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED | AB::EVENT_TYPE_KEY_RELEASED;
-	//w_q.pass_through = true;
-	w_q.condition.key_event.key = AB::KeyboardKey::W;
-	w_q.callback = move_callback;
-
-	AB::EventQuery s_q = {};
-	s_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED | AB::EVENT_TYPE_KEY_RELEASED;
-	//s_q.pass_through = true;
-	s_q.condition.key_event.key = AB::KeyboardKey::S;
-	s_q.callback = move_callback;
-
-	AB::EventQuery a_q = {};
-	a_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED | AB::EVENT_TYPE_KEY_RELEASED;
-	//a_q.pass_through = true;
-	a_q.condition.key_event.key = AB::KeyboardKey::A;
-	a_q.callback = move_callback;
-
-	AB::EventQuery d_q = {};
-	d_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED | AB::EVENT_TYPE_KEY_RELEASED;
-	//d_q.pass_through = true;
-	d_q.condition.key_event.key = AB::KeyboardKey::D;
-	d_q.callback = move_callback;
-
-	w_h = AB::InputSubscribeEvent(g_Input, &w_q);
-	s_h = AB::InputSubscribeEvent(g_Input, &s_q);
-	a_h = AB::InputSubscribeEvent(g_Input, &a_q);
-	d_h = AB::InputSubscribeEvent(g_Input, &d_q);
-}
 
 AB::Renderer* g_Renderer;
 AB::AssetManager*  asset_mgr;
@@ -134,13 +98,251 @@ int32 debugCubeMesh;
 
 RenderGroup* g_RenderGroup;
 
-void Init() {
+AnnoCamera g_Camera;
+
+void UpdateCameraFP(FPCamera* cam)
+{
+	if (cam->frameMovementFlags.forward)
+	{
+		cam->pos = Add(MulV3F32(cam->front, 0.2), cam->pos);
+	}
+	if (cam->frameMovementFlags.back)
+	{
+		cam->pos = Subtract(cam->pos, MulV3F32(cam->front, 0.2));
+	}
+	if (cam->frameMovementFlags.left)
+	{
+		v3 right = Normalize(Cross(cam->front, { 0, 1, 0 }));
+		cam->pos = Subtract(cam->pos, MulV3F32(right, 0.2));
+	}
+	if (cam->frameMovementFlags.right)
+	{
+		v3 right = Normalize(Cross(cam->front, { 0, 1, 0 }));
+		cam->pos = Add(MulV3F32(right, 0.2), cam->pos);
+	}
+
+#if 0
+	cam_front.x = hpm::Cos(hpm::ToRadians(pitch)) * hpm::Cos(hpm::ToRadians(yaw));
+	cam_front.y = hpm::Sin(hpm::ToRadians(pitch));
+	cam_front.z = hpm::Cos(hpm::ToRadians(pitch)) * hpm::Sin(hpm::ToRadians(yaw));
+	cam_front = hpm::Normalize(cam_front);
+#endif
 	
-	GLint v;
-	AB::PrintString("Mtx4: %u64\n", alignof(Matrix4));
-	AB::PrintString("RenderCommandDrawMesh aligment: %u64", sizeof(AB::RenderCommandDrawMesh));
-	glGetIntegerv(GL_MAX_SAMPLES, &v);
-	AB::PrintString("Max Samples: %u32\n", v);
+	quat qPitch = QuatFromAxisAngle(V3(1, 0, 0), ToRadians(cam->pitch));
+    //qPitch = Normalize(qPitch);
+	quat qYaw = QuatFromAxisAngle(V3(0, 1, 0), ToRadians(cam->yaw));
+	//qYaw = Normalize(qYaw);
+	//quat camRot = QuatFromEuler(ToRadians(yawOffset), ToRadians(pitchOffset), 0);//MulQQ(qPitch, qYaw);
+	quat frameRotation = MulQQ(qPitch, qYaw);
+	
+	DEBUG_OVERLAY_PUSH_SLIDER("cam smooth", &cam->smoothness, 0.0f, 1.0f);
+	DEBUG_OVERLAY_PUSH_VAR("cam smooth", cam->smoothness);
+	
+	cam->rotation = LerpQuat(cam->rotation, frameRotation, cam->smoothness);
+	m3x3 rotMat = QuatToM3x3(cam->rotation);
+	cam->front = MulM3V3(rotMat, cam->initDir);
+	//cam_front = Rotate(camRotationQ, V3(0, 0, 1));
+	cam->front = Normalize(cam->front);
+	DEBUG_OVERLAY_PUSH_VAR("cam front", cam->front);
+}
+
+void UpdateCamera(AnnoCamera* cam)
+{
+	if (cam->frameMovementFlags.forward)
+	{
+		cam->pos = Add(MulV3F32(cam->front, 0.2), cam->pos);
+	}
+	if (cam->frameMovementFlags.back)
+	{
+		cam->pos = Subtract(cam->pos, MulV3F32(cam->front, 0.2));
+	}
+	if (cam->frameMovementFlags.left)
+	{
+		v3 right = Normalize(Cross(cam->front, { 0, 1, 0 }));
+		cam->pos = Subtract(cam->pos, MulV3F32(right, 0.2));
+	}
+	if (cam->frameMovementFlags.right)
+	{
+		v3 right = Normalize(Cross(cam->front, { 0, 1, 0 }));
+		cam->pos = Add(MulV3F32(right, 0.2), cam->pos);
+	}
+
+#if 0
+	cam_front.x = hpm::Cos(hpm::ToRadians(pitch)) * hpm::Cos(hpm::ToRadians(yaw));
+	cam_front.y = hpm::Sin(hpm::ToRadians(pitch));
+	cam_front.z = hpm::Cos(hpm::ToRadians(pitch)) * hpm::Sin(hpm::ToRadians(yaw));
+	cam_front = hpm::Normalize(cam_front);
+#endif
+
+
+	if (InputMouseButtonIsPressed(g_Input, MouseButton::Middle))
+	{
+		cam->lastMousePos.x = cam->yaw;
+		cam->mouseBegPos = InputGetMousePosition(g_Input).x;
+		cam->mouseUntrackedOffset = cam->mouseBegPos - cam->mouseEndPos;
+	}
+	else if (InputMouseButtonIsDown(g_Input, MouseButton::Middle))
+	{
+		cam->lastMousePos.x = InputGetMousePosition(g_Input).x - cam->mouseUntrackedOffset;
+	}
+
+	if (InputMouseButtonIsReleased(g_Input, MouseButton::Middle))
+	{
+		cam->mouseEndPos = InputGetMousePosition(g_Input).x;
+	}
+
+	cam->yaw = Lerp(cam->yaw, cam->lastMousePos.x, 0.1);
+
+
+	DEBUG_OVERLAY_PUSH_SLIDER("r", &cam->distance, 1.0f, 10.0f);
+	DEBUG_OVERLAY_PUSH_VAR("r", cam->distance);
+
+	DEBUG_OVERLAY_PUSH_SLIDER("target", &cam->target, 0.0f, 10.0f);
+	DEBUG_OVERLAY_PUSH_VAR("target", cam->target);
+	DEBUG_OVERLAY_PUSH_SLIDER("height", &cam->latitude, 0.0f, 90.0f);
+	DEBUG_OVERLAY_PUSH_VAR("height", cam->latitude);
+
+	f32 camPosX = cam->distance * Cos(ToRadians(cam->yaw));
+	f32 camPosZ = cam->distance * Sin(ToRadians(cam->yaw));
+
+	f32 camPosY = cam->latitude * Sin(ToRadians(cam->distance));
+
+	v3 dir = Subtract(cam->target, V3(camPosX, camPosY, camPosZ));
+
+	cam->pos = V3(camPosX, camPosY, camPosZ);
+	cam->front = dir;
+		
+	
+	//quat qPitch = QuatFromAxisAngle(V3(1, 0, 0), ToRadians(cam->pitch));
+    //qPitch = Normalize(qPitch);
+	//quat qYaw = QuatFromAxisAngle(V3(0, 1, 0), ToRadians(cam->yaw));
+	//qYaw = Normalize(qYaw);
+	//quat camRot = QuatFromEuler(ToRadians(yawOffset), ToRadians(pitchOffset), 0);//MulQQ(qPitch, qYaw);
+	//quat frameRotation = MulQQ(qPitch, qYaw);
+	
+	//DEBUG_OVERLAY_PUSH_SLIDER("cam smooth", &cam->smoothness, 0.0f, 1.0f);
+	//DEBUG_OVERLAY_PUSH_VAR("cam smooth", cam->smoothness);
+	
+	//cam->rotation = LerpQuat(cam->rotation, frameRotation, cam->smoothness);
+	//m3x3 rotMat = QuatToM3x3(cam->rotation);
+	//cam->front = MulM3V3(rotMat, cam->initDir);
+	//cam_front = Rotate(camRotationQ, V3(0, 0, 1));
+	//cam->front = Normalize(cam->front);
+	DEBUG_OVERLAY_PUSH_VAR("cam front", cam->front);
+}
+
+
+void SubscribeKeyboardEvents()
+{
+	auto CameraMovementCallback = [](AB::Event e)
+		{
+			int32 action = -1;
+			if (e.type == AB::EVENT_TYPE_KEY_PRESSED)
+			{
+				action = 1;
+			}
+			else if (e.type == AB::EVENT_TYPE_KEY_RELEASED)
+			{
+				action = 0;
+			}
+	
+			if (action != -1)
+			{
+				switch (e.key_event.key)
+				{
+				case AB::KeyboardKey::W:
+				{
+					g_Camera.frameMovementFlags.forward = action;
+				} break;
+				case AB::KeyboardKey::S:
+				{
+					g_Camera.frameMovementFlags.back = action;
+				} break;
+				case AB::KeyboardKey::A: {
+					g_Camera.frameMovementFlags.left = action;
+				} break;
+				case AB::KeyboardKey::D: {
+					g_Camera.frameMovementFlags.right = action;
+				} break;
+				INVALID_DEFAULT_CASE();
+				}
+			}
+		};
+
+	EventQuery w = {};
+	w.type = EventType::EVENT_TYPE_KEY_PRESSED | EVENT_TYPE_KEY_RELEASED;
+	w.condition.key_event.key = KeyboardKey::W;
+	w.callback = CameraMovementCallback;
+
+	AB::EventQuery s = {};
+	s.type = EventType::EVENT_TYPE_KEY_PRESSED | EVENT_TYPE_KEY_RELEASED;
+	s.condition.key_event.key = KeyboardKey::S;
+	s.callback = CameraMovementCallback;
+
+	AB::EventQuery a = {};
+	a.type = EventType::EVENT_TYPE_KEY_PRESSED | EVENT_TYPE_KEY_RELEASED;
+	a.condition.key_event.key = KeyboardKey::A;
+	a.callback = CameraMovementCallback;
+
+	AB::EventQuery d = {};
+	d.type = EventType::EVENT_TYPE_KEY_PRESSED | EVENT_TYPE_KEY_RELEASED;
+	d.condition.key_event.key = KeyboardKey::D;
+	d.callback = CameraMovementCallback;
+
+	InputSubscribeEvent(g_Input, &w);
+	InputSubscribeEvent(g_Input, &s);
+	InputSubscribeEvent(g_Input, &a);
+	InputSubscribeEvent(g_Input, &d);
+
+	EventQuery tabEvent = {};
+	tabEvent.type = EventType::EVENT_TYPE_KEY_PRESSED;
+	tabEvent.condition.key_event.key = KeyboardKey::Tab;
+	tabEvent.callback = [](Event e)
+	{
+		g_InputState.mouseCaptured = !g_InputState.mouseCaptured;
+		if (g_InputState.mouseCaptured)
+		{
+			InputSetMouseMode(g_Input, MouseMode::Captured);
+		}
+		else
+		{
+			InputSetMouseMode(g_Input, MouseMode::Cursor);
+		}
+	};
+
+	InputSubscribeEvent(g_Input, &tabEvent);
+
+	EventQuery cursorEvent = {};
+	cursorEvent.type = EVENT_TYPE_MOUSE_MOVED;
+	cursorEvent.callback = [](Event e)
+	{
+		if (g_InputState.mouseCaptured)
+		{
+			g_Camera.pitch += e.mouse_moved_event.y;
+			//g_Camera.yaw += e.mouse_moved_event.x;
+			g_InputState.lastMouseX = e.mouse_moved_event.x;
+			g_InputState.lastMouseY = e.mouse_moved_event.y;
+			if (g_Camera.pitch > 89.0f)
+			{
+				g_Camera.pitch = 89.0f;
+			}
+			if (g_Camera.pitch < -89.0f)
+			{
+				g_Camera.pitch = -89.0f;
+			}
+		}
+	};
+
+	InputSubscribeEvent(g_Input, &cursorEvent);
+}
+
+
+void Init() {
+	g_Camera = {};
+	g_Camera.smoothness = 0.5f;
+	g_Camera.pos = V3(0.0f, 0.0f, -1.0f);
+	g_Camera.initDir = V3(0.0f, 0.0f, 1.0f);
+	
 	AB::RendererConfig config;
 	config.numSamples = 4;
 	config.renderResolutionW = 1280;
@@ -155,17 +357,14 @@ void Init() {
 													16.0f / 9.0f,
 													0.1f,
 													100.0f);
-	//g_RenderGroup->projectionMatrix = OrthogonalRH(0, 16, 0, 9, 0.1, 1000);
-
 	g_Input = AB::InputInitialize();
 	asset_mgr = AB::AssetInitialize();
-	mesh = AB::AssetCreateMeshAAB(asset_mgr, "../assets/barrels/barrel1.aab");
+	mesh = AB::AssetCreateMeshAAB(asset_mgr, "../assets/mansion/mansion.aab");
 	mesh2 = AB::AssetCreateMeshAAB(asset_mgr, "../assets/barrels/barrel2.aab");
 	mesh3 = AB::AssetCreateMeshAAB(asset_mgr, "../assets/barrels/alignedBarrel.aab");
 	plane = AB::AssetCreateMeshAAB(asset_mgr, "../assets/Plane.aab");
 	cubeMesh = AB::AssetCreateMeshAAB(asset_mgr, "../assets/grass.aab");
 	debugCubeMesh = AB::AssetCreateMeshAAB(asset_mgr, "../assets/Cube.aab");
-	Subscribe();
 
 	AB::Image px = AB::LoadBMP("../assets/cubemap/posx.bmp", AB::API::TEX_COLOR_SPACE_SRGB);
 	AB::Image nx = AB::LoadBMP("../assets/cubemap/negx.bmp", AB::API::TEX_COLOR_SPACE_SRGB);
@@ -177,68 +376,12 @@ void Init() {
 	AB::API::TextureParameters p = {AB::API::TEX_FILTER_LINEAR, AB::API::TEX_WRAP_CLAMP_TO_EDGE};
 	uint32 cubemap = AB::API::CreateCubemap(p, &px, &nx, &py, &ny, &pz, &nz);
 	AB::RendererSetSkybox(g_Renderer, cubemap);
-	
-	AB::EventQuery tab_q = {};
-	tab_q.type = AB::EventType::EVENT_TYPE_KEY_PRESSED;
-	//tab_q.pass_through = true;
-	tab_q.condition.key_event.key = AB::KeyboardKey::Tab;
-	tab_q.callback = [](AB::Event e) {
-		mouse_captured = !mouse_captured;
-		if (mouse_captured) {
-			AB::InputSetMouseMode(g_Input, AB::MouseMode::Captured);
-		}
-		else {
-			AB::InputSetMouseMode(g_Input, AB::MouseMode::Cursor);
-		}
-	};
 
-	AB::InputSubscribeEvent(g_Input, &tab_q);
+	SubscribeKeyboardEvents();
 
-	m4x4 m = Translation({1, 2, 3});
-	v4 vec = MulM4V4(m, {9, 8, 7, 1});
-	AB::PrintString("Vector: %f32, %f32, %f32\n", vec.x, vec.y, vec.z);
-
-	v3 sd = V3(1, 2, 3);
-	v2 fee = {};
-	v3 f4 = V3(fee, 3.0f);
-	v4 vb = V4(1.0f, 2.0f, 3.0f, 4.0f);
-	v4 fff = V4(V3(V2(1.0f, 2.0f), 3.0f), 4.0f);
-	
-	AB::EventQuery m_move_q = {};
-	m_move_q.type = AB::EVENT_TYPE_MOUSE_MOVED;
-	//m_move_q.pass_through = true;
-	m_move_q.callback = [](AB::Event e) {
-		if (mouse_captured) {
-			pitch += e.mouse_moved_event.y;
-			yaw += e.mouse_moved_event.x;
-			last_mouse_x = e.mouse_moved_event.x;
-			last_mouse_y = e.mouse_moved_event.y;
-			if (pitch > 89.0f)
-				pitch = 89.0f;
-			if (pitch < -89.0f)
-				pitch = -89.0f;
-
-			if (yaw > 360.0f)
-				yaw -= 360.0f;
-			if (yaw < -360.0f)
-				yaw -= -360.0f;
-		}
-	};
-
-	AB::InputSubscribeEvent(g_Input, &m_move_q);
-
-	AB::EventQuery click = {};
-	click.type = AB::EventType::EVENT_TYPE_MOUSE_BTN_PRESSED| AB::EVENT_TYPE_MOUSE_BTN_RELEASED;
-	click.condition.mouse_button_event.button = AB::MouseButton::Left;
-	click.callback = [](AB::Event e) {
-		if (e.type == AB::EVENT_TYPE_MOUSE_BTN_PRESSED) {
-			AB::PrintString("pressed\n");
-		} else {
-			AB::PrintString("released\n");
-		}
-	};
-
-	AB::InputSubscribeEvent(g_Input, &click);		
+	light.ambient = { 0.002, 0.002, 0.002 };
+	light.diffuse = { 0.3 , 0.3 , 0.3 };
+	light.specular = { 0.5, 0.5, 0.5 };
 }
 
 void Update() {
@@ -257,28 +400,9 @@ float32 g_Time = 0.0f;
 void Render() {
 	g_Time += 0.1;
 	AB::InputBeginFrame(g_Input);
-	
-	if (g_cam_w) {
-		cam_pos = hpm::Add(hpm::MulV3F32(cam_front, 0.2), cam_pos);
-	}
-	if (g_cam_s) {
-		cam_pos = hpm::Subtract(cam_pos, hpm::MulV3F32(cam_front, 0.2));
-	}
 
-	if (g_cam_a) {
-		hpm::Vector3 right = hpm::Normalize(hpm::Cross(cam_front, { 0, 1, 0 }));
-		cam_pos = hpm::Subtract(cam_pos, hpm::MulV3F32(right, 0.2));
-	}
-	if (g_cam_d) {
-		hpm::Vector3 right = hpm::Normalize(hpm::Cross(cam_front, { 0, 1, 0 }));
-		cam_pos = hpm::Add(hpm::MulV3F32(right, 0.2), cam_pos);
-	}
-
-	cam_front.x = hpm::Cos(hpm::ToRadians(pitch)) * hpm::Cos(hpm::ToRadians(yaw));
-	cam_front.y = hpm::Sin(hpm::ToRadians(pitch));
-	cam_front.z = hpm::Cos(hpm::ToRadians(pitch)) * hpm::Sin(hpm::ToRadians(yaw));
-	cam_front = hpm::Normalize(cam_front);
-	RenderGroupSetCamera(g_RenderGroup, cam_front, cam_pos);
+	UpdateCamera(&g_Camera);
+	RenderGroupSetCamera(g_RenderGroup, g_Camera.front, g_Camera.pos);
 
 	auto tr = hpm::Translation({ 0, 0, 0 });
 	auto cubeTransform = Translation({0, 0, 0});
@@ -338,11 +462,31 @@ void Render() {
 	planeCommand.transform.worldMatrix = tr;
 	planeCommand.blendMode = AB::BLEND_MODE_OPAQUE;
 
+	m4x4 quatTransform = Identity4();
+	v3 offset = V3(1.0f, 0.0f, 0.0f);
+	quat rot = QuatFromAxisAngle(Normalize(V3(0, 1, 0)), g_Time * 0.2f);
+	quat rot1 = QuatFromAxisAngle(Normalize(V3(1, 0, 0)), g_Time * 0.1f);
+	rot = MulQQ(rot, rot1);
+	//offset = Rotate(rot, offset);
+	m3x3 rMtx = QuatToM3x3(rot);
+	quatTransform = MulM4M4(quatTransform, M4x4(rMtx));
+   	//quatTransform = MulM4V4(quatTransform, M4x4(rMtx));
+
+	DEBUG_OVERLAY_PUSH_VAR("ct", g_Camera.target);
+
+	//quatTransform = Translation(offset);
+	quatTransform = Identity4();
+	//m4x4 camTarget = Scaling(V3(0.01));
+	m4x4 camTarget = Translation(g_Camera.target);
+	//camTarget = Translate(camTarget, g_Camera.target);
+	camTarget = Scale(camTarget, V3(0.01));
+
+
 	AB::RenderCommandDrawMesh meshCommand = {};
 	meshCommand.meshHandle = mesh;
-	meshCommand.transform.worldMatrix = tr;
+	meshCommand.transform.worldMatrix = camTarget;
 	meshCommand.blendMode = AB::BLEND_MODE_OPAQUE;
-
+	
 	AB::RenderCommandDrawMesh mesh1Command = {};
 	mesh1Command.meshHandle = mesh2;
 	mesh1Command.transform.worldMatrix = testTransform;
@@ -410,10 +554,6 @@ void Render() {
 	aabb8.meshHandle = debugCubeMesh;
 	aabb8.transform.worldMatrix = aabbTr8;
 	aabb8.blendMode = AB::BLEND_MODE_TRANSPARENT;
-
-	light.ambient = { 0.002, 0.002, 0.002 };
-	light.diffuse = { 0.3 , 0.3 , 0.3 };
-	light.specular = { 0.5, 0.5, 0.5 };
 
 	f32 ka = light.ambient.r;
 	f32 kd = light.diffuse.r;

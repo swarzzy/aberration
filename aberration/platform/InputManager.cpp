@@ -98,6 +98,8 @@ namespace AB {
 					float32 offset_y = (float32)((int32)y_pos - y_mid);
 					mgr->mouse_pos_x += offset_x;
 					mgr->mouse_pos_y += offset_y;
+					mgr->mouse_frame_offset_x += offset_x;
+					mgr->mouse_frame_offset_y += offset_y;
 
 					Event e = {};
 					e.type = EVENT_TYPE_MOUSE_MOVED;
@@ -109,6 +111,8 @@ namespace AB {
 					WindowSetMousePosition(x_mid, y_mid);
 				}
 			} else if (mgr->mouse_mode == MouseMode::Cursor) {
+				mgr->mouse_frame_offset_x += (float32)x_pos - mgr->mouse_pos_x;
+				mgr->mouse_frame_offset_y += (float32)y_pos - mgr->mouse_pos_y;
 				mgr->mouse_pos_x = (float32)x_pos;
 				mgr->mouse_pos_y = (float32)y_pos;
 
@@ -179,6 +183,8 @@ namespace AB {
 	void InputEndFrame(InputMgr* mgr) {
 		CopyArray(byte, KEYBOARD_KEYS_COUNT, mgr->keys->prev_state, mgr->keys->current_state);
 		CopyArray(byte, MOUSE_BUTTONS_COUNT, mgr->mouse_buttons->prev_state, mgr->mouse_buttons->current_state);
+		mgr->mouse_frame_offset_x = 0.0f;
+		mgr->mouse_frame_offset_y = 0.0f;
 	}
 
 	int32 InputSubscribeEvent(InputMgr* mgr, const EventQuery* query) {
@@ -224,6 +230,11 @@ namespace AB {
 
 	hpm::Vector2 InputGetMousePosition(InputMgr* mgr) {
 		return { mgr->mouse_pos_x, mgr->mouse_pos_y };
+	}
+
+	AB_API hpm::Vector2 InputGetMouseFrameOffset(InputMgr* mgr)
+	{
+		return {mgr->mouse_frame_offset_x, mgr->mouse_frame_offset_y};
 	}
 
 	void InputSetMouseMode(InputMgr* mgr, MouseMode mode) {

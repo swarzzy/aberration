@@ -36,6 +36,7 @@ typedef __m128				float128;
 namespace hpm {
 
 	constexpr float32 PI_32 = 3.14159265358979323846f;
+	constexpr float32 FLOAT_EPS = 0.000001f;
 
 	HPM_INLINE float32 Map(float32 t, float32 a, float32 b, float32 c, float32 d) {
 		if (a == b || d == c) return 0.0f;
@@ -97,6 +98,25 @@ namespace hpm {
 		return PI_32 / 180.0f * degrees;
 	}
 
+	HPM_INLINE float32 Lerp(float32 a, float32 b, float32 t)
+	{
+		float32 result;
+		if (t < 0.0f)
+		{
+			result = a;
+		}
+		else if (t > 1.0f)
+		{
+			result = b;
+		}
+		else
+		{
+			result = (1 - t) * a + t * b;
+		}
+
+		return result;
+	}
+
 	union Vector2 {
 		struct {
 			float32 x;
@@ -136,6 +156,10 @@ namespace hpm {
 			float32 b;
 			float32 a;
 		};
+		struct {
+			Vector3 xyz;
+			float32 _w;
+		};
 		float32 data[4];
 		float128 _packed;
 	};
@@ -162,6 +186,16 @@ namespace hpm {
 		};
 	};
 
+	union Quaternion {
+		struct {
+			float32 x, y, z, w;
+		};
+		struct {
+			Vector3 xyz;
+			float32 _w;
+		};		
+	};	
+
 	HPM_INLINE Vector2 V2(float32 x, float32 y) {
 		return Vector2{x, y};
 	}
@@ -186,6 +220,11 @@ namespace hpm {
 		return Vector3{v.x, v.y, v.z};
 	}
 
+	HPM_INLINE Vector3 V3(Quaternion q) {
+		return Vector3{q.x, q.y, q.z};
+	}
+
+
 	HPM_INLINE Vector4 V4(float32 x, float32 y, float32 z, float32 w) {
 		return Vector4{x, y ,z, w};
 	}
@@ -201,7 +240,7 @@ namespace hpm {
 	HPM_INLINE Vector4 V4(Vector3 v, float32 w) {
 		return Vector4{v.x, v.y ,v.z, w};
 	}
- 
+
 	HPM_INLINE Vector2 HPM_CALL Add(Vector2 left, Vector2 right) {
 		return Vector2{ left.x + right.x, left.y + right.y };
 	}
@@ -325,27 +364,49 @@ namespace hpm {
 	HPM_INLINE Vector2 HPM_CALL Normalize(Vector2 vector) {
 		Vector2 result;
 		float32 len = Length(vector);
-		result.x = vector.x / len;
-		result.y = vector.y / len;
+		if (len > FLOAT_EPS)
+		{
+			result.x = vector.x / len;
+			result.y = vector.y / len;
+		}
+		else
+		{
+			result = vector;
+		}
 		return result;
 	}
 
 	HPM_INLINE Vector3 HPM_CALL Normalize(Vector3 vector) {
 		Vector3 result;
 		float32 len = Length(vector);
-		result.x = vector.x / len;
-		result.y = vector.y / len;
-		result.z = vector.z / len;
+		if (len > FLOAT_EPS)
+		{
+			result.x = vector.x / len;
+			result.y = vector.y / len;
+			result.z = vector.z / len;
+		}
+		else
+		{
+			result = vector;
+		}
 		return result;
 	}
 
 	HPM_INLINE Vector4 HPM_CALL Normalize(Vector4 vector) {
 		Vector4 result;
 		float32 len = Length(vector);
-		result.x = vector.x / len;
-		result.y = vector.y / len;
-		result.z = vector.z / len;
-		result.w = vector.w / len;
+		if (len > FLOAT_EPS)
+		{
+			result.x = vector.x / len;
+			result.y = vector.y / len;
+			result.z = vector.z / len;
+			result.w = vector.w / len;
+		}
+		else
+		{
+			result = vector;
+		}
+		
 		return result;
 	}
 
@@ -497,7 +558,7 @@ namespace hpm {
 		return result;
 	}
 
-		HPM_INLINE Matrix4 HPM_CALL PerspectiveRH(float32 fovDeg, float32 aspectRatio, float32 n, float32 f) {
+	HPM_INLINE Matrix4 HPM_CALL PerspectiveRH(float32 fovDeg, float32 aspectRatio, float32 n, float32 f) {
 		Matrix4 result = {};
 
 		float32 tanHalfFov = Tan(ToRadians(fovDeg / 2.0f));
@@ -529,7 +590,7 @@ namespace hpm {
 		return Vector3{m->_14, m->_24, m->_34};
 	}
 
-		HPM_INLINE Matrix4 HPM_CALL Translate(Matrix4 mtx, Vector3 trans) {
+	HPM_INLINE Matrix4 HPM_CALL Translate(Matrix4 mtx, Vector3 trans) {
 		mtx.columns[3] = Add(Add(MulV4F32(mtx.columns[0], trans.x), MulV4F32(mtx.columns[1], trans.y)), 
 							 Add(MulV4F32(mtx.columns[2], trans.z), mtx.columns[3]));
 		return mtx;
@@ -940,7 +1001,139 @@ namespace hpm {
 	}
 	
 #endif
-	
+
+	HPM_INLINE HPM_CALL Quaternion Quat(float32 x, float32 y, float32 z, float32 w)
+	{
+		return Quaternion{x, y, z, w};
+	}
+
+	HPM_INLINE HPM_CALL Quaternion Quat(Vector3 v)
+	{
+		return Quaternion{v.x, v.y, v.z, 0.0f};
+	}
+
+	HPM_INLINE HPM_CALL Quaternion QuatFromAxisAngle(Vector3 axis, float32 angleRad)
+	{
+		Vector3 a = MulV3F32(axis, Sin(angleRad / 2.0f));
+		//a = Normalize(a);
+		return Quaternion{a.x, a.y, a.z, Cos(angleRad / 2.0f)};
+	}
+
+	HPM_INLINE HPM_CALL Quaternion QuatFromEuler(float32 yaw, float32 pitch, float32 roll)
+	{
+		float32 cy = Cos(yaw * 0.5f);
+		float32 cp = Cos(pitch * 0.5f);
+		float32 cr = Cos(roll * 0.5f);
+
+		float32 sy = Sin(yaw * 0.5f);
+		float32 sp = Sin(pitch * 0.5f);
+		float32 sr = Sin(roll * 0.5f);
+
+		Quaternion result;
+		result.x = cy * cp * sr - sy * sp * cr;
+		result.y = sy * cp * sr + cy * sp * cr;
+		result.z = sy * cp * cr - cy * sp * sr;
+		result.w = cy * cp * cr + sy * sp * sr;
+		
+		return result;
+	}
+
+	HPM_INLINE HPM_CALL Quaternion IdentityQuat()
+	{
+		return Quaternion{0.0f, 0.0f, 0.0f, 1.0f};
+	}
+
+	HPM_INLINE HPM_CALL Quaternion MulQQ(Quaternion l, Quaternion r)
+	{
+		Quaternion result;
+		result.x = (l.x * r.w) + (l.y * r.z) - (l.z * r.y) + (l.w * r.x);
+		result.y = (-l.x * r.z) + (l.y * r.w) + (l.z * r.x) + (l.w * r.y);
+		result.z = (l.x * r.y) - (l.y * r.x) + (l.z * r.w) + (l.w * r.z);
+		result.w = (-l.x * r.x) - (l.y * r.y) - (l.z * r.z) + (l.w * r.w);
+		return result;
+	}
+
+	HPM_INLINE HPM_CALL Vector3 Rotate(Quaternion q, Vector3 v)
+	{
+		Quaternion conj = Quaternion{-q.x, -q.y, -q.z, q.w};
+
+		Quaternion premul = MulQQ(q, Quat(v));
+		Quaternion result = MulQQ(premul, conj);
+
+		return V3(result);
+	}
+
+	HPM_INLINE HPM_CALL Quaternion Conjugate(Quaternion q)
+	{
+		return Quaternion{-q.x, -q.y, -q.z, q.w};
+	}
+
+	HPM_INLINE HPM_CALL Matrix3 QuatToM3x3(Quaternion q)
+	{
+		float32 xSq = q.x * q.x * 2.0f;
+		float32 ySq = q.y * q.y * 2.0f;
+		float32 zSq = q.z * q.z * 2.0f;
+		
+		Matrix3 result = {};
+		result._11 = 1.0f - ySq - zSq;
+		result._12 = 2.0f * q.x * q.y + 2.0f * q.w * q.z;
+		result._13 = 2.0f * q.x * q.z - 2.0f * q.y * q.w;
+		result._21 = 2.0f * q.x * q.y - 2.0f * q.w * q.z;
+		result._22 = 1.0f - xSq - zSq;
+		result._23 = 2.0f * q.y * q.z + 2.0f * q.x * q.w;
+		result._31 = 2.0f * q.x * q.z + 2.0f * q.y * q.w;
+		result._32 = 2.0f * q.y * q.z - 2.0f * q.x * q.w;
+		result._33 = 1.0f - xSq - ySq;
+
+		return result;
+	}
+
+	HPM_INLINE HPM_CALL float32 HPM_CALL Length(Quaternion q)
+	{
+		return Sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+	}
+
+	HPM_INLINE HPM_CALL Quaternion Normalize(Quaternion q)
+	{
+		float32 len = Length(q);
+		Quaternion result;
+		if (len > FLOAT_EPS)
+		{
+			result.x = q.x / len;
+			result.y = q.y / len;
+			result.z = q.z / len;
+			result.w = q.w / len;
+		}
+		else
+		{
+			result = q;
+		}
+
+		return result;
+	}
+
+	HPM_INLINE HPM_CALL Quaternion LerpQuat(Quaternion a, Quaternion b, float32 t)
+	{
+		Quaternion result;
+		if (t < 0.0f)
+		{
+			result = a;
+		}
+		else if (t > 1.0f) 
+		{
+			result = b;
+		}
+		else
+		{
+			result.x = (1 - t) * a.x + t * b.x;
+			result.y = (1 - t) * a.y + t * b.y;
+			result.z = (1 - t) * a.z + t * b.z;
+			result.w = (1 - t) * a.w + t * b.w;
+			result = Normalize(result);
+		}
+		return result;
+	}
+
 }
 #if defined(HPM_USE_NAMESPACE)
 using namespace hpm;
@@ -951,3 +1144,4 @@ typedef Vector3 v3;
 typedef Vector4 v4;
 typedef Matrix3 m3x3;
 typedef Matrix4 m4x4;
+typedef Quaternion quat;

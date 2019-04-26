@@ -93,6 +93,8 @@ namespace AB {
 		MouseMode mouse_mode;
 		float32 mouse_pos_x;
 		float32 mouse_pos_y;
+		float32 mouse_frame_offset_x;
+		float32 mouse_frame_offset_y;
 		bool32 window_active;
 		bool32 mouse_in_client_area;
 		uint32 event_queue_at;
@@ -118,6 +120,7 @@ namespace AB {
 
 
 	AB_API hpm::Vector2 InputGetMousePosition(InputMgr* mgr);
+	AB_API hpm::Vector2 InputGetMouseFrameOffset(InputMgr* mgr);
 
 	AB_API void InputSetMouseMode(InputMgr* mgr, MouseMode mode);
 	AB_API bool32 InputKeyIsPressed(InputMgr* mgr, KeyboardKey key);
