@@ -1,3 +1,4 @@
+
 @echo off
 
 set BuildTools=FALSE
@@ -12,20 +13,25 @@ cls
 
 project\ctime -begin build\ab_ctime.ctm
 
-set IncludeDirs=/Iaberration /Ihypermath
-set CommonDefines=/DAB_CONFIG_DEBUG /DAB_PLATFORM_WINDOWS /D_CRT_SECURE_NO_WARNINGS 
-set LibDefines=/DAB_BUILD_DLL /DWIN32_LEAN_AND_MEAN
+set IncludeDirs=/Ishared /Ihypermath
+set CommonDefines=/DAB_CONFIG_DEBUG /DAB_PLATFORM_WINDOWS /D_CRT_SECURE_NO_WARNINGS /DWIN32_LEAN_AND_MEAN
+rem set LibDefines=/DAB_BUILD_DLL
 set CommonCompilerFlags=/std:c++17 /Gm- /fp:fast /GR- /nologo /diagnostics:classic /WX
 set DebugCompilerFlags=/Zi /Od /Ob0 /RTC1 /MTd /Fd%BinOutDir%
 set ReleaseCompilerFlags=/Ox /Ob2 /MT /Oi /MT
-set LibLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64 /OUT:%BinOutDir%\Aberration.dll /PDB:%BinOutDir%\Aberration.pdb /IMPLIB:%BinOutDir%Aberration.lib user32.lib opengl32.lib gdi32.lib
-set AppLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64
+set LinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64 /OUT:%BinOutDir%\Aberration.exe /PDB:%BinOutDir%\Aberration.pdb user32.lib opengl32.lib gdi32.lib
+set AppLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64 /DLL
 
 set ConfigCompilerFlags=%DebugCompilerFlags%
 
-cl /MP /W3 /Fo%ObjOutDir% %CommonDefines% %LibDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% aberration\ab.cpp /LD /link %LibLinkerFlags%
+set PdbTimestamp=%date:~6,4%-%date:~3,2%-%date:~0,2%-%time:~1,1%-%time:~3,2%-%time:~6,2%
 
-cl /MP /W3 /Fo%ObjOutDir% %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% sandbox\sandbox.cpp /link %AppLinkerFlags% /OUT:%BinOutDir%\Sandbox.exe /PDB:%BinOutDir%\Sandbox.pdb %BinOutDir%\Aberration.lib
+del %BinOutDir%*.pdb >NUL 2>&1
+
+cl /MP /W3 /Fo%ObjOutDir% /DGAME_CODE %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% game\Game.cpp /link %AppLinkerFlags% /OUT:%BinOutDir%\Game.dll /PDB:%BinOutDir%\Game_%PdbTimestamp%.pdb
+
+
+cl /MP /W3 /Fo%ObjOutDir% /DPLATFORM_CODE %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% platform\Platform.cpp /link %LinkerFlags%
 
 IF %BuildTools%==TRUE (
 	cl /MP /W3 /Fo%ObjOutDir% %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% tools\AssetBuilder\AssetBuilder.cpp /link %AppLinkerFlags% /OUT:%BinOutDir%\AssetBuilder.exe /PDB:%BinOutDir%\AssetBuilder.pdb

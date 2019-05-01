@@ -1,3 +1,4 @@
+#if 0
 #define HYPERMATH_IMPL
 #include <hypermath.h>
 
@@ -12,8 +13,14 @@
 #include "platform/API/GraphicsPipeline.h"
 #include "utils/ImageLoader.h"
 #include "ExtendedMath.h"
+#include "platform/Window.h"
 
 using namespace AB;
+
+#define DEBUG_OVERLAY_PUSH_STR(str) AB::DebugOverlayPushString(g_DebugOverlay, str)
+#define DEBUG_OVERLAY_PUSH_VAR(title, var) AB::DebugOverlayPushVar(g_DebugOverlay, title, var)
+#define DEBUG_OVERLAY_PUSH_TOGGLE(title, varPtr) AB::DebugOverlayPushToggle(g_DebugOverlay, title, varPtr)
+#define DEBUG_OVERLAY_PUSH_SLIDER(title, val, min, max) AB::DebugOverlayPushSlider(g_DebugOverlay, title, val, min, max)
 
 struct InputState
 {
@@ -86,6 +93,8 @@ AB::DirectionalLight light = { {0, -1, 0.25}, {0.001}, {0.0}, {0.0} };
 AB::PointLight plights[4];
 
 AB::InputMgr* g_Input = nullptr;
+DebugOverlayProperties* g_DebugOverlay;
+Renderer2DProperties* g_Renderer2D;
 
 InputState g_InputState;
 
@@ -336,8 +345,7 @@ void SubscribeKeyboardEvents()
 	InputSubscribeEvent(g_Input, &cursorEvent);
 }
 
-
-void Init() {
+void Init(GameState* state, PlatformFuncTable* platform) {
 	g_Camera = {};
 	g_Camera.smoothness = 0.5f;
 	g_Camera.pos = V3(0.0f, 0.0f, -1.0f);
@@ -357,7 +365,11 @@ void Init() {
 													16.0f / 9.0f,
 													0.1f,
 													100.0f);
-	g_Input = AB::InputInitialize();
+	g_Renderer2D = Renderer2DInitialize(platform, 1280, 720);
+	g_Input = AB::InputInitialize(platform);
+	//platform->RegisterInputManager(g_Input);
+	g_DebugOverlay = CreateDebugOverlay(g_Renderer2D, g_Input);
+	DebugOverlayEnableMainPane(g_DebugOverlay, true);
 	asset_mgr = AB::AssetInitialize();
 	mesh = AB::AssetCreateMeshAAB(asset_mgr, "../assets/mansion/mansion.aab");
 	mesh2 = AB::AssetCreateMeshAAB(asset_mgr, "../assets/barrels/barrel2.aab");
@@ -384,7 +396,7 @@ void Init() {
 	light.specular = { 0.5, 0.5, 0.5 };
 }
 
-void Update() {
+void Update(GameState* state, PlatformFuncTable* platform) {
 	
 }
 
@@ -397,7 +409,9 @@ bool32 multisampling = false;
 
 float32 g_Time = 0.0f;
 
-void Render() {
+void Render(GameState* state, PlatformFuncTable* platform) {
+	UpdateDebugOverlay(g_DebugOverlay, state);
+	DrawDebugOverlay(g_DebugOverlay);
 	g_Time += 0.1;
 	AB::InputBeginFrame(g_Input);
 
@@ -631,32 +645,39 @@ void Render() {
 
 
 	AB::RenderGroupPushCommand(g_RenderGroup,
+							   asset_mgr,
 							   AB::RENDER_COMMAND_DRAW_MESH,
 							   (void*)(&cubeMeshCommand));
 
 	RenderGroupPushCommand(g_RenderGroup,
+						   asset_mgr,
 						   AB::RENDER_COMMAND_DRAW_MESH,
 						   (void*)(&meshCommand));
 
 	AB::RenderGroupPushCommand(g_RenderGroup,
+							   asset_mgr,
 							   AB::RENDER_COMMAND_DRAW_MESH,
 							   (void*)(&planeCommand));
 
 
 
 	AB::RenderGroupPushCommand(g_RenderGroup,
+							   asset_mgr,
 							   AB::RENDER_COMMAND_DRAW_MESH,
 							   (void*)(&grass2MeshCommand));
 
 	RenderGroupPushCommand(g_RenderGroup,
+						   asset_mgr,
 						   RENDER_COMMAND_SET_DIR_LIGHT,
 						   (void*)(&dirLightCommand));
 
 	RenderGroupPushCommand(g_RenderGroup,
+						   asset_mgr,
 						   RENDER_COMMAND_SET_POINT_LIGHT,
 						   (void*)(&pl1));
 
 	RenderGroupPushCommand(g_RenderGroup,
+						   asset_mgr,
 						   RENDER_COMMAND_SET_POINT_LIGHT,
 						   (void*)(&pl2));
 
@@ -760,8 +781,12 @@ void Render() {
 	//AB::RendererSubmitPointLight(g_Renderer, &plights[2]);
 	//AB::RendererSubmitPointLight(g_Renderer, &plights[3]);
 
-	AB::RendererRender(g_Renderer, g_RenderGroup);
+	AB::RendererRender(g_Renderer, asset_mgr, g_RenderGroup, platform);
+	AB::Renderer2DFlush(g_Renderer2D);
+
 }
+
+#if 0
 
 int EntryPoint() {
 	AB::CreateMemoryContext();
@@ -774,3 +799,5 @@ int EntryPoint() {
 }
 
 AB_DECLARE_ENTRY_POINT(EntryPoint)
+#endif
+#endif

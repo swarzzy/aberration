@@ -4,103 +4,116 @@
 #include <cmath>
 
 #include <cstdint>
-typedef int8_t				int8;
-typedef int16_t				int16;
-typedef int32_t				int32;
-typedef int64_t				int64;
+typedef int8_t				i8;
+typedef int16_t				i16;
+typedef int32_t				i32;
+typedef int64_t				i64;
 
-typedef uint8_t				uint8;
-typedef uint16_t			uint16;
-typedef uint32_t			uint32;
-typedef uint64_t			uint64;
+typedef uint8_t				u8;
+typedef uint16_t			u16;
+typedef uint32_t			u32;
+typedef uint64_t			u64;
 
-typedef uintptr_t			uintptr;
+typedef uintptr_t			uptr;
 
 #undef byte // Defined as unsigned char in rpcndr.h
-typedef uint8				byte;
-typedef uint32				bool32;
+typedef char				byte;
+typedef u32             	b32;
 typedef unsigned char		uchar;
 
-typedef float				float32;
-typedef double				float64;
+typedef float				f32;
+typedef double				f64;
 
-typedef uint32				color32;
-typedef byte				bool8;
-typedef __m128				float128;
+typedef u32             	color32;
+typedef byte				b8;
+typedef __m128				f128;
 
 #define HPM_USE_NAMESPACE
 
 #define HPM_CALL //__vectorcall
 #define HPM_INLINE inline
 
-namespace hpm {
+namespace hpm
+{
 
-	constexpr float32 PI_32 = 3.14159265358979323846f;
-	constexpr float32 FLOAT_EPS = 0.000001f;
+	constexpr f32 PI_32 = 3.14159265358979323846f;
+	constexpr f32 FLOAT_EPS = 0.000001f;
 
-	HPM_INLINE float32 Map(float32 t, float32 a, float32 b, float32 c, float32 d) {
+	HPM_INLINE f32 Map(f32 t, f32 a, f32 b, f32 c, f32 d)
+	{
 		if (a == b || d == c) return 0.0f;
 		return c + (d - c) / (b - a) * (t - a);
 	}
 
-	HPM_INLINE float32 Sin(float32 radians) {
+	HPM_INLINE f32 Sin(f32 radians)
+	{
 		return sinf(radians);
 	}
 
-	HPM_INLINE float32 Cos(float32 radians) {
+	HPM_INLINE f32 Cos(f32 radians)
+	{
 		return cosf(radians);
 	}
 
-	HPM_INLINE float32 Tan(float32 radians) {
+	HPM_INLINE f32 Tan(f32 radians)
+	{
 		return tanf(radians);
 	}
 
-	HPM_INLINE float32 Sqrt(float32 num) {
+	HPM_INLINE f32 Sqrt(f32 num)
+	{
 		return sqrtf(num);
 	}
 
-#if 1
 	
-	HPM_INLINE int32 Abs(int32 val) {
+	HPM_INLINE constexpr int Abs(int val)
+	{
 		return val > 0 ? val : -val;
 	}
 
-	HPM_INLINE float32 Abs(float32 val) {
+	HPM_INLINE constexpr float Abs(float val)
+	{
 		return val > 0 ? val : -val;
 	}
 
-	HPM_INLINE int16 Abs(int16 val) {
+	HPM_INLINE constexpr short Abs(short val)
+	{
 		return val > 0 ? val : -val;
 	}
 
-	HPM_INLINE long Abs(long val) {
+	HPM_INLINE constexpr long Abs(long val)
+	{
 		return val > 0 ? val : -val;
 	}
 
-
-#else
-
-	// TODO: This is temporary. Because clang for some reason complains on overloads.
-
-	template<typename T>
-		HPM_INLINE T Abs(T val) {
-		return val > 0 ? val : -val;
+	HPM_INLINE constexpr float Min(float a, float b)
+	{
+		return a < b ? a : b;
 	}
 
-#endif
+	HPM_INLINE constexpr float Max(float a, float b)
+	{
+		return a > b ? a : b;
+	}
 
+	HPM_INLINE constexpr float Clamp(float x, float min, float max)
+	{
+		return Min(Max(x, max), min);
+	}
 	
-	HPM_INLINE constexpr float32 ToDegrees(float32 radians) {
+	HPM_INLINE constexpr f32 ToDegrees(f32 radians)
+	{
 		return 180.0f / PI_32 * radians;
 	}
 
-	HPM_INLINE constexpr float32 ToRadians(float32 degrees) {
+	HPM_INLINE constexpr f32 ToRadians(f32 degrees)
+	{
 		return PI_32 / 180.0f * degrees;
 	}
 
-	HPM_INLINE float32 Lerp(float32 a, float32 b, float32 t)
+	HPM_INLINE f32 Lerp(f32 a, f32 b, f32 t)
 	{
-		float32 result;
+		f32 result;
 		if (t < 0.0f)
 		{
 			result = a;
@@ -117,253 +130,308 @@ namespace hpm {
 		return result;
 	}
 
-	union Vector2 {
-		struct {
-			float32 x;
-			float32 y;
+	union Vector2
+	{
+		struct
+		{
+			f32 x;
+			f32 y;
 		};
-		struct {
-			float32 r;
-			float32 g;
+		struct
+		{
+			f32 r;
+			f32 g;
 		};
-		float32 data[2];
+		f32 data[2];
 	};
 
-	union Vector3 {
-		struct {
-			float32 x;
-			float32 y;
-			float32 z;
+	union Vector3
+	{
+		struct
+		{
+			f32 x;
+			f32 y;
+			f32 z;
 		};
-		struct {
-			float32 r;
-			float32 g;
-			float32 b;
+		struct
+		{
+			f32 r;
+			f32 g;
+			f32 b;
 		};
-		float32 data[3];
+		f32 data[3];
 	};
 
-	union Vector4 {
-		struct {
-			float32 x;
-			float32 y;
-			float32 z;
-			float32 w;
+	union Vector4
+	{
+		struct
+		{
+			f32 x;
+			f32 y;
+			f32 z;
+			f32 w;
 		};
-		struct {
-			float32 r;
-			float32 g;
-			float32 b;
-			float32 a;
+		struct
+		{
+			f32 r;
+			f32 g;
+			f32 b;
+			f32 a;
 		};
-		struct {
+		struct
+		{
 			Vector3 xyz;
-			float32 _w;
+			f32 _w;
 		};
-		float32 data[4];
-		float128 _packed;
+		f32 data[4];
+		f128 _packed;
 	};
 
 
-	union Matrix4 {
+	union Matrix4
+	{
 		Vector4 columns[4];
-		float32 data[16];
-		struct {
-			float32 _11, _21, _31, _41;
-			float32 _12, _22, _32, _42;
-			float32 _13, _23, _33, _43;
-			float32 _14, _24, _34, _44;
+		f32 data[16];
+		struct
+		{
+			f32 _11, _21, _31, _41;
+			f32 _12, _22, _32, _42;
+			f32 _13, _23, _33, _43;
+			f32 _14, _24, _34, _44;
 		};
 	};
 
-	union Matrix3 {
+	union Matrix3
+	{
 		Vector3 columns[3];
-		float32 data[9];
-		struct {
-			float32 _11, _21, _31;
-			float32 _12, _22, _32;
-			float32 _13, _23, _33;
+		f32 data[9];
+		struct
+		{
+			f32 _11, _21, _31;
+			f32 _12, _22, _32;
+			f32 _13, _23, _33;
 		};
 	};
 
-	union Quaternion {
-		struct {
-			float32 x, y, z, w;
+	union Quaternion
+	{
+		struct
+		{
+			f32 x, y, z, w;
 		};
-		struct {
+		struct
+		{
 			Vector3 xyz;
-			float32 _w;
+			f32 _w;
 		};		
 	};	
 
-	HPM_INLINE Vector2 V2(float32 x, float32 y) {
+	HPM_INLINE Vector2 V2(f32 x, f32 y)
+	{
 		return Vector2{x, y};
 	}
 	
-	HPM_INLINE Vector2 V2(float32 val) {
+	HPM_INLINE Vector2 V2(f32 val)
+	{
 		return Vector2{val, val};
 	}
 
-	HPM_INLINE Vector3 V3(float32 x, float32 y, float32 z) {
+	HPM_INLINE Vector3 V3(f32 x, f32 y, f32 z)
+	{
 		return Vector3{x, y, z};
 	}
 	
-	HPM_INLINE Vector3 V3(float32 val) {
+	HPM_INLINE Vector3 V3(f32 val)
+	{
 		return Vector3{val, val, val};
 	}
 
-	HPM_INLINE Vector3 V3(Vector2 v, float32 z) {
+	HPM_INLINE Vector3 V3(Vector2 v, f32 z)
+	{
 		return Vector3{v.x, v.y, z};
 	}
 
-	HPM_INLINE Vector3 V3(Vector4 v) {
+	HPM_INLINE Vector3 V3(Vector4 v)
+	{
 		return Vector3{v.x, v.y, v.z};
 	}
 
-	HPM_INLINE Vector3 V3(Quaternion q) {
+	HPM_INLINE Vector3 V3(Quaternion q)
+	{
 		return Vector3{q.x, q.y, q.z};
 	}
 
 
-	HPM_INLINE Vector4 V4(float32 x, float32 y, float32 z, float32 w) {
+	HPM_INLINE Vector4 V4(f32 x, f32 y, f32 z, f32 w)
+	{
 		return Vector4{x, y ,z, w};
 	}
 	
-	HPM_INLINE Vector4 V4(float32 val) {
+	HPM_INLINE Vector4 V4(f32 val)
+	{
 		return Vector4{val, val , val, val};
 	}
 
-	HPM_INLINE Vector4 V4(Vector2 v, float32 z, float32 w) {
+	HPM_INLINE Vector4 V4(Vector2 v, f32 z, f32 w)
+	{
 		return Vector4{v.x, v.y ,z, w};
 	}
 
-	HPM_INLINE Vector4 V4(Vector3 v, float32 w) {
+	HPM_INLINE Vector4 V4(Vector3 v, f32 w)
+	{
 		return Vector4{v.x, v.y ,v.z, w};
 	}
 
-	HPM_INLINE Vector2 HPM_CALL Add(Vector2 left, Vector2 right) {
+	HPM_INLINE Vector2 HPM_CALL AddV2V2(Vector2 left, Vector2 right)
+	{
 		return Vector2{ left.x + right.x, left.y + right.y };
 	}
 
-	HPM_INLINE Vector2 HPM_CALL Add(Vector2 left, float32 scalar) {
+	HPM_INLINE Vector2 HPM_CALL AddV2F32(Vector2 left, f32 scalar)
+	{
 		return Vector2{ left.x + scalar, left.y + scalar };
 	}
 
-	HPM_INLINE Vector2 HPM_CALL Subtract(Vector2 left, Vector2 right) {
+	HPM_INLINE Vector2 HPM_CALL SubV2V2(Vector2 left, Vector2 right)
+	{
 		return Vector2{ left.x - right.x, left.y - right.y };
 	}
 
-	HPM_INLINE Vector2 HPM_CALL Subtract(Vector2 left, float32 scalar) {
+	HPM_INLINE Vector2 HPM_CALL SubV2F32(Vector2 left, f32 scalar)
+	{
 		return Vector2{ left.x - scalar, left.y - scalar };
 	}
 
-	HPM_INLINE Vector2 HPM_CALL MulV2V2(Vector2 left, Vector2 right) {
+	HPM_INLINE Vector2 HPM_CALL MulV2V2(Vector2 left, Vector2 right)
+	{
 		return Vector2{ left.x * right.x, left.y * right.y };
 	}
 
-	HPM_INLINE Vector2 HPM_CALL MulV2F32(Vector2 left, float32 scalar) {
+	HPM_INLINE Vector2 HPM_CALL MulV2F32(Vector2 left, f32 scalar)
+	{
 		return Vector2{ left.x * scalar, left.y * scalar};
 	}
 
-	HPM_INLINE Vector2 HPM_CALL Divide(Vector2 left, Vector2 right) {
+	HPM_INLINE Vector2 HPM_CALL DivV2V2(Vector2 left, Vector2 right)
+	{
 		return Vector2{ left.x / right.x, left.y / right.y };
 	}
 
-	HPM_INLINE Vector2 HPM_CALL Divide(Vector2 left, float32 scalar) {
+	HPM_INLINE Vector2 HPM_CALL DivV2F32(Vector2 left, f32 scalar)
+	{
 		return Vector2{ left.x / scalar, left.y / scalar};
 	}
 
 
-	HPM_INLINE Vector3 HPM_CALL Add(Vector3 left, Vector3 right) {
+	HPM_INLINE Vector3 HPM_CALL AddV3V3(Vector3 left, Vector3 right)
+	{
 		return Vector3{ left.x + right.x, left.y + right.y, left.z + right.z };
 	}
 
-	HPM_INLINE Vector3 HPM_CALL Add(Vector3 left, float32 scalar) {
+	HPM_INLINE Vector3 HPM_CALL AddV3F32(Vector3 left, f32 scalar)
+	{
 		return Vector3{ left.x + scalar, left.y + scalar, left.z + scalar};
 	}
 
-	HPM_INLINE Vector3 HPM_CALL Subtract(Vector3 left, Vector3 right) {
+	HPM_INLINE Vector3 HPM_CALL SubV3V3(Vector3 left, Vector3 right)
+	{
 		return Vector3{ left.x - right.x, left.y - right.y, left.z - right.z };
 	}
 
-	HPM_INLINE Vector3 HPM_CALL Subtract(Vector3 left, float32 scalar) {
+	HPM_INLINE Vector3 HPM_CALL SubV3F32(Vector3 left, f32 scalar)
+	{
 		return Vector3{ left.x - scalar, left.y - scalar, left.z - scalar};
 	}
 
-	HPM_INLINE Vector3 HPM_CALL MulV3V3(Vector3 left, Vector3 right) {
+	HPM_INLINE Vector3 HPM_CALL MulV3V3(Vector3 left, Vector3 right)
+	{
 		return Vector3{ left.x * right.x, left.y * right.y, left.z * right.z };
 	}
 
-	HPM_INLINE Vector3 HPM_CALL MulV3F32(Vector3 left, float32 scalar) {
+	HPM_INLINE Vector3 HPM_CALL MulV3F32(Vector3 left, f32 scalar)
+	{
 		return Vector3{ left.x * scalar, left.y * scalar, left.z * scalar};
 	}
 
-	HPM_INLINE Vector3 HPM_CALL Divide(Vector3 left, Vector3 right) {
+	HPM_INLINE Vector3 HPM_CALL DivV3V3(Vector3 left, Vector3 right)
+	{
 		return Vector3{ left.x / right.x, left.y / right.y, left.z / right.z };
 	}
 
-	HPM_INLINE Vector3 HPM_CALL Divide(Vector3 left, float32 scalar) {
+	HPM_INLINE Vector3 HPM_CALL DivV3F32(Vector3 left, f32 scalar)
+	{
 		return Vector3{ left.x / scalar, left.y / scalar, left.z / scalar };
 	}
 
-
-	HPM_INLINE Vector4 HPM_CALL Add(Vector4 left, Vector4 right) {
+	HPM_INLINE Vector4 HPM_CALL AddV4V4(Vector4 left, Vector4 right)
+	{
 		return Vector4{ left.x + right.x, left.y + right.y, left.z + right.z, left.w + right.w };
 	}
 
-	HPM_INLINE Vector4 HPM_CALL Add(Vector4 left, float32 scalar) {
+	HPM_INLINE Vector4 HPM_CALL AddV4F32(Vector4 left, f32 scalar)
+	{
 		return Vector4{ left.x + scalar, left.y + scalar, left.z + scalar, left.w + scalar};
 	}
 
-	HPM_INLINE Vector4 HPM_CALL Subtract(Vector4 left, Vector4 right) {
+	HPM_INLINE Vector4 HPM_CALL SubV4V4(Vector4 left, Vector4 right)
+	{
 		return Vector4{ left.x - right.x, left.y - right.y, left.z - right.z, left.w - right.w };
 	}
 
-	HPM_INLINE Vector4 HPM_CALL Subtract(Vector4 left, float32 scalar) {
+	HPM_INLINE Vector4 HPM_CALL SubV4F32(Vector4 left, f32 scalar)
+	{
 		return Vector4{ left.x - scalar, left.y - scalar, left.z - scalar, left.w - scalar};
 	}
 
-	HPM_INLINE Vector4 HPM_CALL MulV4V4(Vector4 left, Vector4 right) {
+	HPM_INLINE Vector4 HPM_CALL MulV4V4(Vector4 left, Vector4 right)
+	{
 		return Vector4{ left.x * right.x, left.y * right.y, left.z * right.z, left.w * right.w };
 	}
 
-	HPM_INLINE Vector4 HPM_CALL MulV4F32(Vector4 left, float32 scalar) {
+	HPM_INLINE Vector4 HPM_CALL MulV4F32(Vector4 left, f32 scalar)
+	{
 		return Vector4{ left.x * scalar, left.y * scalar, left.z * scalar, left.w * scalar };
 	}
 
-	HPM_INLINE Vector4 HPM_CALL Divide(Vector4 left, Vector4 right) {
+	HPM_INLINE Vector4 HPM_CALL DivV4V4(Vector4 left, Vector4 right)
+	{
 		return Vector4{ left.x / right.x, left.y / right.y, left.z / right.z, left.w / right.w };
 	}
 
-	HPM_INLINE Vector4 HPM_CALL Divide(Vector4 left, float32 scalar) {
+	HPM_INLINE Vector4 HPM_CALL DivV4V4(Vector4 left, f32 scalar)
+	{
 		return Vector4{ left.x / scalar, left.y / scalar, left.z / scalar, left.w / scalar};
 	}
 
-
-	HPM_INLINE float32 HPM_CALL Length(Vector2 vector) {
+	HPM_INLINE f32 HPM_CALL Length(Vector2 vector)
+	{
 		return Sqrt(vector.x * vector.x + vector.y * vector.y);
 	}
 
-	HPM_INLINE float32 HPM_CALL Length(Vector3 vector) {
+	HPM_INLINE f32 HPM_CALL Length(Vector3 vector)
+	{
 		return Sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z);
 	}
 
-	HPM_INLINE float32 HPM_CALL Length(Vector4 vector) {
+	HPM_INLINE f32 HPM_CALL Length(Vector4 vector)
+	{
 		return Sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z + vector.w * vector.w);
 	}
 
-	HPM_INLINE float32 HPM_CALL DistanceSq(Vector2 v1, Vector2 v2) {
+	HPM_INLINE f32 HPM_CALL DistanceSq(Vector2 v1, Vector2 v2)
+	{
 		return (v2.x - v1.x) * (v2.x - v1.x) + (v2.y - v1.y) * (v2.y - v1.y);
 	}
 
-	HPM_INLINE float32 HPM_CALL DistanceSq(Vector3 v1, Vector3 v2) {
+	HPM_INLINE f32 HPM_CALL DistanceSq(Vector3 v1, Vector3 v2)
+	{
 		return (v2.x - v1.x) * (v2.x - v1.x) + (v2.y - v1.y) * (v2.y - v1.y) + (v2.z - v1.z) * (v2.z - v1.z);
 	}
 
-
-	HPM_INLINE Vector2 HPM_CALL Normalize(Vector2 vector) {
+	HPM_INLINE Vector2 HPM_CALL Normalize(Vector2 vector)
+	{
 		Vector2 result;
-		float32 len = Length(vector);
+		f32 len = Length(vector);
 		if (len > FLOAT_EPS)
 		{
 			result.x = vector.x / len;
@@ -376,9 +444,10 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Vector3 HPM_CALL Normalize(Vector3 vector) {
+	HPM_INLINE Vector3 HPM_CALL Normalize(Vector3 vector)
+	{
 		Vector3 result;
-		float32 len = Length(vector);
+		f32 len = Length(vector);
 		if (len > FLOAT_EPS)
 		{
 			result.x = vector.x / len;
@@ -392,9 +461,10 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Vector4 HPM_CALL Normalize(Vector4 vector) {
+	HPM_INLINE Vector4 HPM_CALL Normalize(Vector4 vector)
+	{
 		Vector4 result;
-		float32 len = Length(vector);
+		f32 len = Length(vector);
 		if (len > FLOAT_EPS)
 		{
 			result.x = vector.x / len;
@@ -411,26 +481,30 @@ namespace hpm {
 	}
 
 
-	HPM_INLINE float32 HPM_CALL Dot(Vector2 left, Vector2 right) {
+	HPM_INLINE f32 HPM_CALL Dot(Vector2 left, Vector2 right)
+	{
 		return left.x * right.x + left.y * right.y;
 	}
 
-	HPM_INLINE float32 HPM_CALL Dot(Vector3 left, Vector3 right) {
+	HPM_INLINE f32 HPM_CALL Dot(Vector3 left, Vector3 right)
+	{
 		return left.x * right.x + left.y * right.y + left.z * right.z;
 	}
 
-	HPM_INLINE float32 HPM_CALL Dot(Vector4 left, Vector4 right) {
+	HPM_INLINE f32 HPM_CALL Dot(Vector4 left, Vector4 right)
+	{
 		return left.x * right.x + left.y * right.y + left.z * right.z + left.w * right.w;
 	}
 
-
-	HPM_INLINE Vector3 HPM_CALL Cross(Vector3 left, Vector3 right) {
+	HPM_INLINE Vector3 HPM_CALL Cross(Vector3 left, Vector3 right)
+	{
 		return {left.y * right.z - left.z * right.y,
 				left.z * right.x - left.x * right.z,
 				left.x * right.y - left.y * right.x};
 	}
 
-	HPM_INLINE Matrix3 HPM_CALL Identity3() {
+	HPM_INLINE Matrix3 HPM_CALL Identity3()
+	{
 		Matrix3 result = {};
 		result._11 = 1.0f;
 		result._22 = 1.0f;
@@ -438,7 +512,8 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL Identity4() {
+	HPM_INLINE Matrix4 HPM_CALL Identity4()
+	{
 		Matrix4 result = {};
 		result._11 = 1.0f;
 		result._22 = 1.0f;
@@ -447,7 +522,8 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Matrix3 HPM_CALL M3x3(Matrix4 m) {
+	HPM_INLINE Matrix3 HPM_CALL M3x3(Matrix4 m)
+	{
 		Matrix3 result;
 		
 		result._11 = m._11;
@@ -463,7 +539,8 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL M4x4(Matrix3 m) {
+	HPM_INLINE Matrix4 HPM_CALL M4x4(Matrix3 m)
+	{
 		Matrix4 result = {};
 
 		
@@ -482,7 +559,8 @@ namespace hpm {
 	}
 
 #if 0
-	HPM_INLINE Matrix2 HPM_CALL Transpose(Matrix2 matrix) {
+	HPM_INLINE Matrix2 HPM_CALL Transpose(Matrix2 matrix)
+	{
 		Matrix2 result;
 		
 		result._11 = matrix._11;
@@ -494,7 +572,8 @@ namespace hpm {
 	}
 #endif
 	
-	HPM_INLINE Matrix3 HPM_CALL Transpose(Matrix3 matrix) {
+	HPM_INLINE Matrix3 HPM_CALL Transpose(Matrix3 matrix)
+	{
 		Matrix3 result;
 		
 		result._11 = matrix._11;
@@ -510,7 +589,8 @@ namespace hpm {
 		return result;
 	}
 	
-	HPM_INLINE Matrix4 HPM_CALL Transpose(Matrix4 matrix) {
+	HPM_INLINE Matrix4 HPM_CALL Transpose(Matrix4 matrix)
+	{
 		Matrix4 result;
 		
 		result._11 = matrix._11;
@@ -533,18 +613,21 @@ namespace hpm {
 		return result;
 	}
 #if 0
-	HPM_INLINE float32 HPM_CALL Determinant(Matrix2 m) {
+	HPM_INLINE f32 HPM_CALL Determinant(Matrix2 m)
+	{
 		return m._11 * m._22 - m._21 * m._12;
 	}
 #endif	
 
-	HPM_INLINE float32 HPM_CALL Determinant(Matrix3 m) {
+	HPM_INLINE f32 HPM_CALL Determinant(Matrix3 m)
+	{
 		return 	m._11 * m._22 * m._33 - m._11 * m._23 * m._32
 			- m._12 * m._21 * m._33 + m._12 * m._23 * m._31
 			+ m._13 * m._21 * m._32 - m._13 * m._22 * m._31;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL OrthogonalRH(float32 left, float32 right, float32 bottom, float32 top, float32 n, float32 f) {
+	HPM_INLINE Matrix4 HPM_CALL OrthogonalRH(f32 left, f32 right, f32 bottom, f32 top, f32 n, f32 f)
+	{
 		Matrix4 result = {};
 
 		result._11 = 2.0f / (right - left);
@@ -558,10 +641,11 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL PerspectiveRH(float32 fovDeg, float32 aspectRatio, float32 n, float32 f) {
+	HPM_INLINE Matrix4 HPM_CALL PerspectiveRH(f32 fovDeg, f32 aspectRatio, f32 n, f32 f)
+	{
 		Matrix4 result = {};
 
-		float32 tanHalfFov = Tan(ToRadians(fovDeg / 2.0f));
+		f32 tanHalfFov = Tan(ToRadians(fovDeg / 2.0f));
 
 		result._11 = 1.0f / (aspectRatio * tanHalfFov);
 		result._22 = 1.0f / tanHalfFov;
@@ -572,7 +656,8 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL Translation(Vector3 trans) {
+	HPM_INLINE Matrix4 HPM_CALL Translation(Vector3 trans)
+	{
 		Matrix4 result = {};
 		result._11 = 1.0f;
 		result._22 = 1.0f;
@@ -586,17 +671,20 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Vector3 HPM_CALL GetPosition(Matrix4* m) {
+	HPM_INLINE Vector3 HPM_CALL GetPosition(Matrix4* m)
+	{
 		return Vector3{m->_14, m->_24, m->_34};
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL Translate(Matrix4 mtx, Vector3 trans) {
-		mtx.columns[3] = Add(Add(MulV4F32(mtx.columns[0], trans.x), MulV4F32(mtx.columns[1], trans.y)), 
-							 Add(MulV4F32(mtx.columns[2], trans.z), mtx.columns[3]));
+	HPM_INLINE Matrix4 HPM_CALL Translate(Matrix4 mtx, Vector3 trans)
+	{
+		mtx.columns[3] = AddV4V4(AddV4V4(MulV4F32(mtx.columns[0], trans.x), MulV4F32(mtx.columns[1], trans.y)), 
+								 AddV4V4(MulV4F32(mtx.columns[2], trans.z), mtx.columns[3]));
 		return mtx;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL Scaling(Vector3 scale) {
+	HPM_INLINE Matrix4 HPM_CALL Scaling(Vector3 scale)
+	{
 		Matrix4 result = {};
 		result._11 = scale.x;
 		result._22 = scale.y;
@@ -606,14 +694,16 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL Scale(Matrix4 mtx, Vector3 scale) {
+	HPM_INLINE Matrix4 HPM_CALL Scale(Matrix4 mtx, Vector3 scale)
+	{
 		mtx.columns[0] = MulV4F32(mtx.columns[0], scale.x);
 		mtx.columns[1] = MulV4F32(mtx.columns[1], scale.y);
 		mtx.columns[2] = MulV4F32(mtx.columns[2], scale.z);
 		return mtx;
 	}
 
-	HPM_INLINE Vector3 HPM_CALL MulM3V3(Matrix3 m, Vector3 v) {
+	HPM_INLINE Vector3 HPM_CALL MulM3V3(Matrix3 m, Vector3 v)
+	{
 		Vector3 r;
 		r.x = m._11 * v.x + m._12 * v.y + m._13 * v.z;
 		r.y = m._21 * v.x + m._22 * v.y + m._23 * v.z;
@@ -621,7 +711,8 @@ namespace hpm {
 		return r;
 	}
 
-	HPM_INLINE Vector4 HPM_CALL MulM4V4(Matrix4 m, Vector4 v) {
+	HPM_INLINE Vector4 HPM_CALL MulM4V4(Matrix4 m, Vector4 v)
+	{
 		Vector4 r;
 		r.x = m._11 * v.x + m._12 * v.y + m._13 * v.z + m._14 * v.w;
 		r.y = m._21 * v.x + m._22 * v.y + m._23 * v.z + m._24 * v.w;
@@ -634,27 +725,31 @@ namespace hpm {
 	
 #if defined(HYPERMATH_IMPL)
 
-	Matrix3 HPM_CALL Inverse(Matrix3 m) {
+	Matrix3 HPM_CALL Inverse(Matrix3 m)
+	{
 
-		float32 a11 = m._22 * m._33 - m._23 * m._32; 
-		float32 a12 = - (m._21 * m._33 - m._23 * m._31);
-		float32 a13 = m._21 * m._32 - m._22 * m._31;
+		f32 a11 = m._22 * m._33 - m._23 * m._32; 
+		f32 a12 = - (m._21 * m._33 - m._23 * m._31);
+		f32 a13 = m._21 * m._32 - m._22 * m._31;
 		
-		float32 a21 = - (m._12 * m._33 - m._32 * m._13);
-		float32 a22 = m._11 * m._33 - m._13 * m._31;
-		float32 a23 = - (m._11 * m._32 - m._12 * m._31);
+		f32 a21 = - (m._12 * m._33 - m._32 * m._13);
+		f32 a22 = m._11 * m._33 - m._13 * m._31;
+		f32 a23 = - (m._11 * m._32 - m._12 * m._31);
 		
-		float32 a31 = m._12 * m._23 - m._22 * m._13;
-		float32 a32 = - (m._11 * m._23 - m._21 * m._13);
-		float32 a33 = m._11 * m._22 - m._21 * m._12;
+		f32 a31 = m._12 * m._23 - m._22 * m._13;
+		f32 a32 = - (m._11 * m._23 - m._21 * m._13);
+		f32 a33 = m._11 * m._22 - m._21 * m._12;
 
-		float32 det = (m._11 * a11 + m._12 * a12 + m._13 * a13);
+		f32 det = (m._11 * a11 + m._12 * a12 + m._13 * a13);
 		// NOTE: Quietly return an indetity matix if no inverse matrix exist
-		if (det == 0) {
+		if (det == 0)
+		{
 			return Identity3();
-		} else {
+		}
+		else
+		{
 			
-			float32 oneOverDet = 1.0f / det;
+			f32 oneOverDet = 1.0f / det;
 
 			Matrix3 inv;
 			inv._11 = a11 * oneOverDet;
@@ -677,112 +772,113 @@ namespace hpm {
 
 #if defined(HYPERMATH_IMPL)
 	
-	Matrix4 HPM_CALL Inverse(Matrix4 m) {
+	Matrix4 HPM_CALL Inverse(Matrix4 m)
+	{
+		f32 a11_22 = m._33 * m._44 - m._34 * m._43;
+		f32 a11_23 = m._32 * m._44 - m._34 * m._42;
+		f32 a11_24 = m._32 * m._43 - m._33 * m._42;
 
-		float32 a11_22 = m._33 * m._44 - m._34 * m._43;
-		float32 a11_23 = m._32 * m._44 - m._34 * m._42;
-		float32 a11_24 = m._32 * m._43 - m._33 * m._42;
+		f32 A11 = m._22 * a11_22 - m._23 * a11_23 + m._24 * a11_24;
 
-		float32 A11 = m._22 * a11_22 - m._23 * a11_23 + m._24 * a11_24;
+		f32 a12_21 = m._33 * m._44 - m._34 * m._43;
+		f32 a12_23 = m._31 * m._44 - m._34 * m._41;
+		f32 a12_24 = m._31 * m._43 - m._33 * m._41;
 
-		float32 a12_21 = m._33 * m._44 - m._34 * m._43;
-		float32 a12_23 = m._31 * m._44 - m._34 * m._41;
-		float32 a12_24 = m._31 * m._43 - m._33 * m._41;
+		f32 A12 = -(m._21 * a12_21 - m._23 * a12_23 + m._24 * a12_24);
 
-		float32 A12 = -(m._21 * a12_21 - m._23 * a12_23 + m._24 * a12_24);
+		f32 a13_21 = m._32 * m._44 - m._34 * m._42;
+		f32 a13_22 = m._31 * m._44 - m._34 * m._41;
+		f32 a13_24 = m._31 * m._42 - m._32 * m._41;
 
-		float32 a13_21 = m._32 * m._44 - m._34 * m._42;
-		float32 a13_22 = m._31 * m._44 - m._34 * m._41;
-		float32 a13_24 = m._31 * m._42 - m._32 * m._41;
+		f32 A13 = m._21 * a13_21 - m._22 * a13_22 + m._24 * a13_24;
 
-		float32 A13 = m._21 * a13_21 - m._22 * a13_22 + m._24 * a13_24;
+		f32 a14_21 = m._32 * m._43 - m._33 * m._42;
+		f32 a14_22 = m._31 * m._43 - m._33 * m._41;
+		f32 a14_23 = m._31 * m._42 - m._32 * m._41;
 
-		float32 a14_21 = m._32 * m._43 - m._33 * m._42;
-		float32 a14_22 = m._31 * m._43 - m._33 * m._41;
-		float32 a14_23 = m._31 * m._42 - m._32 * m._41;
+		f32 A14 = -(m._21 * a14_21 - m._22 * a14_22 + m._23 * a14_23);
 
-		float32 A14 = -(m._21 * a14_21 - m._22 * a14_22 + m._23 * a14_23);
+		f32 a21_12 = m._33 * m._44 - m._34 * m._43;
+		f32 a21_13 = m._32 * m._44 - m._34 * m._42;
+		f32 a21_14 = m._32 * m._43 - m._33 * m._42;
 
-		float32 a21_12 = m._33 * m._44 - m._34 * m._43;
-		float32 a21_13 = m._32 * m._44 - m._34 * m._42;
-		float32 a21_14 = m._32 * m._43 - m._33 * m._42;
+		f32 A21 = -(m._12 * a21_12 - m._13 * a21_13 + m._14 * a21_14);
 
-		float32 A21 = -(m._12 * a21_12 - m._13 * a21_13 + m._14 * a21_14);
+		f32 a22_11 = m._33 * m._44 - m._34 * m._43;
+		f32 a22_13 = m._31 * m._44 - m._34 * m._41;
+		f32 a22_14 = m._31 * m._43 - m._33 * m._41;
 
-		float32 a22_11 = m._33 * m._44 - m._34 * m._43;
-		float32 a22_13 = m._31 * m._44 - m._34 * m._41;
-		float32 a22_14 = m._31 * m._43 - m._33 * m._41;
+		f32 A22 = m._11 * a22_11 - m._13 * a22_13 + m._14 * a22_14;
 
-		float32 A22 = m._11 * a22_11 - m._13 * a22_13 + m._14 * a22_14;
+		f32 a23_11 = m._32 * m._44 - m._34 * m._42;
+		f32 a23_12 = m._31 * m._44 - m._34 * m._41;
+		f32 a23_14 = m._31 * m._42 - m._32 * m._41;
 
-		float32 a23_11 = m._32 * m._44 - m._34 * m._42;
-		float32 a23_12 = m._31 * m._44 - m._34 * m._41;
-		float32 a23_14 = m._31 * m._42 - m._32 * m._41;
+		f32 A23 = -(m._11 * a23_11 - m._12 * a23_12 + m._14 * a23_14);
 
-		float32 A23 = -(m._11 * a23_11 - m._12 * a23_12 + m._14 * a23_14);
+		f32 a24_11 = m._32 * m._43 - m._33 * m._42;
+		f32 a24_12 = m._31 * m._43 - m._33 * m._41;
+		f32 a24_13 = m._31 * m._42 - m._32 * m._41;
 
-		float32 a24_11 = m._32 * m._43 - m._33 * m._42;
-		float32 a24_12 = m._31 * m._43 - m._33 * m._41;
-		float32 a24_13 = m._31 * m._42 - m._32 * m._41;
+		f32 A24 = m._11 * a24_11 - m._12 * a24_12 + m._13 * a24_13;
 
-		float32 A24 = m._11 * a24_11 - m._12 * a24_12 + m._13 * a24_13;
+		f32 a31_12 = m._23 * m._44 - m._24 * m._43;
+		f32 a31_13 = m._22 * m._44 - m._24 * m._42;
+		f32 a31_14 = m._22 * m._43 - m._23 * m._42;
 
-		float32 a31_12 = m._23 * m._44 - m._24 * m._43;
-		float32 a31_13 = m._22 * m._44 - m._24 * m._42;
-		float32 a31_14 = m._22 * m._43 - m._23 * m._42;
+		f32 A31 = m._12 * a31_12 - m._13 * a31_13 + m._14 * a31_14;
 
-		float32 A31 = m._12 * a31_12 - m._13 * a31_13 + m._14 * a31_14;
+		f32 a32_11 = m._23 * m._44 - m._24 * m._43;
+		f32 a32_13 = m._21 * m._44 - m._24 * m._41;
+		f32 a32_14 = m._21 * m._43 - m._23 * m._41;
 
-		float32 a32_11 = m._23 * m._44 - m._24 * m._43;
-		float32 a32_13 = m._21 * m._44 - m._24 * m._41;
-		float32 a32_14 = m._21 * m._43 - m._23 * m._41;
+		f32 A32 = -(m._11 * a32_11 - m._13 * a32_13 + m._14 * a32_14);
 
-		float32 A32 = -(m._11 * a32_11 - m._13 * a32_13 + m._14 * a32_14);
+		f32 a33_11 = m._22 * m._44 - m._24 * m._42;
+		f32 a33_12 = m._21 * m._44 - m._24 * m._41;
+		f32 a33_14 = m._21 * m._42 - m._22 * m._41;
 
-		float32 a33_11 = m._22 * m._44 - m._24 * m._42;
-		float32 a33_12 = m._21 * m._44 - m._24 * m._41;
-		float32 a33_14 = m._21 * m._42 - m._22 * m._41;
+		f32 A33 = m._11 * a33_11 - m._12 * a33_12 + m._14 * a33_14;
 
-		float32 A33 = m._11 * a33_11 - m._12 * a33_12 + m._14 * a33_14;
+		f32 a34_11 = m._22 * m._43 - m._23 * m._42;
+		f32 a34_12 = m._21 * m._43 - m._23 * m._41;
+		f32 a34_13 = m._21 * m._42 - m._22 * m._41;
 
-		float32 a34_11 = m._22 * m._43 - m._23 * m._42;
-		float32 a34_12 = m._21 * m._43 - m._23 * m._41;
-		float32 a34_13 = m._21 * m._42 - m._22 * m._41;
+		f32 A34 = -(m._11 * a34_11 - m._12 * a34_12 + m._13 * a34_13);
 
-		float32 A34 = -(m._11 * a34_11 - m._12 * a34_12 + m._13 * a34_13);
+		f32 a41_12 = m._23 * m._34 - m._24 * m._33;
+		f32 a41_13 = m._22 * m._34 - m._24 * m._32;
+		f32 a41_14 = m._22 * m._33 - m._23 * m._32;
 
-		float32 a41_12 = m._23 * m._34 - m._24 * m._33;
-		float32 a41_13 = m._22 * m._34 - m._24 * m._32;
-		float32 a41_14 = m._22 * m._33 - m._23 * m._32;
+		f32 A41 = -(m._12 * a41_12 - m._13 * a41_13 + m._14 * a41_14);
 
-		float32 A41 = -(m._12 * a41_12 - m._13 * a41_13 + m._14 * a41_14);
+		f32 a42_11 = m._23 * m._34 - m._24 * m._33;
+		f32 a42_13 = m._21 * m._34 - m._24 * m._31;
+		f32 a42_14 = m._21 * m._33 - m._23 * m._31;
 
-		float32 a42_11 = m._23 * m._34 - m._24 * m._33;
-		float32 a42_13 = m._21 * m._34 - m._24 * m._31;
-		float32 a42_14 = m._21 * m._33 - m._23 * m._31;
+		f32 A42 = m._11 * a42_11 - m._13 * a42_13 + m._14 * a42_14;
 
-		float32 A42 = m._11 * a42_11 - m._13 * a42_13 + m._14 * a42_14;
+		f32 a43_11 = m._22 * m._34 - m._24 * m._32;
+		f32 a43_12 = m._21 * m._34 - m._24 * m._31;
+		f32 a43_14 = m._21 * m._32 - m._22 * m._31;
 
-		float32 a43_11 = m._22 * m._34 - m._24 * m._32;
-		float32 a43_12 = m._21 * m._34 - m._24 * m._31;
-		float32 a43_14 = m._21 * m._32 - m._22 * m._31;
+		f32 A43 = -(m._11 * a43_11 - m._12 * a43_12 + m._14 * a43_14);
 
-		float32 A43 = -(m._11 * a43_11 - m._12 * a43_12 + m._14 * a43_14);
+		f32 a44_11 = m._22 * m._33 - m._23 * m._32;
+		f32 a44_12 = m._21 * m._33 - m._23 * m._31;
+		f32 a44_13 = m._21 * m._32 - m._22 * m._31;
 
-		float32 a44_11 = m._22 * m._33 - m._23 * m._32;
-		float32 a44_12 = m._21 * m._33 - m._23 * m._31;
-		float32 a44_13 = m._21 * m._32 - m._22 * m._31;
+		f32 A44 = m._11 * a44_11 - m._12 * a44_12 + m._13 * a44_13;
 
-		float32 A44 = m._11 * a44_11 - m._12 * a44_12 + m._13 * a44_13;
-
-		float32 det = m._11 * A11 + m._12 * A12 + m._13 * A13 + m._14 * A14;
+		f32 det = m._11 * A11 + m._12 * A12 + m._13 * A13 + m._14 * A14;
 
 		// NOTE: Quietly return an indetity matix if no inverse matrix exist
 		if (det == 0) {
 			return Identity4();
 		}
-		else {
-			float32 oneOverDet = 1.0f / det;
+		else
+		{
+			f32 oneOverDet = 1.0f / det;
 			Matrix4 result;
 			result._11 = A11 * oneOverDet;
 			result._12 = A21 * oneOverDet;
@@ -807,24 +903,25 @@ namespace hpm {
 
 #endif
 
-	float32 HPM_CALL Determinant(Matrix4 m);
+	f32 HPM_CALL Determinant(Matrix4 m);
 
 #if defined(HYPERMATH_IMPL)
 
-	float32 HPM_CALL Determinant(Matrix4 m) {
-		float32 minor1 = m._11 * (m._22 * m._33 * m._44 - m._22 * m._34 * m._43
+	f32 HPM_CALL Determinant(Matrix4 m)
+	{
+		f32 minor1 = m._11 * (m._22 * m._33 * m._44 - m._22 * m._34 * m._43
 								  - m._23 * m._32 * m._44 + m._23 * m._34 * m._42
 								  + m._24 * m._32 * m._43 - m._24 * m._33 * m._42);
 
-		float32 minor2 = m._12 * (m._21 * m._33 * m._44 - m._21 * m._34 * m._43
+		f32 minor2 = m._12 * (m._21 * m._33 * m._44 - m._21 * m._34 * m._43
 								  - m._23 * m._31 * m._44 + m._23 * m._41 * m._34
 								  +m._24 * m._31 * m._43 - m._24 * m._33 * m._41);
 
-		float32 minor3 = m._13 * (m._21 * m._32 * m._44 - m._21 * m._34 * m._42
+		f32 minor3 = m._13 * (m._21 * m._32 * m._44 - m._21 * m._34 * m._42
 								  - m._22 * m._31 * m._44 + m._22 * m._34 * m._41
 								  + m._24 * m._31 * m._42 - m._24 * m._32 * m._41);
 
-		float32 minor4 = m._14 * (m._21 * m._32 * m._43 - m._21 * m._33 * m._42
+		f32 minor4 = m._14 * (m._21 * m._32 * m._43 - m._21 * m._33 * m._42
 								  - m._22 * m._31 * m._43 + m._22 * m._41 * m._33
 								  + m._23 * m._31 * m._42 - m._23 * m._32 * m._41);
 
@@ -837,8 +934,9 @@ namespace hpm {
 	
 #if defined(HYPERMATH_IMPL) 
 	
-	Matrix4 HPM_CALL LookAtRH(Vector3 from, Vector3 at, Vector3 up) {
-		Vector3 zAxis = Normalize(Subtract(at, from));
+	Matrix4 HPM_CALL LookAtRH(Vector3 from, Vector3 at, Vector3 up)
+	{
+		Vector3 zAxis = Normalize(SubV3V3(at, from));
 		Vector3 xAxis = Normalize(Cross(zAxis, up));
 		Vector3 yAxis = Cross(xAxis, zAxis);
 
@@ -868,16 +966,17 @@ namespace hpm {
 
 #endif
 
-	Matrix4 HPM_CALL Rotation(float32 angleDeg, Vector3 axis);
+	Matrix4 HPM_CALL Rotation(f32 angleDeg, Vector3 axis);
 
 #if defined(HYPERMATH_IMPL)
 
-	Matrix4 HPM_CALL Rotation(float32 angleDeg, Vector3 axis) {
+	Matrix4 HPM_CALL Rotation(f32 angleDeg, Vector3 axis)
+	{
 		Matrix4 result = {};
 
-		float32 c = Cos(ToRadians(angleDeg));
-		float32 oc = 1.0f - c;
-		float32 s = Sin(ToRadians(angleDeg));
+		f32 c = Cos(ToRadians(angleDeg));
+		f32 oc = 1.0f - c;
+		f32 s = Sin(ToRadians(angleDeg));
 		Vector3 an = Normalize(axis);
 
 		result._11 = c + an.x * an.x * oc;
@@ -899,16 +998,17 @@ namespace hpm {
 
 #endif
 
-	Matrix4 HPM_CALL Rotate(Matrix4 mtx, float32 angleDeg, Vector3 axis);
+	Matrix4 HPM_CALL Rotate(Matrix4 mtx, f32 angleDeg, Vector3 axis);
 
 #if defined(HYPERMATH_IMPL)
 
-	Matrix4 HPM_CALL Rotate(Matrix4 mtx, float32 angleDeg, Vector3 axis) {
+	Matrix4 HPM_CALL Rotate(Matrix4 mtx, f32 angleDeg, Vector3 axis)
+	{
 		Matrix4 rotation;
 
-		float32 c = Cos(ToRadians(angleDeg));
-		float32 oc = 1.0f - c;
-		float32 s = Sin(ToRadians(angleDeg));
+		f32 c = Cos(ToRadians(angleDeg));
+		f32 oc = 1.0f - c;
+		f32 s = Sin(ToRadians(angleDeg));
 		Vector3 an = Normalize(axis);
 
 		rotation._11 = c + an.x * an.x * oc;
@@ -951,7 +1051,8 @@ namespace hpm {
 
 #if defined(HYPERMATH_IMPL)
 	// TODO: Is passing matrices by value is efficient?
-	Matrix3 HPM_CALL MulM3M3(Matrix3 left, Matrix3 right) {
+	Matrix3 HPM_CALL MulM3M3(Matrix3 left, Matrix3 right)
+	{
 		Matrix3 result;
 		result._11 = left._11 * right._11 + left._12 * right._21 + left._13 * right._31;
 		result._12 = left._11 * right._12 + left._12 * right._22 + left._13 * right._32;
@@ -974,7 +1075,8 @@ namespace hpm {
 
 #if defined(HYPERMATH_IMPL)
 	
-	Matrix4 HPM_CALL MulM4M4(Matrix4 left, Matrix4 right) {
+	Matrix4 HPM_CALL MulM4M4(Matrix4 left, Matrix4 right)
+	{
 		Matrix4 result;
 
 		result._11 = left._11 * right._11 + left._12 * right._21 + left._13 * right._31 + left._14 * right._41;
@@ -1002,7 +1104,7 @@ namespace hpm {
 	
 #endif
 
-	HPM_INLINE HPM_CALL Quaternion Quat(float32 x, float32 y, float32 z, float32 w)
+	HPM_INLINE HPM_CALL Quaternion Quat(f32 x, f32 y, f32 z, f32 w)
 	{
 		return Quaternion{x, y, z, w};
 	}
@@ -1012,22 +1114,22 @@ namespace hpm {
 		return Quaternion{v.x, v.y, v.z, 0.0f};
 	}
 
-	HPM_INLINE HPM_CALL Quaternion QuatFromAxisAngle(Vector3 axis, float32 angleRad)
+	HPM_INLINE HPM_CALL Quaternion QuatFromAxisAngle(Vector3 axis, f32 angleRad)
 	{
 		Vector3 a = MulV3F32(axis, Sin(angleRad / 2.0f));
 		//a = Normalize(a);
 		return Quaternion{a.x, a.y, a.z, Cos(angleRad / 2.0f)};
 	}
 
-	HPM_INLINE HPM_CALL Quaternion QuatFromEuler(float32 yaw, float32 pitch, float32 roll)
+	HPM_INLINE HPM_CALL Quaternion QuatFromEuler(f32 yaw, f32 pitch, f32 roll)
 	{
-		float32 cy = Cos(yaw * 0.5f);
-		float32 cp = Cos(pitch * 0.5f);
-		float32 cr = Cos(roll * 0.5f);
+		f32 cy = Cos(yaw * 0.5f);
+		f32 cp = Cos(pitch * 0.5f);
+		f32 cr = Cos(roll * 0.5f);
 
-		float32 sy = Sin(yaw * 0.5f);
-		float32 sp = Sin(pitch * 0.5f);
-		float32 sr = Sin(roll * 0.5f);
+		f32 sy = Sin(yaw * 0.5f);
+		f32 sp = Sin(pitch * 0.5f);
+		f32 sr = Sin(roll * 0.5f);
 
 		Quaternion result;
 		result.x = cy * cp * sr - sy * sp * cr;
@@ -1070,9 +1172,9 @@ namespace hpm {
 
 	HPM_INLINE HPM_CALL Matrix3 QuatToM3x3(Quaternion q)
 	{
-		float32 xSq = q.x * q.x * 2.0f;
-		float32 ySq = q.y * q.y * 2.0f;
-		float32 zSq = q.z * q.z * 2.0f;
+		f32 xSq = q.x * q.x * 2.0f;
+		f32 ySq = q.y * q.y * 2.0f;
+		f32 zSq = q.z * q.z * 2.0f;
 		
 		Matrix3 result = {};
 		result._11 = 1.0f - ySq - zSq;
@@ -1088,14 +1190,14 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE HPM_CALL float32 HPM_CALL Length(Quaternion q)
+	HPM_INLINE HPM_CALL f32 HPM_CALL Length(Quaternion q)
 	{
 		return Sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
 	}
 
 	HPM_INLINE HPM_CALL Quaternion Normalize(Quaternion q)
 	{
-		float32 len = Length(q);
+		f32 len = Length(q);
 		Quaternion result;
 		if (len > FLOAT_EPS)
 		{
@@ -1112,7 +1214,7 @@ namespace hpm {
 		return result;
 	}
 
-	HPM_INLINE HPM_CALL Quaternion LerpQuat(Quaternion a, Quaternion b, float32 t)
+	HPM_INLINE HPM_CALL Quaternion LerpQuat(Quaternion a, Quaternion b, f32 t)
 	{
 		Quaternion result;
 		if (t < 0.0f)
