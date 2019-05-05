@@ -176,7 +176,7 @@ namespace AB {
 		Font fonts[RENDERER2D_FONT_STORAGE_SIZE];
 	};
 
-	static void _GLInit(Renderer2DProperties* properties);
+	static void _GLInit(Renderer2DProperties* properties, MemoryArena* tempArena);
 
 	typedef bool32(MergeSortPred)(const SortKey* a, const SortKey* b);
 
@@ -492,14 +492,16 @@ namespace AB {
 		}
 	}
 
-	Renderer2DProperties* Renderer2DInitialize(MemoryArena* memoryArena, uint32 drawableSpaceX, uint32 drawableSpaceY) {
+	Renderer2DProperties* Renderer2DInitialize(MemoryArena* memoryArena,
+											   MemoryArena* tempArena,
+											   uint32 drawableSpaceX, uint32 drawableSpaceY) {
 		Renderer2DProperties* ptr = nullptr;
 		ptr = (Renderer2DProperties*)PushSize(memoryArena,
 											  sizeof(Renderer2DProperties),
 											  alignof(Renderer2DProperties));
 		AB_CORE_ASSERT(ptr, "Allocation failed");
 
-		_GLInit(ptr);
+		_GLInit(ptr, tempArena);
 		ptr->viewSpaceDim = hpm::Vector2{ (float32)drawableSpaceX, (float32)drawableSpaceY };
 		// TODO: TEMPORARY
 		Renderer2DLoadFont(memoryArena, ptr, "../assets/SourceCodePro.abf");
@@ -1109,10 +1111,13 @@ namespace AB {
 		return unicodeLookupTable[unicodeCodepoint];
 	}
 
-	static void _GLInit(Renderer2DProperties* properties) {
+	static void _GLInit(Renderer2DProperties* properties, MemoryArena* tempArena)
+	{
 		GLCall(glGenBuffers(1, &properties->GLVBOHandle));
-
-		uint16* indices = (uint16*)std::malloc(RENDERER2D_INDEX_BUFFER_SIZE * sizeof(uint16));
+		BeginTemporaryMemory(tempArena);
+		uint16* indices = (uint16*)PushSize(tempArena,
+											RENDERER2D_INDEX_BUFFER_SIZE * sizeof(uint16),
+											0);
 		uint16 k = 0;
 		// TODO: IMPORTATNT: This alorithm might work incorrect on different sizes of index buffer
 		for (uint32 i = 0; i < RENDERER2D_INDEX_BUFFER_SIZE - 9; i += 6) {
@@ -1132,7 +1137,7 @@ namespace AB {
 		GLCall(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint16) * RENDERER2D_INDEX_BUFFER_SIZE, indices, GL_STATIC_DRAW));
 		GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
 
-		std::free(indices);
+		EndTemporaryMemory(tempArena);
 
 		int32 spriteVertexShader;
 		GLCall(spriteVertexShader = glCreateShader(GL_VERTEX_SHADER));

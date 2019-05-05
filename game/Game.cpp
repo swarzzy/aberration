@@ -34,6 +34,8 @@ namespace AB
 	static StaticStorage* g_StaticStorage;
 	static GLFuncTable* g_OpenGLFuncTable;
 
+#define GlobalDeltaTime g_Platform->deltaTime
+
 #define PLATFORM_FUNCTION(func) g_Platform->functions.##func
 
 #define DebugReadFilePermanent PLATFORM_FUNCTION(DebugReadFilePermanent)
@@ -112,7 +114,7 @@ namespace AB
 
 	void _OpenGLClearErrorQueue()
 	{
-	while (g_OpenGLFuncTable->_glGetError() != GL_NO_ERROR);
+		while (g_OpenGLFuncTable->_glGetError() != GL_NO_ERROR);
 	}
 
 	b32 _OpenGLPeekError()
@@ -184,14 +186,17 @@ extern "C" GAME_CODE_ENTRY void GameInit(AB::MemoryArena* arena,
 	AB_CORE_ASSERT(g_StaticStorage->tempArena, "Failed to allocate tempArena.");
 
 	g_StaticStorage->inputManager = InputInitialize(arena, platform);
-	g_StaticStorage->debugRenderer = Renderer2DInitialize(arena, 1280, 720);
+	g_StaticStorage->debugRenderer = Renderer2DInitialize(arena,
+														  g_StaticStorage->tempArena,
+														  1280, 720);
 	InputConnectToPlatform(g_StaticStorage->inputManager, platform);
 	DebugOverlay* debugOverlay = CreateDebugOverlay(arena,
 													g_StaticStorage->debugRenderer,
 													g_StaticStorage->inputManager,
 													V2(1280, 720));
 	DebugOverlayEnableMainPane(debugOverlay, true);
-	g_StaticStorage->assetManager = AssetManagerInitialize(arena);
+	g_StaticStorage->assetManager = AssetManagerInitialize(arena,
+														   g_StaticStorage->tempArena);
 	g_StaticStorage->debugOverlay = debugOverlay;
 
 	RendererConfig config;
@@ -212,7 +217,7 @@ extern "C" GAME_CODE_ENTRY void GameInit(AB::MemoryArena* arena,
 	Init(arena, g_StaticStorage->tempArena,
 		 g_StaticStorage->gameVars,
 		 g_StaticStorage->assetManager,
-		g_StaticStorage->inputManager);
+		 g_StaticStorage->inputManager);
 }
 
 extern "C" GAME_CODE_ENTRY void GameReload(AB::MemoryArena* arena,
@@ -236,11 +241,8 @@ extern "C" GAME_CODE_ENTRY void GameRender(AB::MemoryArena* arena,
 										   AB::PlatformState* platform)
 {
 	using namespace AB;
-	platform->gl->_glClearColor(0.0, 0.0, 1.0, 1.0);
+	platform->gl->_glClearColor(0.9, 0.9, 0.9, 1.0);
 	platform->gl->_glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	Renderer2DDebugDrawString(g_StaticStorage->debugRenderer,
-							  V2(200, 100), 30, 0xffffffff,
-							  "Livecode works!");
 	DrawDebugOverlay(g_StaticStorage->debugOverlay);
 	
 	Render(g_StaticStorage->gameVars,

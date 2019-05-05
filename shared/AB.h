@@ -148,3 +148,21 @@ inline uint32 SafeCastUptrU32(uintptr uptr) {
 		return 0;		
 	}
 }
+
+inline u32 TruncateF32U32(f32 value)
+{
+	return (u32)value;
+}
+
+inline i32 SafeCastU32I32(u32 val)
+{
+	if (val <= 0x7fffffff)
+	{
+		return (i32)val;
+	}
+	else
+	{
+		AB_DEBUG_BREAK();
+		return 0;				
+	}
+}

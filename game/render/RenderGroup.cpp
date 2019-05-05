@@ -64,6 +64,7 @@ namespace AB
 
  		if ((uptr)currentAt % useAligment != 0)
 		{
+			// TODO: Check this padding calculation. It could be wrong
 			padding = (useAligment - (uptr)currentAt % useAligment) % useAligment;
 		}
 
@@ -247,6 +248,35 @@ namespace AB
 				PUSH_COMMAND_QUEUE_ENTRY(group, command);	
 			}
 			break;
+		    case RENDER_COMMAND_DRAW_DEBUG_CUBE:
+			{
+				RenderCommandDrawDebugCube* renderData
+					= (RenderCommandDrawDebugCube*)data;
+
+				renderData->_meshHandle = ASSET_DEFAULT_CUBE_MESH_HANDLE;
+
+				v3 cubeOrigin = GetPosition(&renderData->transform.worldMatrix);
+				f32 distanceToCamSq = DistanceSq(cubeOrigin,
+												 group->camera.position);
+
+				u64 sortKey = 0;
+			
+				RENDER_KEY_INSERT_KIND(sortKey, KIND_BIT_DRAW_CALL);
+				RENDER_KEY_INSERT_BLEND_TYPE(sortKey, BLEND_MODE_OPAQUE);
+				RENDER_KEY_INSERT_DEPTH(sortKey, distanceToCamSq);
+
+				command.sortKey = sortKey;
+				command.commandType = RENDER_COMMAND_DRAW_DEBUG_CUBE;
+
+				renderDataPtr = _PushRenderData(group,
+												sizeof(RenderCommandDrawDebugCube),
+												alignof(RenderCommandDrawDebugCube),
+												data);
+				
+				uptr offset = (uptr)renderDataPtr - (uptr)group->renderBuffer;
+				command.rbOffset = SafeCastUptrU32(offset);
+				PUSH_COMMAND_QUEUE_ENTRY(group, command);	
+			} break;
 			case RENDER_COMMAND_SET_DIR_LIGHT:
 			{
 				RenderCommandSetDirLight* renderData = (RenderCommandSetDirLight*)data;

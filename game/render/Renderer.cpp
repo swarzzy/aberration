@@ -720,6 +720,7 @@ v3 sys_ViewPos;};
 			Transform* transform = {};
 			BlendMode blendMode = {};
 			u32 meshHandle = 0;
+			v3 debugCubeCustomColor = {};
 			switch (command->commandType)
 			{
 			case RENDER_COMMAND_DRAW_MESH:
@@ -743,6 +744,18 @@ v3 sys_ViewPos;};
 										POLYGON_FILL_MODE_LINE);
 				GLCall(glLineWidth(renderData->lineWidth));
 				EnableFaceCulling(renderer->pipeline, false);
+			} break;
+			case RENDER_COMMAND_DRAW_DEBUG_CUBE:
+			{
+				auto* renderData = (RenderCommandDrawDebugCube*)(renderGroup->renderBuffer + command->rbOffset);
+				transform = &renderData->transform;
+				blendMode = BLEND_MODE_OPAQUE;
+				meshHandle = renderData->_meshHandle;
+				debugCubeCustomColor = renderData->color;
+				SetPolygonFillMode(renderer->pipeline,
+								   POLYGON_FILL_MODE_FILL);
+				EnableFaceCulling(renderer->pipeline, true);
+					
 			} break;
 			case RENDER_COMMAND_SET_DIR_LIGHT: { continue; } break;
 			case RENDER_COMMAND_SET_POINT_LIGHT: { continue; } break;
@@ -823,11 +836,23 @@ v3 sys_ViewPos;};
 												  "material.specular");
 			GLuint shinLoc = glGetUniformLocation(renderer->impl->programHandle,
 												  "material.shininess");
+
+			v3 ambColor = mesh->material->ambient;
+			v3 diffColor = mesh->material->diffuse;
+			v3 specColor = mesh->material->specular;
 			
-			GLCall(glUniform3fv(ambLoc, 1,  mesh->material->ambient.data));
-			GLCall(glUniform3fv(diffLoc, 1, mesh->material->diffuse.data));
-			GLCall(glUniform3fv(specLoc, 1, mesh->material->specular.data));
+			if (command->commandType = RENDER_COMMAND_DRAW_DEBUG_CUBE)
+			{
+				ambColor = debugCubeCustomColor;
+				diffColor = debugCubeCustomColor;
+				specColor = debugCubeCustomColor;	
+			}
+
+			GLCall(glUniform3fv(ambLoc, 1,  ambColor.data));
+			GLCall(glUniform3fv(diffLoc, 1, diffColor.data));
+			GLCall(glUniform3fv(specLoc, 1, specColor.data));
 			GLCall(glUniform1f(shinLoc, mesh->material->shininess));
+
 
 			GLuint modelLoc = glGetUniformLocation(renderer->impl->programHandle,
 												   "sys_ModelMatrix");

@@ -31,6 +31,18 @@ namespace AB
 		f32 lastMouseY;
 	};
 
+	struct WorldPosition
+	{
+		i32 tilemapX;
+		i32 tilemapY;
+		i32 tileX;
+		i32 tileY;
+		// NOTE: Realtive to tile
+		f32 x;
+		f32 y;
+	};
+
+
 	struct Sandbox
 	{
 		RenderGroup* renderGroup;
@@ -41,6 +53,29 @@ namespace AB
 		AnnoCamera camera;
 		InputState inputState;
 		DirectionalLight dirLight;
+		v2 playerPos;
+		u32 playerTilemapX;
+		u32 playerTilemapY;
+		WorldPosition playerP;
+	};
+	
+	struct Tilemap
+	{
+		u32* tiles;
+	};
+
+	struct World
+	{
+		f32 tileSizeInUnits;
+		f32 tileSizeRaw;
+		f32 toWorldUnits;
+		f32 unitsToRaw;
+
+		i32 width;
+		i32 height;
+		i32 tilemapWidth;
+		i32 tilemapHeight;
+		Tilemap* tilemaps;
 	};
 
 

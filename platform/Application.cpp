@@ -134,6 +134,7 @@ namespace AB {
 			tickTimer -= app->state.frameTime;
 			updateTimer -= app->state.frameTime;
 			app->state.fps = SECOND_INTERVAL / app->state.frameTime;
+			app->state.deltaTime = app->state.frameTime / (1000.0f * 1000.0f);
 		}
 	}
 }

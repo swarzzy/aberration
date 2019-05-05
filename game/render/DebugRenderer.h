@@ -26,6 +26,7 @@ namespace AB {
 	constexpr float64 RENDERER2D_DEFAULT_MAX_DEPTH = 0;
 
 	Renderer2DProperties* Renderer2DInitialize(MemoryArena* memoryArena,
+											   MemoryArena* tempArena,
 											   uint32 drawableSpaceX,
 											   uint32 drawableSpaceY);
 	void Renderer2DDestroy(Renderer2DProperties* renderer);

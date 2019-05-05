@@ -95,6 +95,7 @@ namespace AB
 		i64 frameTime;
 		i64 fps;
 		i64 ups;
+		f32 deltaTime;
 		u32 windowWidth;
 		u32 windowHeight;
 		b32 windowActive;

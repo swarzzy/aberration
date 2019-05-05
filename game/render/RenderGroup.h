@@ -33,7 +33,8 @@ namespace AB
 		RENDER_COMMAND_DRAW_MESH = 0,
 		RENDER_COMMAND_DRAW_MESH_WIREFRAME = 1,
 		RENDER_COMMAND_SET_DIR_LIGHT = 2,
-		RENDER_COMMAND_SET_POINT_LIGHT = 3
+		RENDER_COMMAND_SET_POINT_LIGHT = 3,
+		RENDER_COMMAND_DRAW_DEBUG_CUBE = 4,
 	};
 
 	enum RenderSortCriteria : byte
@@ -57,6 +58,13 @@ namespace AB
 		BlendMode blendMode;
 		f32 lineWidth;
 		RenderSortCriteria sortCriteria;
+	};
+
+	struct  RenderCommandDrawDebugCube
+	{
+		Transform transform;
+		v3 color;
+		i32 _meshHandle;
 	};
 
 	struct RenderCommandSetDirLight

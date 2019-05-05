@@ -1,9 +1,9 @@
 #pragma once
 
 #include <xmmintrin.h>
-#include <cmath>
+#include <math.h>
 
-#include <cstdint>
+#include <stdint.h>
 typedef int8_t				i8;
 typedef int16_t				i16;
 typedef int32_t				i32;
@@ -35,7 +35,6 @@ typedef __m128				f128;
 
 namespace hpm
 {
-
 	constexpr f32 PI_32 = 3.14159265358979323846f;
 	constexpr f32 FLOAT_EPS = 0.000001f;
 
@@ -65,6 +64,10 @@ namespace hpm
 		return sqrtf(num);
 	}
 
+	HPM_INLINE i32 Floor(f32 value)
+	{
+		return (i32)floorf(value);
+	}
 	
 	HPM_INLINE constexpr int Abs(int val)
 	{
@@ -129,7 +132,7 @@ namespace hpm
 
 		return result;
 	}
-
+	
 	union Vector2
 	{
 		struct
@@ -480,6 +483,14 @@ namespace hpm
 		return result;
 	}
 
+	HPM_INLINE Vector3 Lerp(Vector3 a, Vector3 b, f32 t)
+	{
+		Vector3 result;
+		result.x = Lerp(a.x, b.x ,t);
+		result.y = Lerp(a.y, b.y ,t);
+		result.z = Lerp(a.z, b.z ,t);
+		return result;
+	}
 
 	HPM_INLINE f32 HPM_CALL Dot(Vector2 left, Vector2 right)
 	{

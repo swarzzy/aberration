@@ -157,7 +157,8 @@ namespace AB {
 				{
 					DWORD read;
 					BOOL result = ReadFile(fileHandle, buffer, (DWORD)fileSize.QuadPart, &read, 0);
-					if (!result && !(read == (DWORD)fileSize.QuadPart)) {
+					if (!result && !(read == (DWORD)fileSize.QuadPart))
+					{
 						AB_CORE_ERROR("Failed to read file.");
 					}
 					else

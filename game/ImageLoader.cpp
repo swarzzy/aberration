@@ -68,7 +68,7 @@ namespace AB {
 							//if (((uint32)(std::abs(v3c->height) * v3c->width)) == (header->size / (v3c->bitsPerPixel / 8))) {
 								if (v3c->height < 0) {
 									bottomUp = false;
-									image.height = (uint32)std::abs(v3c->height);
+									image.height = (uint32)abs(v3c->height);
 								}
 								else {
 									image.height = v3c->height;

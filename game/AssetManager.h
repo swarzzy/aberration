@@ -7,6 +7,7 @@ namespace AB {
 	constexpr uint32 MESH_STORAGE_CAPACITY = 128;
 	constexpr uint32 TEXTURE_STORAGE_CAPACITY = 128;
 	constexpr int32 ASSET_INVALID_HANDLE = -1;
+	constexpr int32 ASSET_DEFAULT_CUBE_MESH_HANDLE = 0;
 
 	struct Material {
 		hpm::Vector3 ambient;
@@ -55,7 +56,8 @@ namespace AB {
 		Texture textures[TEXTURE_STORAGE_CAPACITY];
 	};
 
-	AB_API AssetManager* AssetManagerInitialize(MemoryArena* memory);
+	AB_API AssetManager* AssetManagerInitialize(MemoryArena* memory,
+												MemoryArena* tempArena);
 	
 	AB_API BBoxAligned CreateAABBFromVertices(uint32 numVertices, Vector3* vertices);
 	AB_API int32 AssetCreateTexture(AssetManager* mgr, MemoryArena* memory, byte* bitmap,
