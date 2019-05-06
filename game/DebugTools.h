@@ -55,4 +55,6 @@ namespace AB
 #define DEBUG_OVERLAY_PUSH_TOGGLE(title, varPtr) DebugOverlayPushToggle(g_StaticStorage->debugOverlay, title, varPtr)
 #define DEBUG_OVERLAY_PUSH_SLIDER(title, val, min, max) DebugOverlayPushSlider(g_StaticStorage->debugOverlay, title, val, min, max)
 
+#define DEBUG_OVERLAY_TRACE_VAR(variableName)  DebugOverlayPushVar(g_StaticStorage->debugOverlay, #variableName, variableName)
+
 }

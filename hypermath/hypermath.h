@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include <xmmintrin.h>
@@ -31,90 +32,94 @@ typedef __m128				f128;
 #define HPM_USE_NAMESPACE
 
 #define HPM_CALL //__vectorcall
-#define HPM_INLINE inline
 
 namespace hpm
 {
 	constexpr f32 PI_32 = 3.14159265358979323846f;
 	constexpr f32 FLOAT_EPS = 0.000001f;
 
-	HPM_INLINE f32 Map(f32 t, f32 a, f32 b, f32 c, f32 d)
+	inline f32 Map(f32 t, f32 a, f32 b, f32 c, f32 d)
 	{
 		if (a == b || d == c) return 0.0f;
 		return c + (d - c) / (b - a) * (t - a);
 	}
 
-	HPM_INLINE f32 Sin(f32 radians)
+	inline f32 Sin(f32 radians)
 	{
 		return sinf(radians);
 	}
 
-	HPM_INLINE f32 Cos(f32 radians)
+	inline f32 Cos(f32 radians)
 	{
 		return cosf(radians);
 	}
 
-	HPM_INLINE f32 Tan(f32 radians)
+	inline f32 Tan(f32 radians)
 	{
 		return tanf(radians);
 	}
 
-	HPM_INLINE f32 Sqrt(f32 num)
+	inline f32 Sqrt(f32 num)
 	{
 		return sqrtf(num);
 	}
 
-	HPM_INLINE i32 Floor(f32 value)
+	inline i32 Floor(f32 value)
 	{
 		return (i32)floorf(value);
 	}
+
+	inline i32 RoundF32I32(f32 value)
+	{
+		return (i32)roundf(value);
+	}
 	
-	HPM_INLINE constexpr int Abs(int val)
+	inline constexpr int Abs(int val)
 	{
 		return val > 0 ? val : -val;
 	}
 
-	HPM_INLINE constexpr float Abs(float val)
+	inline constexpr float Abs(float val)
 	{
 		return val > 0 ? val : -val;
 	}
 
-	HPM_INLINE constexpr short Abs(short val)
+	inline constexpr short Abs(short val)
 	{
 		return val > 0 ? val : -val;
 	}
 
-	HPM_INLINE constexpr long Abs(long val)
+	inline constexpr long Abs(long val)
 	{
 		return val > 0 ? val : -val;
 	}
 
-	HPM_INLINE constexpr float Min(float a, float b)
+	inline constexpr float Min(float a, float b)
 	{
 		return a < b ? a : b;
 	}
 
-	HPM_INLINE constexpr float Max(float a, float b)
+	inline constexpr float Max(float a, float b)
 	{
 		return a > b ? a : b;
 	}
 
-	HPM_INLINE constexpr float Clamp(float x, float min, float max)
+	inline constexpr float Clamp(float x, float min, float max)
 	{
 		return Min(Max(x, max), min);
 	}
 	
-	HPM_INLINE constexpr f32 ToDegrees(f32 radians)
+	inline constexpr f32 ToDegrees(f32 radians)
 	{
 		return 180.0f / PI_32 * radians;
 	}
 
-	HPM_INLINE constexpr f32 ToRadians(f32 degrees)
+	inline constexpr f32 ToRadians(f32 degrees)
 	{
 		return PI_32 / 180.0f * degrees;
 	}
 
-	HPM_INLINE f32 Lerp(f32 a, f32 b, f32 t)
+	inline f32 Lerp(f32 a, f32 b, f32 t)
 	{
 		f32 result;
 		if (t < 0.0f)
@@ -229,209 +234,209 @@ namespace hpm
 		};		
 	};	
 
-	HPM_INLINE Vector2 V2(f32 x, f32 y)
+	inline Vector2 V2(f32 x, f32 y)
 	{
 		return Vector2{x, y};
 	}
 	
-	HPM_INLINE Vector2 V2(f32 val)
+	inline Vector2 V2(f32 val)
 	{
 		return Vector2{val, val};
 	}
 
-	HPM_INLINE Vector3 V3(f32 x, f32 y, f32 z)
+	inline Vector3 V3(f32 x, f32 y, f32 z)
 	{
 		return Vector3{x, y, z};
 	}
 	
-	HPM_INLINE Vector3 V3(f32 val)
+	inline Vector3 V3(f32 val)
 	{
 		return Vector3{val, val, val};
 	}
 
-	HPM_INLINE Vector3 V3(Vector2 v, f32 z)
+	inline Vector3 V3(Vector2 v, f32 z)
 	{
 		return Vector3{v.x, v.y, z};
 	}
 
-	HPM_INLINE Vector3 V3(Vector4 v)
+	inline Vector3 V3(Vector4 v)
 	{
 		return Vector3{v.x, v.y, v.z};
 	}
 
-	HPM_INLINE Vector3 V3(Quaternion q)
+	inline Vector3 V3(Quaternion q)
 	{
 		return Vector3{q.x, q.y, q.z};
 	}
 
 
-	HPM_INLINE Vector4 V4(f32 x, f32 y, f32 z, f32 w)
+	inline Vector4 V4(f32 x, f32 y, f32 z, f32 w)
 	{
 		return Vector4{x, y ,z, w};
 	}
 	
-	HPM_INLINE Vector4 V4(f32 val)
+	inline Vector4 V4(f32 val)
 	{
 		return Vector4{val, val , val, val};
 	}
 
-	HPM_INLINE Vector4 V4(Vector2 v, f32 z, f32 w)
+	inline Vector4 V4(Vector2 v, f32 z, f32 w)
 	{
 		return Vector4{v.x, v.y ,z, w};
 	}
 
-	HPM_INLINE Vector4 V4(Vector3 v, f32 w)
+	inline Vector4 V4(Vector3 v, f32 w)
 	{
 		return Vector4{v.x, v.y ,v.z, w};
 	}
 
-	HPM_INLINE Vector2 HPM_CALL AddV2V2(Vector2 left, Vector2 right)
+	inline Vector2 HPM_CALL AddV2V2(Vector2 left, Vector2 right)
 	{
 		return Vector2{ left.x + right.x, left.y + right.y };
 	}
 
-	HPM_INLINE Vector2 HPM_CALL AddV2F32(Vector2 left, f32 scalar)
+	inline Vector2 HPM_CALL AddV2F32(Vector2 left, f32 scalar)
 	{
 		return Vector2{ left.x + scalar, left.y + scalar };
 	}
 
-	HPM_INLINE Vector2 HPM_CALL SubV2V2(Vector2 left, Vector2 right)
+	inline Vector2 HPM_CALL SubV2V2(Vector2 left, Vector2 right)
 	{
 		return Vector2{ left.x - right.x, left.y - right.y };
 	}
 
-	HPM_INLINE Vector2 HPM_CALL SubV2F32(Vector2 left, f32 scalar)
+	inline Vector2 HPM_CALL SubV2F32(Vector2 left, f32 scalar)
 	{
 		return Vector2{ left.x - scalar, left.y - scalar };
 	}
 
-	HPM_INLINE Vector2 HPM_CALL MulV2V2(Vector2 left, Vector2 right)
+	inline Vector2 HPM_CALL MulV2V2(Vector2 left, Vector2 right)
 	{
 		return Vector2{ left.x * right.x, left.y * right.y };
 	}
 
-	HPM_INLINE Vector2 HPM_CALL MulV2F32(Vector2 left, f32 scalar)
+	inline Vector2 HPM_CALL MulV2F32(Vector2 left, f32 scalar)
 	{
 		return Vector2{ left.x * scalar, left.y * scalar};
 	}
 
-	HPM_INLINE Vector2 HPM_CALL DivV2V2(Vector2 left, Vector2 right)
+	inline Vector2 HPM_CALL DivV2V2(Vector2 left, Vector2 right)
 	{
 		return Vector2{ left.x / right.x, left.y / right.y };
 	}
 
-	HPM_INLINE Vector2 HPM_CALL DivV2F32(Vector2 left, f32 scalar)
+	inline Vector2 HPM_CALL DivV2F32(Vector2 left, f32 scalar)
 	{
 		return Vector2{ left.x / scalar, left.y / scalar};
 	}
 
 
-	HPM_INLINE Vector3 HPM_CALL AddV3V3(Vector3 left, Vector3 right)
+	inline Vector3 HPM_CALL AddV3V3(Vector3 left, Vector3 right)
 	{
 		return Vector3{ left.x + right.x, left.y + right.y, left.z + right.z };
 	}
 
-	HPM_INLINE Vector3 HPM_CALL AddV3F32(Vector3 left, f32 scalar)
+	inline Vector3 HPM_CALL AddV3F32(Vector3 left, f32 scalar)
 	{
 		return Vector3{ left.x + scalar, left.y + scalar, left.z + scalar};
 	}
 
-	HPM_INLINE Vector3 HPM_CALL SubV3V3(Vector3 left, Vector3 right)
+	inline Vector3 HPM_CALL SubV3V3(Vector3 left, Vector3 right)
 	{
 		return Vector3{ left.x - right.x, left.y - right.y, left.z - right.z };
 	}
 
-	HPM_INLINE Vector3 HPM_CALL SubV3F32(Vector3 left, f32 scalar)
+	inline Vector3 HPM_CALL SubV3F32(Vector3 left, f32 scalar)
 	{
 		return Vector3{ left.x - scalar, left.y - scalar, left.z - scalar};
 	}
 
-	HPM_INLINE Vector3 HPM_CALL MulV3V3(Vector3 left, Vector3 right)
+	inline Vector3 HPM_CALL MulV3V3(Vector3 left, Vector3 right)
 	{
 		return Vector3{ left.x * right.x, left.y * right.y, left.z * right.z };
 	}
 
-	HPM_INLINE Vector3 HPM_CALL MulV3F32(Vector3 left, f32 scalar)
+	inline Vector3 HPM_CALL MulV3F32(Vector3 left, f32 scalar)
 	{
 		return Vector3{ left.x * scalar, left.y * scalar, left.z * scalar};
 	}
 
-	HPM_INLINE Vector3 HPM_CALL DivV3V3(Vector3 left, Vector3 right)
+	inline Vector3 HPM_CALL DivV3V3(Vector3 left, Vector3 right)
 	{
 		return Vector3{ left.x / right.x, left.y / right.y, left.z / right.z };
 	}
 
-	HPM_INLINE Vector3 HPM_CALL DivV3F32(Vector3 left, f32 scalar)
+	inline Vector3 HPM_CALL DivV3F32(Vector3 left, f32 scalar)
 	{
 		return Vector3{ left.x / scalar, left.y / scalar, left.z / scalar };
 	}
 
-	HPM_INLINE Vector4 HPM_CALL AddV4V4(Vector4 left, Vector4 right)
+	inline Vector4 HPM_CALL AddV4V4(Vector4 left, Vector4 right)
 	{
 		return Vector4{ left.x + right.x, left.y + right.y, left.z + right.z, left.w + right.w };
 	}
 
-	HPM_INLINE Vector4 HPM_CALL AddV4F32(Vector4 left, f32 scalar)
+	inline Vector4 HPM_CALL AddV4F32(Vector4 left, f32 scalar)
 	{
 		return Vector4{ left.x + scalar, left.y + scalar, left.z + scalar, left.w + scalar};
 	}
 
-	HPM_INLINE Vector4 HPM_CALL SubV4V4(Vector4 left, Vector4 right)
+	inline Vector4 HPM_CALL SubV4V4(Vector4 left, Vector4 right)
 	{
 		return Vector4{ left.x - right.x, left.y - right.y, left.z - right.z, left.w - right.w };
 	}
 
-	HPM_INLINE Vector4 HPM_CALL SubV4F32(Vector4 left, f32 scalar)
+	inline Vector4 HPM_CALL SubV4F32(Vector4 left, f32 scalar)
 	{
 		return Vector4{ left.x - scalar, left.y - scalar, left.z - scalar, left.w - scalar};
 	}
 
-	HPM_INLINE Vector4 HPM_CALL MulV4V4(Vector4 left, Vector4 right)
+	inline Vector4 HPM_CALL MulV4V4(Vector4 left, Vector4 right)
 	{
 		return Vector4{ left.x * right.x, left.y * right.y, left.z * right.z, left.w * right.w };
 	}
 
-	HPM_INLINE Vector4 HPM_CALL MulV4F32(Vector4 left, f32 scalar)
+	inline Vector4 HPM_CALL MulV4F32(Vector4 left, f32 scalar)
 	{
 		return Vector4{ left.x * scalar, left.y * scalar, left.z * scalar, left.w * scalar };
 	}
 
-	HPM_INLINE Vector4 HPM_CALL DivV4V4(Vector4 left, Vector4 right)
+	inline Vector4 HPM_CALL DivV4V4(Vector4 left, Vector4 right)
 	{
 		return Vector4{ left.x / right.x, left.y / right.y, left.z / right.z, left.w / right.w };
 	}
 
-	HPM_INLINE Vector4 HPM_CALL DivV4V4(Vector4 left, f32 scalar)
+	inline Vector4 HPM_CALL DivV4V4(Vector4 left, f32 scalar)
 	{
 		return Vector4{ left.x / scalar, left.y / scalar, left.z / scalar, left.w / scalar};
 	}
 
-	HPM_INLINE f32 HPM_CALL Length(Vector2 vector)
+	inline f32 HPM_CALL Length(Vector2 vector)
 	{
 		return Sqrt(vector.x * vector.x + vector.y * vector.y);
 	}
 
-	HPM_INLINE f32 HPM_CALL Length(Vector3 vector)
+	inline f32 HPM_CALL Length(Vector3 vector)
 	{
 		return Sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z);
 	}
 
-	HPM_INLINE f32 HPM_CALL Length(Vector4 vector)
+	inline f32 HPM_CALL Length(Vector4 vector)
 	{
 		return Sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z + vector.w * vector.w);
 	}
 
-	HPM_INLINE f32 HPM_CALL DistanceSq(Vector2 v1, Vector2 v2)
+	inline f32 HPM_CALL DistanceSq(Vector2 v1, Vector2 v2)
 	{
 		return (v2.x - v1.x) * (v2.x - v1.x) + (v2.y - v1.y) * (v2.y - v1.y);
 	}
 
-	HPM_INLINE f32 HPM_CALL DistanceSq(Vector3 v1, Vector3 v2)
+	inline f32 HPM_CALL DistanceSq(Vector3 v1, Vector3 v2)
 	{
 		return (v2.x - v1.x) * (v2.x - v1.x) + (v2.y - v1.y) * (v2.y - v1.y) + (v2.z - v1.z) * (v2.z - v1.z);
 	}
 
-	HPM_INLINE Vector2 HPM_CALL Normalize(Vector2 vector)
+	inline Vector2 HPM_CALL Normalize(Vector2 vector)
 	{
 		Vector2 result;
 		f32 len = Length(vector);
@@ -447,7 +452,7 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE Vector3 HPM_CALL Normalize(Vector3 vector)
+	inline Vector3 HPM_CALL Normalize(Vector3 vector)
 	{
 		Vector3 result;
 		f32 len = Length(vector);
@@ -464,7 +469,7 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE Vector4 HPM_CALL Normalize(Vector4 vector)
+	inline Vector4 HPM_CALL Normalize(Vector4 vector)
 	{
 		Vector4 result;
 		f32 len = Length(vector);
@@ -483,7 +488,7 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE Vector3 Lerp(Vector3 a, Vector3 b, f32 t)
+	inline Vector3 Lerp(Vector3 a, Vector3 b, f32 t)
 	{
 		Vector3 result;
 		result.x = Lerp(a.x, b.x ,t);
@@ -492,29 +497,29 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE f32 HPM_CALL Dot(Vector2 left, Vector2 right)
+	inline f32 HPM_CALL Dot(Vector2 left, Vector2 right)
 	{
 		return left.x * right.x + left.y * right.y;
 	}
 
-	HPM_INLINE f32 HPM_CALL Dot(Vector3 left, Vector3 right)
+	inline f32 HPM_CALL Dot(Vector3 left, Vector3 right)
 	{
 		return left.x * right.x + left.y * right.y + left.z * right.z;
 	}
 
-	HPM_INLINE f32 HPM_CALL Dot(Vector4 left, Vector4 right)
+	inline f32 HPM_CALL Dot(Vector4 left, Vector4 right)
 	{
 		return left.x * right.x + left.y * right.y + left.z * right.z + left.w * right.w;
 	}
 
-	HPM_INLINE Vector3 HPM_CALL Cross(Vector3 left, Vector3 right)
+	inline Vector3 HPM_CALL Cross(Vector3 left, Vector3 right)
 	{
 		return {left.y * right.z - left.z * right.y,
 				left.z * right.x - left.x * right.z,
 				left.x * right.y - left.y * right.x};
 	}
 
-	HPM_INLINE Matrix3 HPM_CALL Identity3()
+	inline Matrix3 HPM_CALL Identity3()
 	{
 		Matrix3 result = {};
 		result._11 = 1.0f;
@@ -523,7 +528,7 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL Identity4()
+	inline Matrix4 HPM_CALL Identity4()
 	{
 		Matrix4 result = {};
 		result._11 = 1.0f;
@@ -533,7 +538,7 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE Matrix3 HPM_CALL M3x3(Matrix4 m)
+	inline Matrix3 HPM_CALL M3x3(Matrix4 m)
 	{
 		Matrix3 result;
 		
@@ -550,7 +555,7 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL M4x4(Matrix3 m)
+	inline Matrix4 HPM_CALL M4x4(Matrix3 m)
 	{
 		Matrix4 result = {};
 
@@ -570,7 +575,7 @@ namespace hpm
 	}
 
 #if 0
-	HPM_INLINE Matrix2 HPM_CALL Transpose(Matrix2 matrix)
+	inline Matrix2 HPM_CALL Transpose(Matrix2 matrix)
 	{
 		Matrix2 result;
 		
@@ -583,7 +588,7 @@ namespace hpm
 	}
 #endif
 	
-	HPM_INLINE Matrix3 HPM_CALL Transpose(Matrix3 matrix)
+	inline Matrix3 HPM_CALL Transpose(Matrix3 matrix)
 	{
 		Matrix3 result;
 		
@@ -600,7 +605,7 @@ namespace hpm
 		return result;
 	}
 	
-	HPM_INLINE Matrix4 HPM_CALL Transpose(Matrix4 matrix)
+	inline Matrix4 HPM_CALL Transpose(Matrix4 matrix)
 	{
 		Matrix4 result;
 		
@@ -624,20 +629,20 @@ namespace hpm
 		return result;
 	}
 #if 0
-	HPM_INLINE f32 HPM_CALL Determinant(Matrix2 m)
+	inline f32 HPM_CALL Determinant(Matrix2 m)
 	{
 		return m._11 * m._22 - m._21 * m._12;
 	}
 #endif	
 
-	HPM_INLINE f32 HPM_CALL Determinant(Matrix3 m)
+	inline f32 HPM_CALL Determinant(Matrix3 m)
 	{
 		return 	m._11 * m._22 * m._33 - m._11 * m._23 * m._32
 			- m._12 * m._21 * m._33 + m._12 * m._23 * m._31
 			+ m._13 * m._21 * m._32 - m._13 * m._22 * m._31;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL OrthogonalRH(f32 left, f32 right, f32 bottom, f32 top, f32 n, f32 f)
+	inline Matrix4 HPM_CALL OrthogonalRH(f32 left, f32 right, f32 bottom, f32 top, f32 n, f32 f)
 	{
 		Matrix4 result = {};
 
@@ -652,7 +657,7 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL PerspectiveRH(f32 fovDeg, f32 aspectRatio, f32 n, f32 f)
+	inline Matrix4 HPM_CALL PerspectiveRH(f32 fovDeg, f32 aspectRatio, f32 n, f32 f)
 	{
 		Matrix4 result = {};
 
@@ -667,7 +672,7 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL Translation(Vector3 trans)
+	inline Matrix4 HPM_CALL Translation(Vector3 trans)
 	{
 		Matrix4 result = {};
 		result._11 = 1.0f;
@@ -682,19 +687,19 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE Vector3 HPM_CALL GetPosition(Matrix4* m)
+	inline Vector3 HPM_CALL GetPosition(Matrix4* m)
 	{
 		return Vector3{m->_14, m->_24, m->_34};
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL Translate(Matrix4 mtx, Vector3 trans)
+	inline Matrix4 HPM_CALL Translate(Matrix4 mtx, Vector3 trans)
 	{
 		mtx.columns[3] = AddV4V4(AddV4V4(MulV4F32(mtx.columns[0], trans.x), MulV4F32(mtx.columns[1], trans.y)), 
 								 AddV4V4(MulV4F32(mtx.columns[2], trans.z), mtx.columns[3]));
 		return mtx;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL Scaling(Vector3 scale)
+	inline Matrix4 HPM_CALL Scaling(Vector3 scale)
 	{
 		Matrix4 result = {};
 		result._11 = scale.x;
@@ -705,7 +710,7 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE Matrix4 HPM_CALL Scale(Matrix4 mtx, Vector3 scale)
+	inline Matrix4 HPM_CALL Scale(Matrix4 mtx, Vector3 scale)
 	{
 		mtx.columns[0] = MulV4F32(mtx.columns[0], scale.x);
 		mtx.columns[1] = MulV4F32(mtx.columns[1], scale.y);
@@ -713,7 +718,7 @@ namespace hpm
 		return mtx;
 	}
 
-	HPM_INLINE Vector3 HPM_CALL MulM3V3(Matrix3 m, Vector3 v)
+	inline Vector3 HPM_CALL MulM3V3(Matrix3 m, Vector3 v)
 	{
 		Vector3 r;
 		r.x = m._11 * v.x + m._12 * v.y + m._13 * v.z;
@@ -722,7 +727,7 @@ namespace hpm
 		return r;
 	}
 
-	HPM_INLINE Vector4 HPM_CALL MulM4V4(Matrix4 m, Vector4 v)
+	inline Vector4 HPM_CALL MulM4V4(Matrix4 m, Vector4 v)
 	{
 		Vector4 r;
 		r.x = m._11 * v.x + m._12 * v.y + m._13 * v.z + m._14 * v.w;
@@ -1115,24 +1120,24 @@ namespace hpm
 	
 #endif
 
-	HPM_INLINE HPM_CALL Quaternion Quat(f32 x, f32 y, f32 z, f32 w)
+	inline HPM_CALL Quaternion Quat(f32 x, f32 y, f32 z, f32 w)
 	{
 		return Quaternion{x, y, z, w};
 	}
 
-	HPM_INLINE HPM_CALL Quaternion Quat(Vector3 v)
+	inline HPM_CALL Quaternion Quat(Vector3 v)
 	{
 		return Quaternion{v.x, v.y, v.z, 0.0f};
 	}
 
-	HPM_INLINE HPM_CALL Quaternion QuatFromAxisAngle(Vector3 axis, f32 angleRad)
+	inline HPM_CALL Quaternion QuatFromAxisAngle(Vector3 axis, f32 angleRad)
 	{
 		Vector3 a = MulV3F32(axis, Sin(angleRad / 2.0f));
 		//a = Normalize(a);
 		return Quaternion{a.x, a.y, a.z, Cos(angleRad / 2.0f)};
 	}
 
-	HPM_INLINE HPM_CALL Quaternion QuatFromEuler(f32 yaw, f32 pitch, f32 roll)
+	inline HPM_CALL Quaternion QuatFromEuler(f32 yaw, f32 pitch, f32 roll)
 	{
 		f32 cy = Cos(yaw * 0.5f);
 		f32 cp = Cos(pitch * 0.5f);
@@ -1151,12 +1156,12 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE HPM_CALL Quaternion IdentityQuat()
+	inline HPM_CALL Quaternion IdentityQuat()
 	{
 		return Quaternion{0.0f, 0.0f, 0.0f, 1.0f};
 	}
 
-	HPM_INLINE HPM_CALL Quaternion MulQQ(Quaternion l, Quaternion r)
+	inline HPM_CALL Quaternion MulQQ(Quaternion l, Quaternion r)
 	{
 		Quaternion result;
 		result.x = (l.x * r.w) + (l.y * r.z) - (l.z * r.y) + (l.w * r.x);
@@ -1166,7 +1171,7 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE HPM_CALL Vector3 Rotate(Quaternion q, Vector3 v)
+	inline HPM_CALL Vector3 Rotate(Quaternion q, Vector3 v)
 	{
 		Quaternion conj = Quaternion{-q.x, -q.y, -q.z, q.w};
 
@@ -1176,12 +1181,12 @@ namespace hpm
 		return V3(result);
 	}
 
-	HPM_INLINE HPM_CALL Quaternion Conjugate(Quaternion q)
+	inline HPM_CALL Quaternion Conjugate(Quaternion q)
 	{
 		return Quaternion{-q.x, -q.y, -q.z, q.w};
 	}
 
-	HPM_INLINE HPM_CALL Matrix3 QuatToM3x3(Quaternion q)
+	inline HPM_CALL Matrix3 QuatToM3x3(Quaternion q)
 	{
 		f32 xSq = q.x * q.x * 2.0f;
 		f32 ySq = q.y * q.y * 2.0f;
@@ -1201,12 +1206,12 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE HPM_CALL f32 HPM_CALL Length(Quaternion q)
+	inline HPM_CALL f32 HPM_CALL Length(Quaternion q)
 	{
 		return Sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
 	}
 
-	HPM_INLINE HPM_CALL Quaternion Normalize(Quaternion q)
+	inline HPM_CALL Quaternion Normalize(Quaternion q)
 	{
 		f32 len = Length(q);
 		Quaternion result;
@@ -1225,7 +1230,7 @@ namespace hpm
 		return result;
 	}
 
-	HPM_INLINE HPM_CALL Quaternion LerpQuat(Quaternion a, Quaternion b, f32 t)
+	inline HPM_CALL Quaternion LerpQuat(Quaternion a, Quaternion b, f32 t)
 	{
 		Quaternion result;
 		if (t < 0.0f)

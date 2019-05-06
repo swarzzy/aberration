@@ -1,4 +1,6 @@
 #pragma once
+#include "Tilemap.h"
+#include "Tilemap.cpp"
 
 namespace AB
 {
@@ -31,17 +33,10 @@ namespace AB
 		f32 lastMouseY;
 	};
 
-	struct WorldPosition
+	struct World
 	{
-		i32 tilemapX;
-		i32 tilemapY;
-		i32 tileX;
-		i32 tileY;
-		// NOTE: Realtive to tile
-		f32 x;
-		f32 y;
+		Tilemap tilemap;
 	};
-
 
 	struct Sandbox
 	{
@@ -53,30 +48,10 @@ namespace AB
 		AnnoCamera camera;
 		InputState inputState;
 		DirectionalLight dirLight;
-		v2 playerPos;
-		u32 playerTilemapX;
-		u32 playerTilemapY;
-		WorldPosition playerP;
+		TilemapPosition playerP;
+		World* world;
 	};
 	
-	struct Tilemap
-	{
-		u32* tiles;
-	};
-
-	struct World
-	{
-		f32 tileSizeInUnits;
-		f32 tileSizeRaw;
-		f32 toWorldUnits;
-		f32 unitsToRaw;
-
-		i32 width;
-		i32 height;
-		i32 tilemapWidth;
-		i32 tilemapHeight;
-		Tilemap* tilemaps;
-	};
 
 
 	void Init(MemoryArena* arena,

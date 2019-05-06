@@ -82,7 +82,7 @@ namespace AB {
 		b32 codeLoaded = UpdateGameCode(app->gameCode, app->window);
 		AB_CORE_ASSERT(codeLoaded, "Failed to load code");
 
-		app->gameMemory = AllocateArena(MEGABYTES(32));
+		app->gameMemory = AllocateArena(MEGABYTES(64));
 		
 		i64 updateTimer = UPDATE_INTERVAL;
 		i64 tickTimer = SECOND_INTERVAL;

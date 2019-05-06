@@ -166,3 +166,14 @@ inline i32 SafeCastU32I32(u32 val)
 		return 0;				
 	}
 }
+
+inline u32 AbsI32U32(i32 value)
+{
+	return value >= 0 ? value : -value;
+}
+
+inline u32 AbsU32U32(i32 value)
+{
+	return value >= 0 ? value : -value;
+}
+
