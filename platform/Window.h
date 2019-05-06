@@ -8,8 +8,6 @@ namespace AB {
 	struct InputMgr;
 	struct WindowProperties;
 	struct MemoryArena;
-
-	
 	
 	typedef void(PlatformCloseCallback)(void);
 	typedef void(PlatformResizeCallback)(uint32 width, uint32 height);
@@ -21,8 +19,6 @@ namespace AB {
 											const char* title,
 											uint32 width,
 											uint32 height);
-	void WindowDestroy(WindowProperties* window);
-	void WindowClose(WindowProperties* window);
 	bool WindowIsOpen(WindowProperties* window);
 	void WindowPollEvents(WindowProperties* window);
 	void WindowSwapBuffers(WindowProperties* window);
@@ -31,9 +27,13 @@ namespace AB {
 									void* inputManager,
 									PlatformInputCallbacks* callbacks);
 	void WindowGetSize(WindowProperties* window, uint32* width, uint32* height);
-	void WindowSetMousePosition(WindowProperties* window, uint32 x, uint32 y);
 	bool32 WindowActive(WindowProperties* window);
 	void WindowShowCursor(WindowProperties* window, bool32 show);
+
+	
+	void WindowDestroy(WindowProperties* window);
+	void WindowClose(WindowProperties* window);
+	void WindowSetMousePosition(WindowProperties* window, uint32 x, uint32 y);
 
 	void WindowSetCloseCallback(WindowProperties* window, PlatformCloseCallback* func);
 	void WindowSetResizeCallback(WindowProperties* window, PlatformResizeCallback* func);

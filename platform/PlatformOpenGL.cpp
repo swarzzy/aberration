@@ -2,7 +2,7 @@
 
 namespace AB
 {	
-	static constexpr char* procNames[AB_OPENGL_FUNCTIONS_COUNT] =
+	static const char* procNames[AB_OPENGL_FUNCTIONS_COUNT] =
 	{
 		// 1.0
 		"glCullFace",

@@ -57,14 +57,12 @@ namespace AB
 #define AB_CORE_WARN(format, ...) AB::Log(AB::LogLevel::Warn, __FILE__, __func__, __LINE__, format, ##__VA_ARGS__)
 #define AB_CORE_ERROR(format, ...) AB::Log(AB::LogLevel::Error, __FILE__, __func__, __LINE__, format, ##__VA_ARGS__)
 #define AB_CORE_FATAL(format, ...) do { AB::Log(AB::LogLevel::Fatal, __FILE__, __func__, __LINE__, format, ##__VA_ARGS__); AB_DEBUG_BREAK();} while(false)
-// TODO: print assertions
 #define AB_CORE_ASSERT(expr, ...) do { if (!(expr)) {AB::Log(AB::LogLevel::Fatal, __FILE__, __func__, __LINE__, #expr, ##__VA_ARGS__); AB_DEBUG_BREAK();}} while(false)
 #else
 #define AB_CORE_INFO(format, ...) AB::Log(AB::LogLevel::Info, __FILE__, __func__, __LINE__, format, __VA_ARGS__)
 #define AB_CORE_WARN(format, ...) AB::Log(AB::LogLevel::Warn, __FILE__, __func__, __LINE__, format, __VA_ARGS__)
 #define AB_CORE_ERROR(format, ...) AB::Log(AB::LogLevel::Error, __FILE__, __func__, __LINE__, format, __VA_ARGS__)
 #define AB_CORE_FATAL(format, ...) do { AB::Log(AB::LogLevel::Fatal, __FILE__, __func__, __LINE__, format, __VA_ARGS__); AB_DEBUG_BREAK();} while(false)
-// TODO: print assertions
 #define AB_CORE_ASSERT(expr, ...) do { if (!(expr)) {AB::LogAssert(AB::LogLevel::Fatal, __FILE__, __func__, __LINE__, #expr, __VA_ARGS__); AB_DEBUG_BREAK();}} while(false)
 #endif
 #endif
@@ -72,7 +70,7 @@ namespace AB
 #define INVALID_DEFAULT_CASE() AB_CORE_FATAL("Invalid default case.")
 #define INVALID_CODE_PATH() AB_CORE_FATAL("Invalid code path.")
 
-#define AB_ASSERT(expr, ...) AB_CORE_ASSERT(expr, __VA_ARGS__)
+#define AB_ASSERT(expr, ...) AB_CORE_ASSERT(expr, ##__VA_ARGS__)
 
 //#define AB_CORE_INFO(format, ...) _AB_CORE_INFO(format, __VA_ARGS__)
 //#define AB_CORE_WARN(format, ...) _AB_CORE_WARN(format, __VA_ARGS__)

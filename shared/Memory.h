@@ -12,12 +12,12 @@
 #define SetArray(type, elem_count, dest, val) memset(dest, val, sizeof(type) * elem_count)
 #define SetZeroScalar(type, dest) memset(dest, 0, sizeof(type))
 
-
-namespace AB {
+namespace AB
+{
 
 	// Using 16 byte aligment as default as malloc does (according to specs)
 	// There are crashes when using 8 byte aligment and optimizations are enabled
-	static constexpr uint64 DEFAULT_ALIGMENT = 16;//alignof(std::max_align_t);
+	static constexpr u64 DEFAULT_ALIGMENT = 16;//alignof(std::max_align_t);
 
 	struct MemoryArena
 	{
@@ -29,11 +29,11 @@ namespace AB {
 		uptr _pad;
 	};
 
-	// TODO: Enable all logging!!!!
 	inline uptr CalculatePadding(uptr offset, uptr aligment)
 	{
 		// TODO: Calculate padding properly
 		AB_CORE_ASSERT(aligment, "Aligment is zero.");
+		// TODO: IMPORTANT: FIXME: Fix the padding it is not correct.
 #if 1
 		u64 padding = (aligment - offset % aligment) % aligment;
 		return padding;

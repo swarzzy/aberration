@@ -17,23 +17,23 @@ namespace AB
 {
 	static void GameInitDummy(MemoryArena*, PlatformState*)
 	{
-		AB_CORE_WARN("Game code is not loaded.");
+		//AB_CORE_WARN("Game code is not loaded.");
 	}
 
 	static void GameReloadDummy(MemoryArena*, PlatformState*)
 	{
-		AB_CORE_WARN("Game code is not loaded.");
+		//AB_CORE_WARN("Game code is not loaded.");
 	}
 	
 	
 	static void GameUpdateDummy(MemoryArena*, PlatformState*)
 	{
-		AB_CORE_WARN("Game code is not loaded.");		
+		//AB_CORE_WARN("Game code is not loaded.");		
 	}
 	
 	static void GameRenderDummy(MemoryArena*, PlatformState*)
 	{
-		AB_CORE_WARN("Game code is not loaded.");
+		//AB_CORE_WARN("Game code is not loaded.");
 	}
 	
 	struct GameCodeImpl

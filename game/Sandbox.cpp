@@ -169,6 +169,7 @@ namespace AB
 															   1000.0f);
 
 		BeginTemporaryMemory(tempArena);
+#if 0
 		sandbox->mansionMeshHandle =
 			AssetCreateMeshAAB(assetManager,
 							   arena,
@@ -178,8 +179,9 @@ namespace AB
 			AssetCreateMeshAAB(assetManager,
 							   arena, tempArena,
 							   "../assets/Plane.aab");
+#endif
 		
-		AB_CORE_ASSERT(sandbox->mansionMeshHandle != ASSET_INVALID_HANDLE);
+		//AB_CORE_ASSERT(sandbox->mansionMeshHandle != ASSET_INVALID_HANDLE);
 		EndTemporaryMemory(tempArena);
 
 		sandbox->camera = {};

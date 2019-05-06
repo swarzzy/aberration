@@ -2,9 +2,9 @@
 #include <hypermath.h>
 #include "Log.h"
 #include "OpenGL.h"
-#include "ImageLoader.h"
+#include "../ImageLoader.h"
 #include "Memory.h"
-#include "InputManager.h"
+#include "../InputManager.h"
 
 namespace AB {
 	const char* SPRITE_VERTEX_SOURCE = R"(

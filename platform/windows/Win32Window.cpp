@@ -7,17 +7,8 @@
 #include <hypermath.h>
 
 #include <Windows.h>
-#include <Xinput.h>
 
 // FORWARD DECLARATIONS
-namespace AB::GL {
-	bool32 LoadFunctions();
-	bool32 LoadExtensions();
-	void InitAPI();
-}
-
-// TODO:
-// -- WGL_ARB_framebuffer_sRGB
 
 // Macros from windowsx.h
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
@@ -25,45 +16,11 @@ namespace AB::GL {
 
 #define AB_KEY_REPEAT_COUNT_FROM_LPARAM(lParam) static_cast<uint16>(lParam & 0xffff >> 2)
 
-// XInput functions definitions
-
-typedef DWORD WINAPI _Win32XInputGetState(DWORD dwUserIndex, XINPUT_STATE* pState);
-typedef DWORD WINAPI _Win32XInputSetState(DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
-
-// Dummy functions for use if XInput loading failed. Is will work as is no device connected
-inline static DWORD WINAPI __Win32XInputGetStateDummy(DWORD dwUserIndex, XINPUT_STATE* pState) {
-	return ERROR_DEVICE_NOT_CONNECTED;
-}
-
-inline static DWORD WINAPI __Win32XInputSetStateDummy(DWORD dwUserIndex, XINPUT_VIBRATION* pVibration) {
-	return ERROR_DEVICE_NOT_CONNECTED;
-}
-
-static _Win32XInputGetState* Win32XInputGetState = __Win32XInputGetStateDummy;
-static _Win32XInputSetState* Win32XInputSetState = __Win32XInputSetStateDummy;
-
-// ^^^ XInput functions definitions
-
 namespace AB {
-	static const char* AB_XINPUT_DLL = "xinput1_3.dll";
 	static const char* WINDOW_CLASS_NAME = "Aberration Engine Win32";
 
 	static constexpr uint32 OPENGL_MAJOR_VERSION = 4;
 	static constexpr uint32 OPENGL_MINOR_VERSION = 5;
-
-	static constexpr uint32 GAMEPAD_STATE_ARRAY_SIZE = GAMEPAD_BUTTONS_COUNT * XUSER_MAX_COUNT;
-	
-	struct GamepadAnalogCtrl {
-		int16 leftStickX;
-		int16 leftStickY;
-		int16 rightStickX;
-		int16 rightStickY;
-		byte leftTrigger;
-		byte rightTrigger;
-		uint16 leftStickDeadZone;
-		uint16 rightStickDeadZone;
-		byte triggerDeadZone;
-	};
 
 	struct Win32KeyState {
 		bool currentState;
@@ -96,20 +53,10 @@ namespace AB {
 		PlatformMouseLeaveCallbackFn* PlatformMouseLeaveCallback;
 		PlatformMouseScrollCallbackFn* PlatformMouseScrollCallback;
 
-#if 0
-		bool32 gamepadCurrentState[GAMEPAD_STATE_ARRAY_SIZE];
-		bool32 gamepadPrevState[GAMEPAD_STATE_ARRAY_SIZE];
-		GamepadAnalogCtrl gamepadAnalogControls[XUSER_MAX_COUNT];
-		PlatformGamepadButtonCallback* gamepadButtonCallback;
-		PlatformGamepadStickCallback* gamepadStickCallback;
-		PlatformGamepadTriggerCallback* gamepadTriggerCallback;
-#endif
 		uint8 keyTable[KEYBOARD_KEYS_COUNT];
 	};
 
 	static LRESULT CALLBACK _Win32WindowCallback(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam);
-	//static void _Win32GamepadUpdate(WindowProperties* props);
-	//static void _Win32LoadXInput();
 	static void _Win32InitOpenGL(WindowProperties* winProps);
 	static void _Win32InitKeyTable(uint8* keytable);
 	static uint8 _Win32KeyConvertToABKeycode(WindowProperties* window, uint64 Win32Key);
@@ -241,73 +188,6 @@ namespace AB {
 	bool WindowMouseInClientArea(WindowProperties* window) {
 		return window->mouseInClientArea;
 	}
-
-#if 0
-	bool WindowGamepadButtonPressed(uint8 gamepadNumber, GamepadButton button) {
-		auto window = PermStorage()->window;
-
-		if (gamepadNumber >= XUSER_MAX_COUNT)
-			return false;
-		return window->gamepadCurrentState[gamepadNumber * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(button)]
-			&& !window->gamepadPrevState[gamepadNumber * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(button)];
-	}
-
-	bool WindowGamepadButtonReleased(uint8 gamepadNumber, GamepadButton button) {
-		auto window = PermStorage()->window;
-
-		if (gamepadNumber >= XUSER_MAX_COUNT)
-			return false;
-		return !window->gamepadCurrentState[gamepadNumber * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(button)]
-			&& window->gamepadPrevState[gamepadNumber * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(button)];
-	}
-
-	bool WindowGamepadButtonHeld(uint8 gamepadNumber, GamepadButton button) {
-		auto window = PermStorage()->window;
-
-		if (gamepadNumber < XUSER_MAX_COUNT)
-			return window->gamepadCurrentState[gamepadNumber * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(button)];
-		else
-			return 0;
-	}
-
-	void WindowGetGamepadStickPosition(uint8 gamepadNumber, int16& leftX, int16& leftY, int16& rightX, int16& rightY) {
-		auto window = PermStorage()->window;
-
-		if (gamepadNumber < XUSER_MAX_COUNT) {
-			leftX = window->gamepadAnalogControls[gamepadNumber].leftStickX;
-			leftY = window->gamepadAnalogControls[gamepadNumber].leftStickY;
-			rightX = window->gamepadAnalogControls[gamepadNumber].rightStickX;
-			rightY = window->gamepadAnalogControls[gamepadNumber].rightStickY;
-		}
-	}
-
-	void WindowGetGamepadTriggerPosition(uint8 gamepadNumber, byte& lt, byte& rt) {
-		auto window = PermStorage()->window;
-
-		if (gamepadNumber < XUSER_MAX_COUNT) {
-			lt = window->gamepadAnalogControls[gamepadNumber].leftTrigger;
-			rt = window->gamepadAnalogControls[gamepadNumber].rightTrigger;
-		}
-	}
-
-	void WindowSetGamepadButtonCallback(PlatformGamepadButtonCallback* func) {
-		auto window = PermStorage()->window;
-
-		window->gamepadButtonCallback = func;
-	}
-
-	void WindowSetGamepadStickCallback(PlatformGamepadStickCallback* func) {
-		auto window = PermStorage()->window;
-
-		window->gamepadStickCallback = func;
-	}
-
-	void WindowSetGamepadTriggerCallback(PlatformGamepadTriggerCallback* func) {
-		auto window = PermStorage()->window;
-
-		window->gamepadTriggerCallback = func;
-	}
-#endif
 
 	void _Win32Initialize(WindowProperties* window) {
 		auto instance = GetModuleHandle(0);
@@ -459,20 +339,7 @@ namespace AB {
 
 		SetFocus(window->Win32WindowHandle);
 
-		//_Win32LoadXInput();
-
 		//GL::InitAPI();
-#if 0
-		// TODO: Move to function
-		for (uint32 i = 0; i < XUSER_MAX_COUNT; i++) {
-			window->gamepadAnalogControls[i].leftStickDeadZone =
-				XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE;
-			window->gamepadAnalogControls[i].rightStickDeadZone =
-				XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE;
-			window->gamepadAnalogControls[i].triggerDeadZone =
-				XINPUT_GAMEPAD_TRIGGER_THRESHOLD;
-		}
-#endif
 	}
 
 	static LRESULT CALLBACK _Win32WindowCallback(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -504,8 +371,6 @@ namespace AB {
 			} break;
 
 			case WM_DESTROY: {
-				//ab_delete_scalar window;
-				//ab_delete_scalar window;
 				PostQuitMessage(0);
 			} break;
 
@@ -683,85 +548,6 @@ namespace AB {
 		return result;
 	}
 	
-#if 0
-	static void _Win32GamepadUpdate(WindowProperties* props) {
-		for (DWORD cIndex = 0; cIndex < XUSER_MAX_COUNT; cIndex++) {
-			XINPUT_STATE cState;
-			auto result = Win32XInputGetState(cIndex, &cState);
-			if (result == ERROR_SUCCESS) {
-				memcpy(props->gamepadPrevState, props->gamepadCurrentState, sizeof(bool32) * GAMEPAD_BUTTONS_COUNT * XUSER_MAX_COUNT);
-
-				XINPUT_GAMEPAD* gamepad = &cState.Gamepad;
-
-				props->gamepadCurrentState[cIndex * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(GamepadButton::A)] = gamepad->wButtons & XINPUT_GAMEPAD_A;
-				props->gamepadCurrentState[cIndex * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(GamepadButton::B)] = gamepad->wButtons & XINPUT_GAMEPAD_B;
-				props->gamepadCurrentState[cIndex * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(GamepadButton::X)] = gamepad->wButtons & XINPUT_GAMEPAD_X;
-				props->gamepadCurrentState[cIndex * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(GamepadButton::Y)] = gamepad->wButtons & XINPUT_GAMEPAD_Y;
-				props->gamepadCurrentState[cIndex * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(GamepadButton::LeftStick)] = gamepad->wButtons & XINPUT_GAMEPAD_LEFT_THUMB;
-				props->gamepadCurrentState[cIndex * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(GamepadButton::RightStick)] = gamepad->wButtons & XINPUT_GAMEPAD_RIGHT_THUMB;
-				props->gamepadCurrentState[cIndex * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(GamepadButton::LeftButton)] = gamepad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER;
-				props->gamepadCurrentState[cIndex * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(GamepadButton::RightButton)] = gamepad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
-				props->gamepadCurrentState[cIndex * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(GamepadButton::Start)] = gamepad->wButtons & XINPUT_GAMEPAD_START;
-				props->gamepadCurrentState[cIndex * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(GamepadButton::Back)] = gamepad->wButtons & XINPUT_GAMEPAD_BACK;
-				props->gamepadCurrentState[cIndex * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(GamepadButton::DPadUp)] = gamepad->wButtons & XINPUT_GAMEPAD_DPAD_UP;
-				props->gamepadCurrentState[cIndex * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(GamepadButton::DPadDown)] = gamepad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
-				props->gamepadCurrentState[cIndex * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(GamepadButton::DPadLeft)] = gamepad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
-				props->gamepadCurrentState[cIndex * GAMEPAD_BUTTONS_COUNT + static_cast<uint8>(GamepadButton::DPadRight)] = gamepad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
-
-				props->gamepadAnalogControls[cIndex].leftStickX = gamepad->sThumbLX;
-				props->gamepadAnalogControls[cIndex].leftStickY = gamepad->sThumbLY;
-				props->gamepadAnalogControls[cIndex].rightStickX = gamepad->sThumbRX;
-				props->gamepadAnalogControls[cIndex].rightStickY = gamepad->sThumbRY;
-
-				props->gamepadAnalogControls[cIndex].leftTrigger = gamepad->bLeftTrigger;
-				props->gamepadAnalogControls[cIndex].rightTrigger = gamepad->bRightTrigger;
-
-				if (props->gamepadButtonCallback) {
-					for (uint32 i = 0; i < GAMEPAD_BUTTONS_COUNT * XUSER_MAX_COUNT; i++) {
-						if (props->gamepadCurrentState[i] != props->gamepadPrevState[i]) {
-							auto btn = static_cast<uint8>(i % ((cIndex + 1) * GAMEPAD_BUTTONS_COUNT));
-							props->gamepadButtonCallback(static_cast<uint8>(cIndex), static_cast<GamepadButton>(btn),
-														 props->gamepadCurrentState[i], props->gamepadPrevState[i]);
-						}
-					}
-				}
-
-				if (props->gamepadStickCallback) {
-					if (props->gamepadAnalogControls->leftStickDeadZone < std::abs(gamepad->sThumbLX) ||
-						props->gamepadAnalogControls->leftStickDeadZone < std::abs(gamepad->sThumbLY) ||
-						props->gamepadAnalogControls->rightStickDeadZone < std::abs(gamepad->sThumbRX) ||
-						props->gamepadAnalogControls->rightStickDeadZone < std::abs(gamepad->sThumbRY))
-					{
-						props->gamepadStickCallback(static_cast<uint8>(cIndex), gamepad->sThumbLX, gamepad->sThumbLY,
-													gamepad->sThumbRX, gamepad->sThumbRY);
-					}
-				}
-
-				if (props->gamepadTriggerCallback) {
-					if (props->gamepadAnalogControls->triggerDeadZone < gamepad->bLeftTrigger ||
-						props->gamepadAnalogControls->triggerDeadZone < gamepad->bRightTrigger)
-					{
-						props->gamepadTriggerCallback(static_cast<uint8>(cIndex), gamepad->bLeftTrigger, gamepad->bRightTrigger);
-					}
-				}
-			}
-		}
-	}
-	
-	static void _Win32LoadXInput() {
-		// TODO: try another versions
-		HMODULE xInputLibrary = LoadLibrary(AB_XINPUT_DLL);
-		if (xInputLibrary) {
-			Win32XInputGetState = reinterpret_cast<_Win32XInputGetState*>(GetProcAddress(xInputLibrary, "XInputGetState"));
-			Win32XInputSetState = reinterpret_cast<_Win32XInputSetState*>(GetProcAddress(xInputLibrary, "XInputSetState"));
-		}
-		else {
-			AB_CORE_ERROR("Failed to load xinput1_3.dll. Gamepad is not working");
-		}
-	}
-
-#endif
-
 	static uint8 _Win32KeyConvertToABKeycode(WindowProperties* window, uint64 Win32Key) {
 		if (Win32Key < KEYBOARD_KEYS_COUNT)
 			return window->keyTable[Win32Key];

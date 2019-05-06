@@ -1,6 +1,6 @@
 #pragma once
 #include "AB.h"
-#include "ImageLoader.h"
+#include "../ImageLoader.h"
 
 namespace hpm {
 	union Vector2;

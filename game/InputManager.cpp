@@ -103,7 +103,7 @@ namespace AB {
 				e.mouse_moved_event.y = offset_y;
 
 				DispatchEvent(mgr, &e);
-				PlatformSetCorsorPosition(x_mid, y_mid);
+				PlatformSetCursorPosition(x_mid, y_mid);
 			}
 		} else if (mgr->mouse_mode == MouseMode::Cursor) {
 			mgr->mouse_frame_offset_x += (float32)x_pos - mgr->mouse_pos_x;

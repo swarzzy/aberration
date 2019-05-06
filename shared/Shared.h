@@ -73,11 +73,13 @@ namespace AB
 	typedef u32(DebugReadTextFileFn)(void* buffer, u32 bufferSize,
 								 const char* filename);
 
+	typedef void(GetLocalTimeFn)(DateTime* datetime);
+
 	struct PlatformFuncTable
 	{
 		RegisterInputManagerFn* RegisterInputManager;
 		WindowGetSizeFn* WindowGetSize;
-		WindowSetMousePositionFn* PlatformSetCorsorPosition;
+		WindowSetMousePositionFn* PlatformSetCursorPosition;
 		WindowActiveFn* WindowActive;
 		ConsolePrintFn* ConsolePrint;
 		ConsoleSetColorFn* ConsoleSetColor;
@@ -85,6 +87,7 @@ namespace AB
 		DebugGetFileSizeFn* DebugGetFileSize;
 		DebugReadFileFn* DebugReadFile;
 		DebugReadTextFileFn* DebugReadTextFile;
+		GetLocalTimeFn* GetLocalTime;
 	};
 
 	struct PlatformState

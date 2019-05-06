@@ -63,7 +63,7 @@ namespace AB {
 		
 		app->state.functions.RegisterInputManager = _WindowRegisterInputManager;
 		app->state.functions.WindowGetSize = _WindowGetSize;
-		app->state.functions.PlatformSetCorsorPosition = _WindowSetMousePosition;
+		app->state.functions.PlatformSetCursorPosition = _WindowSetMousePosition;
 		app->state.functions.WindowActive = _WindowActive;
 
 		app->state.functions.ConsolePrint = ConsolePrint;
@@ -72,6 +72,7 @@ namespace AB {
 		app->state.functions.DebugGetFileSize = DebugGetFileSize;
 		app->state.functions.DebugReadFile = DebugReadFileToBuffer;
 		app->state.functions.DebugReadTextFile = DebugReadTextFileToBuffer;
+		app->state.functions.GetLocalTime = GetLocalTime;
 		
 		app->gameCode = AllocateGameCodeStruct(app->systemMemory);
 		char execPath[256];
@@ -109,7 +110,7 @@ namespace AB {
 							  &app->state.windowWidth,
 							  &app->state.windowHeight);
 				app->state.windowActive = WindowActive(app->window);
-				GetLocalTime(app->state.localTime);
+				GetLocalTime(&app->state.localTime);
 
 				b32 codeReloaded = UpdateGameCode(app->gameCode, app->window);
 				if (codeReloaded)
@@ -141,7 +142,6 @@ namespace AB {
 
 int main()
 {
-	AB::CreateMemoryContext();
 	AB::MemoryArena* sysArena = AB::AllocateArena(MEGABYTES(8));
 	AB::Application* app = AB::AppCreate(sysArena);
 	AB::AppRun(app);

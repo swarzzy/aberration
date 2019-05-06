@@ -1,9 +1,9 @@
 #pragma once
 #include "AB.h"
 #include <hypermath.h>
-#include "ExtendedMath.h"
+#include "../ExtendedMath.h"
 #include "RenderGroup.h"
-#include "GraphicsPipeline.h"
+#include "../GraphicsPipeline.h"
 
 namespace AB::API
 {

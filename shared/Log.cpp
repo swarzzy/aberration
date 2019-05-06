@@ -2,17 +2,6 @@
 #include <cstdarg>
 #include <cstring>
 
-#if defined(PLATFORM_CODE)
-#include "Common.h"
-#elif defined(GAME_CODE)
-namespace AB
-{
-extern AB::PlatformState* g_Platform;
-}
-#else
-#error No PLATFORM_CODE or GAME_CODE defined
-#endif
-
 namespace AB {
 	
 	u32 DateTimeToString(DateTime* dt, char* buffer, u32 bufferSize)
@@ -50,11 +39,7 @@ namespace AB {
 
 	static void OutCharConsole(char** at, uint32* destSize, char ch) {
 		if (ch) {
-#if defined(PLATFORM_CODE)
 			ConsolePrint((void*)(&ch), 1);
-#elif defined(GAME_CODE)
-			g_Platform->functions.ConsolePrint((void*)(&ch), 1);
-#endif
 		}
 	}
 
@@ -103,7 +88,7 @@ namespace AB {
 		} break;
 		default: {
 			// TODO: Handle it more properly
-			AB_DEBUG_BREAK();
+			result = 0;
 		} break;
 		}
 		return result;
@@ -126,7 +111,7 @@ namespace AB {
 		} break;
 		default: {
 			// TODO: Handle it more properly
-			AB_DEBUG_BREAK();
+			result = 0;
 		} break;
 		}
 		return result;
@@ -146,7 +131,7 @@ namespace AB {
 		} break;
 		default: {
 			// TODO: Handle it more properly
-			AB_DEBUG_BREAK();
+			result = 0;
 		} break;
 		}
 		return result;
@@ -939,89 +924,62 @@ namespace AB {
 			switch (level) {
 			case LogLevel::Info: {
 				DateTime time = {};
-				ConsoleSetColorFn* setColor = nullptr;
-#if defined(PLATFORM_CODE)
-				GetLocalTime(time);
-				setColor = ConsoleSetColor;
-#elif defined(GAME_CODE)
-				time = g_Platform->localTime;
-				setColor = g_Platform->functions.ConsoleSetColor;
-#endif
+				GetLocalTime(&time);
 				char timeBuffer[DATETIME_STRING_SIZE];
 				DateTimeToString(&time,
 								 timeBuffer, DATETIME_STRING_SIZE);
-				setColor(ConsoleColor::DarkGreen, ConsoleColor::Black);
+				ConsoleSetColor(ConsoleColor::DarkGreen, ConsoleColor::Black);
 				PrintString("%s: ", timeBuffer);
 				FormatStringV(nullptr, 1, fmt, OutCharConsole, &args);
 				PrintString("\n\n");
-				setColor(ConsoleColor::DarkWhite, ConsoleColor::Black);
+				ConsoleSetColor(ConsoleColor::DarkWhite, ConsoleColor::Black);
 			} break;
 
 			case LogLevel::Warn: {
 				DateTime time = {};
 				ConsoleSetColorFn* setColor =  nullptr;
-#if defined(PLATFORM_CODE)
-				GetLocalTime(time);
-				setColor = ConsoleSetColor;
-#elif defined(GAME_CODE)
-				time = g_Platform->localTime;
-				setColor = g_Platform->functions.ConsoleSetColor;
-#endif
-
+				GetLocalTime(&time);
 				char timeBuffer[DATETIME_STRING_SIZE];
 				DateTimeToString(&time, timeBuffer, DATETIME_STRING_SIZE);
-				setColor(ConsoleColor::DarkYellow, ConsoleColor::Black);
+				ConsoleSetColor(ConsoleColor::DarkYellow, ConsoleColor::Black);
 				PrintString("%s: ", timeBuffer);
 				FormatStringV(nullptr, 1, fmt, OutCharConsole, &args);
 				char fileBuffer[256];
 				memcpy(fileBuffer, file, 256);
 				CutFilenameFromEnd(fileBuffer);
 				PrintString("\n->FILE: %s\n->FUNC: %s\n->LINE: %u32\n\n", fileBuffer, func, line);
-				setColor(ConsoleColor::DarkWhite, ConsoleColor::Black);
+				ConsoleSetColor(ConsoleColor::DarkWhite, ConsoleColor::Black);
 			} break;
 
 			case LogLevel::Error: {
 				DateTime time = {};
 				ConsoleSetColorFn* setColor = nullptr;
-#if defined(PLATFORM_CODE)
-				GetLocalTime(time);
-				setColor = ConsoleSetColor;
-#elif defined(GAME_CODE)
-				time = g_Platform->localTime;
-				setColor = g_Platform->functions.ConsoleSetColor;
-#endif
+				GetLocalTime(&time);
 				char timeBuffer[DATETIME_STRING_SIZE];
 				DateTimeToString(&time, timeBuffer, DATETIME_STRING_SIZE);
-				setColor(ConsoleColor::Red, ConsoleColor::Black);
+				ConsoleSetColor(ConsoleColor::Red, ConsoleColor::Black);
 				PrintString("%s: ", timeBuffer);
 				FormatStringV(nullptr, 1, fmt, OutCharConsole, &args);
 				char fileBuffer[256];
 				memcpy(fileBuffer, file, 256);
 				CutFilenameFromEnd(fileBuffer);
 				PrintString("\n->FILE: %s\n->FUNC: %s\n->LINE: %u32\n\n", fileBuffer, func, line);
-				setColor(ConsoleColor::DarkWhite, ConsoleColor::Black);
+				ConsoleSetColor(ConsoleColor::DarkWhite, ConsoleColor::Black);
 			} break;
 
 			case LogLevel::Fatal: {
 				DateTime time = {};
-				ConsoleSetColorFn* setColor = nullptr;
-#if defined(PLATFORM_CODE)
-				GetLocalTime(time);
-				setColor = ConsoleSetColor;
-#elif defined(GAME_CODE)
-				time = g_Platform->localTime;
-				setColor = g_Platform->functions.ConsoleSetColor;
-#endif
+				GetLocalTime(&time);
 				char timeBuffer[DATETIME_STRING_SIZE];
 				DateTimeToString(&time, timeBuffer, DATETIME_STRING_SIZE);
-				setColor(ConsoleColor::DarkRed, ConsoleColor::Black);
+				ConsoleSetColor(ConsoleColor::DarkRed, ConsoleColor::Black);
 				PrintString("%s: ", timeBuffer);
 				FormatStringV(nullptr, 1, fmt, OutCharConsole, &args);
 				char fileBuffer[256];
 				memcpy(fileBuffer, file, 256);
 				CutFilenameFromEnd(fileBuffer);
 				PrintString("\n->FILE: %s\n->FUNC: %s\n->LINE: %u32\n\n", fileBuffer, func, line);
-				setColor(ConsoleColor::DarkWhite, ConsoleColor::Black);
+				ConsoleSetColor(ConsoleColor::DarkWhite, ConsoleColor::Black);
 			} break;
 
 			default: {
@@ -1033,47 +991,33 @@ namespace AB {
 
 	void LogAssert(LogLevel level, const char* file, const char* func, uint32 line, const char* assertStr) {
 		DateTime time = {};
-		ConsoleSetColorFn* setColor = nullptr;
-#if defined(PLATFORM_CODE)
-		GetLocalTime(time);
-		setColor = ConsoleSetColor;
-#elif defined(GAME_CODE)
-		time = g_Platform->localTime;
-		setColor = g_Platform->functions.ConsoleSetColor;
-#endif
+		GetLocalTime(&time);
 		char timeBuffer[DATETIME_STRING_SIZE];
 		DateTimeToString(&time, timeBuffer, DATETIME_STRING_SIZE);
-		setColor(ConsoleColor::DarkRed, ConsoleColor::Black);
+		ConsoleSetColor(ConsoleColor::DarkRed, ConsoleColor::Black);
 		PrintString("%s: ASSERTION FAILED!\n", timeBuffer);
 		char fileBuffer[256];
 		memcpy(fileBuffer, file, 256);
 		CutFilenameFromEnd(fileBuffer);
 		PrintString("\n->EXPR: %s \n->FILE: %s\n->FUNC: %s\n->LINE: %u32\n\n", assertStr, fileBuffer, func, line);
-		setColor(ConsoleColor::DarkWhite, ConsoleColor::Black);
+		ConsoleSetColor(ConsoleColor::DarkWhite, ConsoleColor::Black);
 	}
 
 	void LogAssert(LogLevel level, const char* file, const char* func, uint32 line, const char* assertStr, const char* fmt, ...) {
 		va_list args;
 		va_start(args, fmt);
 		DateTime time = {};
-		ConsoleSetColorFn* setColor = nullptr;
-#if defined(PLATFORM_CODE)
-		GetLocalTime(time);
-		setColor = ConsoleSetColor;
-#elif defined(GAME_CODE)
-		time = g_Platform->localTime;
-		setColor = g_Platform->functions.ConsoleSetColor;
-#endif
+		GetLocalTime(&time);
 		char timeBuffer[DATETIME_STRING_SIZE];
 		DateTimeToString(&time ,timeBuffer, DATETIME_STRING_SIZE);
-		setColor(ConsoleColor::DarkRed, ConsoleColor::Black);
+		ConsoleSetColor(ConsoleColor::DarkRed, ConsoleColor::Black);
 		PrintString("%s: ASSERTION FAILED!\n", timeBuffer);
 		FormatStringV(nullptr, 1, fmt, OutCharConsole, &args);
 		char fileBuffer[256];
 		memcpy(fileBuffer, file, 256);
 		CutFilenameFromEnd(fileBuffer);
 		PrintString("\n->EXPR: %s \n->FILE: %s\n->FUNC: %s\n->LINE: %u32\n\n",assertStr, fileBuffer, func, line);
-		setColor(ConsoleColor::DarkWhite, ConsoleColor::Black);
+		ConsoleSetColor(ConsoleColor::DarkWhite, ConsoleColor::Black);
 		va_end(args);
 	}
 

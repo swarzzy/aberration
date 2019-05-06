@@ -2,7 +2,6 @@
 #include <hypermath.h>
 #include "AB.h"
 #include "Shared.h"
-#include "Log.cpp"
 #include "Memory.h"
 #include "OpenGL.h"
 #include "InputManager.h"
@@ -36,14 +35,23 @@ namespace AB
 
 #define GlobalDeltaTime g_Platform->deltaTime
 
+// NOTE: Why clang inserts the dot by itself
+#if defined(_MSC_VER)
 #define PLATFORM_FUNCTION(func) g_Platform->functions.##func
+#else
+#define PLATFORM_FUNCTION(func) g_Platform->functions. func
+#endif
+	
 
 #define DebugReadFilePermanent PLATFORM_FUNCTION(DebugReadFilePermanent)
 #define WindowGetSize PLATFORM_FUNCTION(WindowGetSize)
 #define DebugGetFileSize PLATFORM_FUNCTION(DebugGetFileSize)
 #define DebugReadFile PLATFORM_FUNCTION(DebugReadFile)
 #define DebugReadTextFile PLATFORM_FUNCTION(DebugReadTextFile)
-#define PlatformSetCorsorPosition PLATFORM_FUNCTION(PlatformSetCorsorPosition)
+#define PlatformSetCursorPosition PLATFORM_FUNCTION(PlatformSetCursorPosition)
+#define GetLocalTime PLATFORM_FUNCTION(GetLocalTime)
+#define ConsoleSetColor PLATFORM_FUNCTION(ConsoleSetColor)
+#define ConsolePrint PLATFORM_FUNCTION(ConsolePrint)
 
 #define GL_FUNCTION(func) g_OpenGLFuncTable->_##func
 
@@ -254,6 +262,7 @@ extern "C" GAME_CODE_ENTRY void GameRender(AB::MemoryArena* arena,
 	InputEndFrame(g_StaticStorage->inputManager);
 }
 
+#include "Log.cpp"
 #include "InputManager.cpp"
 #include "ExtendedMath.cpp"
 #include "ImageLoader.cpp"

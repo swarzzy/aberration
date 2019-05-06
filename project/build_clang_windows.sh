@@ -10,20 +10,20 @@ mkdir -p $ObjOutDir
 
 project/ctime -begin build/ab_ctime.ctm
 
-IncludeDirs="-Iaberration -Ihypermath"
+IncludeDirs="-Ishared -Ihypermath"
 CommonDefines="-DAB_CONFIG_DEBUG -DAB_PLATFORM_WINDOWS -D_CRT_SECURE_NO_WARNINGS" 
-LibDefines="-DAB_BUILD_DLL -DWIN32_LEAN_AND_MEAN"
+#LibDefines="-DAB_BUILD_DLL -DWIN32_LEAN_AND_MEAN"
 CommonCompilerFlags="-std=c++17 -ffast-math -fno-rtti -fno-exceptions -static-libgcc -static-libstdc++ -fno-strict-aliasing -Werror"
 DebugCompilerFlags="-O0 -fno-inline-functions -g"
 ReleaseCompilerFlags="-O2 -finline-functions -g"
-LibLinkerFlags="-lgdi32 -lopengl32"
-AppLinkerFlags="-L$BinOutDir/ -laberration"
+PlatformLinkerFlags="-lgdi32 -lopengl32"
+GameLinkerFlags=""
 
 ConfigCompilerFlags=$DebugCompilerFlags
 
-clang++ -save-temps=obj -o $BinOutDir/aberration.lib $CommonDefines $LibDefines $IncludeDirs $CommonCompilerFlags $ConfigCompilerFlags -shared aberration/ab.cpp $LibLinkerFlags
+clang++ -save-temps=obj -DPLATFORM_CODE -o $BinOutDir/aberration.exe $CommonDefines $IncludeDirs $CommonCompilerFlags $ConfigCompilerFlags platform/Platform.cpp $PlatformLinkerFlags
 
-clang++ -save-temps=obj -o $BinOutDir/sandbox.exe $CommonDefines $IncludeDirs $CommonCompilerFlags $ConfigCompilerFlags sandbox/sandbox.cpp $AppLinkerFlags
+clang++ -save-temps=obj -DGAME_CODE -o $BinOutDir/Game.dll $CommonDefines $IncludeDirs $CommonCompilerFlags $ConfigCompilerFlags game/Game.cpp -shared  $AppLinkerFlags
 
 if [[ "$BuildTools" = true ]];
 then

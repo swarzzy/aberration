@@ -1,9 +1,9 @@
 #include "Renderer.h"
 #include "OpenGL.h"
-#include "ImageLoader.h"
+#include "../ImageLoader.h"
 #include "Memory.h"
-#include "AssetManager.h"
-#include "GraphicsPipeline.h"
+#include "../AssetManager.h"
+#include "../GraphicsPipeline.h"
 
 namespace AB
 {
@@ -121,8 +121,11 @@ out_FragColor = v4(pow(mappedColor, 1.0f / v3(u_Gamma)), 1.0f);
 		u32 postfxFBOHandle;
 		i32 programHandle;		
 	};
-
-	static u32 RendererCreateProgram(const char* vertexSource, const char* fragmentSource) 
+	// NOTE: Does not setting temp arena point and does not flushes at the end.
+	// TODO: Implement memory stack propperly
+	static u32 RendererCreateProgram(MemoryArena* tempArena,
+									 const char* vertexSource,
+									 const char* fragmentSource) 
 	{
 
 		const char* commonShaderHeader = R"(
@@ -162,18 +165,28 @@ v3 sys_ViewPos;};
 		u64 fragmentSourceLength = strlen(fragmentSource);
 		u64 vertexSourceLength = strlen(vertexSource);
 
-		// TODO: allocation
-		char* fullVertexSource = (char*)malloc(commonHeaderLength + vertexHeaderLength + vertexSourceLength + 1);
+		uptr vertexSourceSize = commonHeaderLength +
+			vertexHeaderLength + vertexSourceLength + 1;
+		char* fullVertexSource = (char*)PushSize(tempArena, vertexSourceSize, 0);
 		AB_CORE_ASSERT(fullVertexSource);
 		CopyArray(char, commonHeaderLength, fullVertexSource, commonShaderHeader);
-		CopyArray(char, vertexHeaderLength, fullVertexSource + commonHeaderLength, vertexShaderHeader);
-		CopyArray(char, vertexSourceLength + 1, fullVertexSource + commonHeaderLength + vertexHeaderLength, vertexSource);
+		CopyArray(char, vertexHeaderLength, fullVertexSource + commonHeaderLength,
+				  vertexShaderHeader);
+		CopyArray(char, vertexSourceLength + 1,
+				  fullVertexSource + commonHeaderLength + vertexHeaderLength,
+				  vertexSource);
 
-		char* fullFragmentSource = (char*)malloc(commonHeaderLength + fragmentHeaderLength + fragmentSourceLength + 1);
+		uptr fragSourceSize = commonHeaderLength + fragmentHeaderLength +
+			fragmentSourceLength + 1;
+		char* fullFragmentSource = (char*)PushSize(tempArena, fragSourceSize, 0);
 		AB_CORE_ASSERT(fullFragmentSource);
-		CopyArray(char, commonHeaderLength, fullFragmentSource, commonShaderHeader);
-		CopyArray(char, fragmentHeaderLength, fullFragmentSource + commonHeaderLength, fragmentShaderHeader);
-		CopyArray(char, fragmentSourceLength + 1, fullFragmentSource + commonHeaderLength + fragmentHeaderLength, fragmentSource);
+		CopyArray(char, commonHeaderLength, fullFragmentSource,
+				  commonShaderHeader);
+		CopyArray(char, fragmentHeaderLength,
+				  fullFragmentSource + commonHeaderLength, fragmentShaderHeader);
+		CopyArray(char, fragmentSourceLength + 1,
+				  fullFragmentSource + commonHeaderLength + fragmentHeaderLength,
+				  fragmentSource);
 
 		u32 resultHandle = 0;
 		GLint vertexHandle;
@@ -219,7 +232,8 @@ v3 sys_ViewPos;};
 								i32 logLength;
 								GLCall(glGetProgramiv(programHandle, GL_INFO_LOG_LENGTH, &logLength));
 								// TODO: Allocator
-								char* message = (char*)malloc(logLength);
+								char* message = (char*)PushSize(tempArena,
+																logLength, 0);
 								AB_CORE_ASSERT(message);
 								GLCall(glGetProgramInfoLog(programHandle, logLength, 0, message));
 								AB_CORE_ERROR("Shader program linking error:\n%s", message);
@@ -236,7 +250,8 @@ v3 sys_ViewPos;};
 						GLint logLength;
 						GLCall(glGetShaderiv(fragmentHandle, GL_INFO_LOG_LENGTH, &logLength));
 						// TODO: Allocators
-						GLchar* message = (GLchar*)malloc(logLength);
+						GLchar* message = (GLchar*)PushSize(tempArena,
+															logLength, 0);
 						AB_CORE_ASSERT(message);
 						GLCall(glGetShaderInfoLog(fragmentHandle, logLength, nullptr, message));
 						AB_CORE_ERROR("Frgament shader compilation error:\n%s", message);
@@ -253,7 +268,7 @@ v3 sys_ViewPos;};
 				GLint logLength;
 				GLCall(glGetShaderiv(vertexHandle, GL_INFO_LOG_LENGTH, &logLength));
 				// TODO: Allocators
-				GLchar* message = (GLchar*)malloc(logLength);
+				GLchar* message = (GLchar*)PushSize(tempArena, logLength, 0);
 				AB_CORE_ASSERT(message);
 				GLCall(glGetShaderInfoLog(vertexHandle, logLength, nullptr, message));
 				AB_CORE_ERROR("Vertex shader compilation error:\n%s", message);
@@ -264,9 +279,6 @@ v3 sys_ViewPos;};
 		{
 			AB_CORE_ERROR("Falled to create vertex shader");
 		}
-
-		free(fullVertexSource);
-		free(fullFragmentSource);
 
 		return resultHandle;
 	}
@@ -470,11 +482,12 @@ v3 sys_ViewPos;};
 		AB_CORE_ASSERT(vRead == vSize + 1);
 		AB_CORE_ASSERT(fRead == fSize + 1);
 
-   		renderer->impl->programHandle = RendererCreateProgram((const char*)vertexSource,
-															  (const char*)fragSource);
-		renderer->impl->postFXProgramHandle = RendererCreateProgram(POSTFX_VERTEX_PROGRAM,
-																	POSTFX_FRAGMENT_PROGRAM);
-		EndTemporaryMemory(tempArena);
+   		renderer->impl->programHandle =
+			RendererCreateProgram(tempArena, (const char*)vertexSource,
+								  (const char*)fragSource);
+		renderer->impl->postFXProgramHandle =
+			RendererCreateProgram(tempArena, POSTFX_VERTEX_PROGRAM,
+								  POSTFX_FRAGMENT_PROGRAM);
 				
 		u32 sysVertexUB;
 		GLCall(glGenBuffers(1, &sysVertexUB));
@@ -486,21 +499,25 @@ v3 sys_ViewPos;};
 		u32 pointLightUB;
 		GLCall(glGenBuffers(1, &pointLightUB));
 		GLCall(glBindBuffer(GL_UNIFORM_BUFFER, pointLightUB));
-		GLCall(glBufferData(GL_UNIFORM_BUFFER, POINT_LIGHT_UBO_SIZE, NULL, GL_DYNAMIC_DRAW));
+		GLCall(glBufferData(GL_UNIFORM_BUFFER, POINT_LIGHT_UBO_SIZE,
+							NULL, GL_DYNAMIC_DRAW));
 		GLCall(glBindBuffer(GL_UNIFORM_BUFFER, 0));
 		renderer->impl->pointLightUBHandle = pointLightUB;
 	   
-		renderer->impl->skyboxProgramHandle = RendererCreateProgram(SKYBOX_VERTEX_PROGRAM,
-																	SKYBOX_FRAGMENT_PROGRAM);
+		renderer->impl->skyboxProgramHandle =
+			RendererCreateProgram(tempArena,
+								  SKYBOX_VERTEX_PROGRAM, SKYBOX_FRAGMENT_PROGRAM);
 
 		renderer->impl->multisampledFBOHandle = CreateFramebuffer();
 		renderer->impl->postfxFBOHandle = CreateFramebuffer();
 
-		_ReloadMultisampledFramebuffer(renderer, true, renderer->config.numSamples);
+		_ReloadMultisampledFramebuffer(renderer, true,
+									   renderer->config.numSamples);
 		_ReloadDownsampledFramebuffer(renderer, true);
 
 		BindFramebuffer(DEFAULT_FB_HANDLE, FB_TARGET_DRAW);
 
+		EndTemporaryMemory(tempArena);
 		return renderer;
 	}
 
@@ -841,7 +858,7 @@ v3 sys_ViewPos;};
 			v3 diffColor = mesh->material->diffuse;
 			v3 specColor = mesh->material->specular;
 			
-			if (command->commandType = RENDER_COMMAND_DRAW_DEBUG_CUBE)
+			if (command->commandType == RENDER_COMMAND_DRAW_DEBUG_CUBE) 
 			{
 				ambColor = debugCubeCustomColor;
 				diffColor = debugCubeCustomColor;
