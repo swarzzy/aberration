@@ -211,6 +211,7 @@ extern "C" GAME_CODE_ENTRY void GameInit(AB::MemoryArena* arena,
 	config.numSamples = 4;
 	config.renderResolutionW = 1280;
 	config.renderResolutionH = 720;
+	config.shadowMapResolution = 1024;
 
 	g_StaticStorage->renderer = AllocateRenderer(arena,
 												 g_StaticStorage->tempArena,

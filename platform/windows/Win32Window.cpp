@@ -197,6 +197,7 @@ namespace AB {
 		windowClass.lpfnWndProc = _Win32WindowCallback;
 		windowClass.hInstance = instance;
 		windowClass.lpszClassName = WINDOW_CLASS_NAME;
+		windowClass.hCursor = LoadCursor(0 ,IDC_ARROW);
 
 		auto RCresult = RegisterClass(&windowClass);
 		AB_CORE_ASSERT(RCresult, "Failed to create window.");

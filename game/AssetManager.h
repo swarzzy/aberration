@@ -6,6 +6,11 @@
 namespace AB {
 	constexpr uint32 MESH_STORAGE_CAPACITY = 128;
 	constexpr uint32 TEXTURE_STORAGE_CAPACITY = 128;
+	//
+	// TODO: IMPORTANT: -1 as invalid handle isn't a good idea
+	// Structs sre usually cleared to 0 when initialized. So
+	// it would be better to make 0 an invalid handle
+	//
 	constexpr int32 ASSET_INVALID_HANDLE = -1;
 	constexpr int32 ASSET_DEFAULT_CUBE_MESH_HANDLE = 0;
 

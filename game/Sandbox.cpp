@@ -94,24 +94,16 @@ namespace AB
 						{
 							v3 color;
 							f32 yOffset = 0.0f;
-#if 0
-							if (GetTileValue(tilemap,
+							if (GetTileValueInChunk(tilemap,
 											 chunks[chunkY * 3 + chunkX],
-											 col, row) == 0)
+											 col, row) == 3)
 							{
-								color = V3(1.0f, 0.1f, 0.0f);
-								yOffset = 0.0f;
+								yOffset = 1.0f;
 							}
 							else
 							{
-								color = V3(0.0f, 0.1f, 0.8f);
-								yOffset = 1.0f;
+								yOffset = 0.0f;
 							}
-							if (row == cPos.chunkX && col == cPos.chunkY)
-							{
-								color = V3(0.0f);
-							}
-#endif
 							color = GetTileColor(tilemap,
 												 chunks[chunkY * 3 + chunkX],
 												 col, row);
@@ -123,20 +115,18 @@ namespace AB
 								tilemap->tileSizeRaw - tilemap->chunkSizeInTiles *
 								tilemap->tileSizeRaw;
 					
-							f32 zOffset = tilemap->tilemapChunkCountY *
-								(f32)tilemap->tileSizeRaw  - row *
-								(f32)tilemap->tileSizeRaw +
-								(tilemap->tileRadiusInUnits * tilemap->unitsToRaw) +
-								chunkOffsetY;
+							f32 zOffset = row *	(f32)tilemap->tileSizeRaw -
+								(tilemap->tileRadiusInUnits * tilemap->unitsToRaw);
 
 							f32 xOffset = col * (f32)tilemap->tileSizeRaw -
-								(tilemap->tileRadiusInUnits * tilemap->unitsToRaw) +
-								chunkOffsetX;
+								(tilemap->tileRadiusInUnits * tilemap->unitsToRaw);
 
+							f32 zInvBias = tilemap->chunkSizeInTiles *
+								(f32)tilemap->tileSizeRaw; 
 
-							v3 position = V3(xOffset,
+							v3 position = V3(xOffset + chunkOffsetX,
 											 yOffset,
-											 zOffset);
+											 (-zOffset + zInvBias) + chunkOffsetY);
 
 							DrawDebugCube(renderGroup,
 										  assetManager,
@@ -166,7 +156,7 @@ namespace AB
 		sandbox->renderGroup->projectionMatrix = PerspectiveRH(45.0f,
 															   16.0f / 9.0f,
 															   0.1f,
-															   1000.0f);
+															   200.0f);
 
 		BeginTemporaryMemory(tempArena);
 #if 0
@@ -243,8 +233,17 @@ namespace AB
 					{
 						if (x == y || x - 1 == y)
 						{
-							SetTileValueInChunk(arena, tilemap, chunk,
-												tileX, tileY, 1);
+							if (tileX == 0 && tileY == 0)
+							{
+								SetTileValueInChunk(arena, tilemap, chunk,
+													tileX, tileY, 3);
+								
+							}
+							else
+							{
+								SetTileValueInChunk(arena, tilemap, chunk,
+													tileX, tileY, 1);
+							}
 							SetTileColor(tilemap, chunk,
 										 tileX, tileY, V3(r, g ,b));
 
@@ -330,14 +329,22 @@ namespace AB
 		f32 playerPixelY = tilemap->tilemapChunkCountY * (f32)tilemap->tileSizeRaw - 
 			(chunkPos.tileInChunkY * tilemap->tileSizeInUnits	+
 			 sandbox->playerP.offsetY ) * tilemap->unitsToRaw;
+
+		f32 pX = (chunkPos.tileInChunkX * tilemap->tileSizeInUnits +
+				  sandbox->playerP.offsetX) * tilemap->unitsToRaw;
+		f32 pY = (chunkPos.tileInChunkY * tilemap->tileSizeInUnits +
+				  sandbox->playerP.offsetY) * tilemap->unitsToRaw;
+
+		pY = (tilemap->chunkSizeInTiles * tilemap->tileSizeRaw) - pY;
+			
 		DrawDebugCube(sandbox->renderGroup,
 					  assetManager,
-					  V3(playerPixelX, 3.0f, playerPixelY),
+					  V3(pX, 3.0f, pY),
 					  tilemap->tileSizeRaw * 0.5f, V3(1.0f, 0.0f, 0.0f));
-		sandbox->camera.target = V3(playerPixelX, 0, playerPixelY);
+		sandbox->camera.target = V3(pX, 0, pY);
 
-		DEBUG_OVERLAY_TRACE_VAR(playerPixelX);
-		DEBUG_OVERLAY_TRACE_VAR(playerPixelY);
+		DEBUG_OVERLAY_TRACE_VAR(pX);
+		DEBUG_OVERLAY_TRACE_VAR(pY);
 		DEBUG_OVERLAY_TRACE_VAR(chunkPos.tileInChunkX);
 		DEBUG_OVERLAY_TRACE_VAR(chunkPos.tileInChunkY);
 		

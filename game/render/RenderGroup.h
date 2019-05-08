@@ -98,14 +98,17 @@ namespace AB
 		RenderCommandType commandType;
 	};
 
-	struct Camera {
+	struct Camera
+	{
 		v3 position;
 		v3 front;
 		m4x4 lookAt;
 	};
 
-	struct RenderGroup {
+	struct RenderGroup
+	{
 		Camera camera;
+		i32 skyboxHandle;
 
 		b32 dirLightEnabled;
 		DirectionalLight dirLight;
@@ -127,17 +130,17 @@ namespace AB
 		m4x4 projectionMatrix;
 	};
 	
-	AB_API RenderGroup* AllocateRenderGroup(MemoryArena* mem,
+	RenderGroup* AllocateRenderGroup(MemoryArena* mem,
 											u32 rbSize,
 											u32 queueCapacity,
 											u32 lightBufCapacity);
 
-	AB_API void RenderGroupPushCommand(RenderGroup* group,
+	void RenderGroupPushCommand(RenderGroup* group,
 									   RenderCommandType type,
 									   void* command);
-	AB_API void RenderGroupResetQueue(RenderGroup* group);
+	void RenderGroupResetQueue(RenderGroup* group);
 	
-	AB_API void RenderGroupSetCamera(RenderGroup* group, v3 front, v3 position);
+	void RenderGroupSetCamera(RenderGroup* group, v3 front, v3 position);
 
 	typedef b32(RenderGroupCommandQueueSortPred)(u64 a, u64 b);
 

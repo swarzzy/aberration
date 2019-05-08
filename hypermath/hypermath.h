@@ -947,7 +947,7 @@ namespace hpm
 #endif
 
 	Matrix4 HPM_CALL LookAtRH(Vector3 from, Vector3 at, Vector3 up);
-	
+	Matrix4 HPM_CALL LookAtDirRH(Vector3 position, Vector3 dir, Vector3 up);
 #if defined(HYPERMATH_IMPL) 
 	
 	Matrix4 HPM_CALL LookAtRH(Vector3 from, Vector3 at, Vector3 up)
@@ -979,6 +979,37 @@ namespace hpm
 
 		return result;
 	}
+
+	Matrix4 HPM_CALL LookAtDirRH(Vector3 position, Vector3 dir, Vector3 up)
+	{
+		Vector3 zAxis = Normalize(dir);
+		Vector3 xAxis = Normalize(Cross(zAxis, up));
+		Vector3 yAxis = Cross(xAxis, zAxis);
+
+		Matrix4 result;
+		result._11 = xAxis.x;
+		result._12 = xAxis.y;
+		result._13 = xAxis.z;
+		result._14 = -Dot(xAxis, position);
+
+		result._21 = yAxis.x;
+		result._22 = yAxis.y;
+		result._23 = yAxis.z;
+		result._24 = -Dot(yAxis, position);
+
+		result._31 = -zAxis.x;
+		result._32 = -zAxis.y;
+		result._33 = -zAxis.z;
+		result._34 = Dot(zAxis, position);
+
+		result._41 = 0.0f;
+		result._42 = 0.0f;
+		result._43 = 0.0f;
+		result._44 = 1.0f;
+
+		return result;
+	}
+
 
 #endif
 

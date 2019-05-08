@@ -38,6 +38,7 @@ layout (std140) uniform pointLightsData {
 	PointLight pointLights[POINT_LIGHTS_NUMBER];
 };
 uniform DirLight dir_light;
+uniform v3 u_ViewPos;
 
 
 vec3 CalcDirectionalLight(DirLight light, vec3 normal, vec3 view_dir, vec3 diff_sample, vec3 spec_sample) {
@@ -72,7 +73,7 @@ vec3 CalcPointLight(PointLight light, v3 normal, v3 viewDir, v3 diffSample, v3 s
 void main()
 {
 	vec3 normal = normalize(f_Normal);
-	vec3 viewDir = normalize(sys_ViewPos - f_Position);
+	vec3 viewDir = normalize(u_ViewPos - f_Position);
 
 	vec3 diffSample;
 	f32 alpha;

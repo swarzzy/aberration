@@ -23,6 +23,7 @@ namespace AB {
 		u32 numSamples;
 		u16 renderResolutionW;
 		u16 renderResolutionH;
+		u32 shadowMapResolution;
 	};
 
 
@@ -38,7 +39,6 @@ namespace AB {
 							   RendererConfig config);
 	RendererConfig RendererGetConfig(Renderer* renderer);
     void RendererApplyConfig(Renderer* renderer, RendererConfig* newConfig);
-	void RendererSetSkybox(Renderer* renderer, i32 cubemapHandle);
 	void RendererRender(Renderer* renderer,
 						AssetManager* assetManager,
 						RenderGroup* group);
