@@ -9,8 +9,7 @@ namespace AB
 		u32 tileX;
 		u32 tileY;
 		// NOTE: Realtive to tile
-		f32 offsetX;
-		f32 offsetY;
+		v2 offset;
 	};
 
 	struct ChunkPosition

@@ -116,7 +116,8 @@ namespace AB
 #define glLineWidth GL_FUNCTION(glLineWidth)
 #define glUniformMatrix4fv GL_FUNCTION(glUniformMatrix4fv)
 #define glBlitFramebuffer GL_FUNCTION(glBlitFramebuffer)
-
+#define glTexParameterfv GL_FUNCTION(glTexParameterfv)
+		
 	static constexpr u32 OPENGL_LOG_BUFFER_SIZE = 256;
 	static char g_OpenGLLogBuffer[OPENGL_LOG_BUFFER_SIZE];
 
@@ -211,7 +212,7 @@ extern "C" GAME_CODE_ENTRY void GameInit(AB::MemoryArena* arena,
 	config.numSamples = 4;
 	config.renderResolutionW = 1280;
 	config.renderResolutionH = 720;
-	config.shadowMapResolution = 1024;
+	config.shadowMapRes = 2048;
 
 	g_StaticStorage->renderer = AllocateRenderer(arena,
 												 g_StaticStorage->tempArena,

@@ -1,4 +1,5 @@
 in v3 f_Position;
+in v4 f_LightSpacePosition;
 in v2 f_UV;
 in v3 f_Normal;
 
@@ -39,9 +40,14 @@ layout (std140) uniform pointLightsData {
 };
 uniform DirLight dir_light;
 uniform v3 u_ViewPos;
+uniform sampler2D shadowMap;
 
 
-vec3 CalcDirectionalLight(DirLight light, vec3 normal, vec3 view_dir, vec3 diff_sample, vec3 spec_sample) {
+vec3 CalcDirectionalLight(DirLight light, vec3 normal,
+						  vec3 view_dir,
+						  vec3 diff_sample, vec3 spec_sample,
+						  f32 shadowKoef)
+{
 	vec3 light_dir = normalize(-light.direction);
 	vec3 light_dir_reflected = reflect(-light_dir, normal);	
 
@@ -49,8 +55,8 @@ vec3 CalcDirectionalLight(DirLight light, vec3 normal, vec3 view_dir, vec3 diff_
 	float Ks = pow(max(dot(view_dir, light_dir_reflected ), 0.0), material.shininess);
 	
 	vec3 ambient = light.ambient * diff_sample ;
-	vec3 diffuse = Kd * light.diffuse * diff_sample;
-	vec3 specular = Ks * light.specular * spec_sample;
+	vec3 diffuse = Kd * light.diffuse * diff_sample * shadowKoef;
+	vec3 specular = Ks * light.specular * spec_sample * shadowKoef;
 	return ambient + diffuse + specular;
 }
 
@@ -70,6 +76,34 @@ vec3 CalcPointLight(PointLight light, v3 normal, v3 viewDir, v3 diffSample, v3 s
 	return ambient + diffuse + specular;
 }
 
+f32 CalcShadow(v4 lightSpacePos, v3 lightDir, v3 normal)
+{
+	f32 result = 0.0f;
+	//f32 bias = 0.0f;
+	//f32 bias = 0.005f;
+	f32 bias = max(0.005f * (1.0f - dot(normal, lightDir)), 0.0005f);
+	v3 coord = lightSpacePos.xyz * 0.5f + 0.5f;
+	f32 currentDepth = coord.z;
+	v2 texelSize = 1.0f / textureSize(shadowMap, 0);
+	if (lightSpacePos.z > 1.0f)
+	{
+		result = 0.0f;
+	}
+	else
+	{
+		for (int x = -1; x <= 1; x++)
+		{
+			for (int y = -1; y <= 1; y++)
+			{
+				f32 pcfDepth = texture(shadowMap, coord.xy + v2(x, y) * texelSize).r;
+				result += currentDepth - bias > pcfDepth ? 1.0f : 0.0f;
+			}
+		}
+		result = result / 9.0f;
+	}
+	return result;
+}
+
 void main()
 {
 	vec3 normal = normalize(f_Normal);
@@ -86,11 +120,8 @@ void main()
 		alpha = 1.0f;
 	}
 
-	//if (alpha == 0.0f) {
-	//	discard;
-	//}
-
-	//alpha = (alpha - 0.1) / max(fwidth(alpha), 0.0001) - 0.5;
+	f32 shadowKoef = CalcShadow(f_LightSpacePosition, viewDir, normal);
+	shadowKoef = 1.0f - shadowKoef;
 
 	vec3 specSample;
 	if (material.use_spec_map) {
@@ -99,7 +130,9 @@ void main()
 		specSample = material.specular;
 	}
 
-	vec3 directional = CalcDirectionalLight(dir_light, normal, viewDir, diffSample, specSample);
+	vec3 directional = CalcDirectionalLight(dir_light, normal,
+											viewDir, diffSample,
+											specSample, shadowKoef);
 
 	vec3 point = vec3(0.0f);
 	for (int i = 0; i < POINT_LIGHTS_NUMBER; i++) {

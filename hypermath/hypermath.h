@@ -38,6 +38,12 @@ namespace hpm
 	constexpr f32 PI_32 = 3.14159265358979323846f;
 	constexpr f32 FLOAT_EPS = 0.000001f;
 
+	inline f32 Square(f32 v)
+	{
+		f32 result = v * v;
+		return result;
+	}
+
 	inline f32 Map(f32 t, f32 a, f32 b, f32 c, f32 d)
 	{
 		if (a == b || d == c) return 0.0f;
@@ -74,47 +80,42 @@ namespace hpm
 		return (i32)roundf(value);
 	}
 	
-	inline constexpr int Abs(int val)
+	inline int Abs(int val)
 	{
 		return val > 0 ? val : -val;
 	}
 
-	inline constexpr float Abs(float val)
+	inline float Abs(float val)
 	{
 		return val > 0 ? val : -val;
 	}
 
-	inline constexpr short Abs(short val)
+	inline short Abs(short val)
 	{
 		return val > 0 ? val : -val;
 	}
 
-	inline constexpr long Abs(long val)
+	inline long Abs(long val)
 	{
 		return val > 0 ? val : -val;
 	}
 
-	inline constexpr float Min(float a, float b)
+	inline float Minimum(float a, float b)
 	{
 		return a < b ? a : b;
 	}
 
-	inline constexpr float Max(float a, float b)
+	inline float Maximum(float a, float b)
 	{
 		return a > b ? a : b;
 	}
-
-	inline constexpr float Clamp(float x, float min, float max)
-	{
-		return Min(Max(x, max), min);
-	}
 	
-	inline constexpr f32 ToDegrees(f32 radians)
+	inline f32 ToDegrees(f32 radians)
 	{
 		return 180.0f / PI_32 * radians;
 	}
 
-	inline constexpr f32 ToRadians(f32 degrees)
+	inline f32 ToRadians(f32 degrees)
 	{
 		return PI_32 / 180.0f * degrees;
 	}
@@ -269,7 +270,6 @@ namespace hpm
 		return Vector3{q.x, q.y, q.z};
 	}
 
-
 	inline Vector4 V4(f32 x, f32 y, f32 z, f32 w)
 	{
 		return Vector4{x, y ,z, w};
@@ -288,6 +288,88 @@ namespace hpm
 	inline Vector4 V4(Vector3 v, f32 w)
 	{
 		return Vector4{v.x, v.y ,v.z, w};
+	}
+
+	inline Vector2 operator+(Vector2 l, Vector2 r)
+	{
+		return Vector2{ l.x + r.x, l.y + r.y };
+	}
+
+	inline Vector2 operator+(Vector2 v, f32 s)
+	{
+		return Vector2{ v.x + s, v.y + s };		
+	}
+
+ 	inline Vector2 operator+(f32 s, Vector2 v)
+	{
+		return Vector2{ v.x + s, v.y + s };		
+	}
+
+	inline Vector2& operator+=(Vector2& l, Vector2 r)
+	{
+		l.x += r.x;
+		l.y += r.y;
+		return l;
+	}
+
+	inline Vector2& operator+=(Vector2& l, f32 s)
+	{
+		l.x += s;
+		l.y += s;
+		return l;
+	}
+
+	inline Vector2 operator-(Vector2 l, Vector2 r)
+	{
+		return Vector2{ l.x - r.x, l.y - r.y };
+	}
+
+	inline Vector2 operator-(Vector2 v, f32 s)
+	{
+		return Vector2{ v.x - s, v.y - s };		
+	}
+
+	inline Vector2 operator-(f32 s, Vector2 v)
+	{
+		return Vector2{ v.x - s, v.y - s };		
+	}
+
+	inline Vector2& operator-=(Vector2& l, Vector2 r)
+	{
+		l.x -= r.x;
+		l.y -= r.y;
+		return l;
+	}
+
+	inline Vector2& operator-=(Vector2& l, f32 s)
+	{
+		l.x -= s;
+		l.y -= s;
+		return l;
+	}
+
+	inline Vector2 operator-(Vector2 v)
+	{
+		v.x = -v.x;
+		v.y = -v.y;
+		return v;
+	}
+
+	inline Vector2 operator*(Vector2 v, f32 s)
+	{
+		return Vector2{ v.x * s, v.y * s };
+	}
+	
+	inline Vector2 operator*(f32 s, Vector2 v)
+	{
+		return Vector2{ v.x * s, v.y * s };
+	}
+
+	inline Vector2& operator*=(Vector2& l, f32 s)
+	{
+		l.x *= s;
+		l.y *= s;
+		return l;
 	}
 
 	inline Vector2 HPM_CALL AddV2V2(Vector2 left, Vector2 right)
@@ -511,6 +593,15 @@ namespace hpm
 	{
 		return left.x * right.x + left.y * right.y + left.z * right.z + left.w * right.w;
 	}
+	
+	inline Vector2 Reflect(Vector2 v, Vector2 normalizedAxis)
+	{
+		Vector2 result = {};
+		Vector2 n = normalizedAxis;
+		Vector2 NdotN2 = MulV2F32(n, 2.0f * Dot(v, n));
+		result = SubV2V2(v, NdotN2);
+		return result;
+	}
 
 	inline Vector3 HPM_CALL Cross(Vector3 left, Vector3 right)
 	{
@@ -642,7 +733,8 @@ namespace hpm
 			+ m._13 * m._21 * m._32 - m._13 * m._22 * m._31;
 	}
 
-	inline Matrix4 HPM_CALL OrthogonalRH(f32 left, f32 right, f32 bottom, f32 top, f32 n, f32 f)
+	inline Matrix4 HPM_CALL OrthogonalRH(f32 left, f32 right,
+										 f32 bottom, f32 top, f32 n, f32 f)
 	{
 		Matrix4 result = {};
 

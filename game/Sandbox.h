@@ -49,7 +49,9 @@ namespace AB
 		InputState inputState;
 		DirectionalLight dirLight;
 		TilemapPosition playerP;
+		v2 playerSpeed;
 		World* world;
+		v3 dirLightOffset;
 	};
 	
 

@@ -23,7 +23,7 @@ namespace AB {
 		u32 numSamples;
 		u16 renderResolutionW;
 		u16 renderResolutionH;
-		u32 shadowMapResolution;
+		u32 shadowMapRes;
 	};
 
 

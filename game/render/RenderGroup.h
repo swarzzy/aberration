@@ -6,7 +6,8 @@ namespace AB
 {
 	struct DirectionalLight
 	{
-		v3 direction;
+		v3 from;
+		v3 target;
 		v3 ambient;
 		v3 diffuse;
 		v3 specular;

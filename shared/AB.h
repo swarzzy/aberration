@@ -83,6 +83,9 @@ typedef byte				b8;
 
 #define AB_BIT(shift) (1 << shift)
 
+#define MINIMUM(a, b) ((a) < (b) ? (a) : (b))
+#define MAXIMUM(a, b) ((a) > (b) ? (a) : (b))
+
 #if defined(AB_PLATFORM_WINDOWS)
 // TODO: Make this work
 #define AB_DEBUG_BREAK() __debugbreak()

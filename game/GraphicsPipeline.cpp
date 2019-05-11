@@ -101,6 +101,7 @@ namespace AB
 		switch(mode)
 		{
 		case FACE_CULL_MODE_BACK: { glMode = GL_BACK; } break;
+		case FACE_CULL_MODE_FRONT: { glMode = GL_FRONT; } break;
 		INVALID_DEFAULT_CASE();
 		}
 		GLCall(glCullFace(glMode));

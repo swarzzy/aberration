@@ -98,7 +98,7 @@ namespace AB
 											 chunks[chunkY * 3 + chunkX],
 											 col, row) == 3)
 							{
-								yOffset = 1.0f;
+								yOffset = 2.0f;
 							}
 							else
 							{
@@ -158,6 +158,10 @@ namespace AB
 															   0.1f,
 															   200.0f);
 
+		sandbox->dirLight.ambient = V3(0.05f);
+		sandbox->dirLight.diffuse = V3(1.1f);
+		sandbox->dirLightOffset = V3(-10, 38, 17);
+		
 		BeginTemporaryMemory(tempArena);
 #if 0
 		sandbox->mansionMeshHandle =
@@ -189,8 +193,8 @@ namespace AB
 
 		sandbox->playerP.tileX = 2;
 		sandbox->playerP.tileY = 2;
-		sandbox->playerP.offsetX = 1.0f;
-		sandbox->playerP.offsetY = 1.0f;
+		sandbox->playerP.offset.x = 1.0f;
+		sandbox->playerP.offset.y = 1.0f;
 
 		sandbox->world = (World*)PushSize(arena, sizeof(World), alignof(World));
 		AB_ASSERT(sandbox->world);
@@ -255,85 +259,142 @@ namespace AB
 	
 
 	}
-
+	
+	static f32 TestWall(f32 wallX, f32 relPlayerX, f32 relPlayerY,
+						f32 playerDeltaX, f32 playerDeltaY, f32 tMin,
+						f32 minCornerY, f32 maxCornerY)
+	{
+		if (Abs(playerDeltaX) > FLOAT_EPS)
+		{
+			f32 tEps = 0.001f;
+			f32 tResult = (wallX - relPlayerX) / playerDeltaX;
+			f32 y = relPlayerY + playerDeltaY * tResult;
+			if ((tResult >= 0.0f) && (tMin > tResult))
+			{
+				if ((y >= minCornerY) && (y <= maxCornerY))
+				{
+					tMin = MAXIMUM(0.0f, tResult - tEps);
+				}
+			}
+		}
+		return tMin;
+	}
+	
 	void Render(Sandbox* sandbox,
 				AssetManager* assetManager,
 				Renderer* renderer,
 				InputManager* inputManager)
 	{
 		Tilemap* tilemap = &sandbox->world->tilemap;
+		v3 _frontDir = V3(sandbox->camera.front.x, 0.0f, sandbox->camera.front.z);
+		// NOTE: Do we need normalaze that
+		_frontDir = Normalize(_frontDir);
+		// NOTE: Maybe store it in camera explicitly
+		v3 _rightDir = Cross(_frontDir, V3(0.0f, 1.0f, 0.0f));
 
-		f32 newPlayerX = sandbox->playerP.offsetX;
-		f32 newPlayerY = sandbox->playerP.offsetY;
-		f32 playerSpeed = 5.0f;
+		// NOTE: Neagating Z because tilemap coords have Y axis pointing down-to-up
+		// while right handed actual world coords have it
+		// pointing opposite directhion.
+		v2 frontDir = V2(_frontDir.x, -_frontDir.z);
+		v2 rightDir = V2(_rightDir.x, -_rightDir.z);
+
+		DEBUG_OVERLAY_TRACE_VAR(frontDir);
+		DEBUG_OVERLAY_TRACE_VAR(rightDir);
+		v2 playerAcceleration = {};
 		if (InputKeyIsDown(inputManager, KeyboardKey::W))
 		{
-			newPlayerY += playerSpeed * GlobalDeltaTime;
+			playerAcceleration += frontDir;
 		}
 		if (InputKeyIsDown(inputManager, KeyboardKey::S))
 		{
-			newPlayerY -= playerSpeed * GlobalDeltaTime;
+			playerAcceleration -= frontDir;
 		}
 		if (InputKeyIsDown(inputManager, KeyboardKey::A))
 		{
-			newPlayerX -= playerSpeed * GlobalDeltaTime;
+			playerAcceleration -= rightDir;
 		}
 		if (InputKeyIsDown(inputManager, KeyboardKey::D))
 		{
-			newPlayerX += playerSpeed * GlobalDeltaTime;
+			playerAcceleration += rightDir;
 		}
 
-		TilemapPosition test1 = sandbox->playerP;
-		test1.offsetX = newPlayerX;
-		test1.offsetY = newPlayerY;
-		test1 = RecanonicalizePosition(tilemap, test1);
-		TilemapPosition test2 = sandbox->playerP;
-		test2.offsetX = newPlayerX + tilemap->tileSizeInUnits;
-		test2.offsetY = newPlayerY;
-		test2 = RecanonicalizePosition(tilemap, test2);
-		TilemapPosition test3 = sandbox->playerP;
-		test3.offsetX = newPlayerX;
-		test3.offsetY = newPlayerY + tilemap->tileSizeInUnits;
-		test3 = RecanonicalizePosition(tilemap, test3);
-		TilemapPosition test4 = sandbox->playerP;
-		test4.offsetX = newPlayerX + tilemap->tileSizeInUnits;
-		test4.offsetY = newPlayerY + tilemap->tileSizeInUnits;
-		test4 = RecanonicalizePosition(tilemap, test4);
+		playerAcceleration = Normalize(playerAcceleration);
+		f32 playerSpeed = 20.0f;
+		playerAcceleration *= playerSpeed;
+
+		f32 friction = 3.0f;
+		playerAcceleration = playerAcceleration - sandbox->playerSpeed * friction;
+
+		v2 playerDelta;
+		playerDelta = 0.5f * playerAcceleration *
+			Square(GlobalDeltaTime) + 
+			sandbox->playerSpeed *
+			GlobalDeltaTime;
+
+		TilemapPosition oldPlayerPos = sandbox->playerP;
+		TilemapPosition newPlayerPos = oldPlayerPos;
+		newPlayerPos.offset += playerDelta;
+		newPlayerPos = RecanonicalizePosition(tilemap, newPlayerPos);
+
+		u32 minTileY = MINIMUM(oldPlayerPos.tileY, newPlayerPos.tileY);
+		u32 onePastMaxTileY = MAXIMUM(oldPlayerPos.tileY, newPlayerPos.tileY) + 1;
+		u32 minTileX = MINIMUM(oldPlayerPos.tileX, newPlayerPos.tileX);
+		u32 onePastMaxTileX = MAXIMUM(oldPlayerPos.tileX, newPlayerPos.tileX) + 1;
+
+		DEBUG_OVERLAY_TRACE_VAR(oldPlayerPos.tileX);
+		DEBUG_OVERLAY_TRACE_VAR(newPlayerPos.tileX);
 		
-		if (TestWorldPoint(tilemap, test1) &&
-			TestWorldPoint(tilemap, test2) &&
-			TestWorldPoint(tilemap, test3) &&
-			TestWorldPoint(tilemap, test4))
+		f32 tMin = 1.0f;
+		for (u32 tileY = minTileY; tileY != onePastMaxTileY; tileY++)
 		{
-			sandbox->playerP.offsetX = newPlayerX;
-			sandbox->playerP.offsetY = newPlayerY;
-			sandbox->playerP = RecanonicalizePosition(tilemap, sandbox->playerP);
-			DEBUG_OVERLAY_PUSH_VAR("tileY", sandbox->playerP.tileY);
-			DEBUG_OVERLAY_PUSH_VAR("Y", sandbox->playerP.offsetY);
-			DEBUG_OVERLAY_PUSH_VAR("tileX", sandbox->playerP.tileX);
-			DEBUG_OVERLAY_PUSH_VAR("X", sandbox->playerP.offsetY);
+			for (u32 tileX = minTileX; tileX != onePastMaxTileX; tileX++)
+			{
+				u32 tileValue = GetTileValue(tilemap, tileX, tileY);
+				TilemapPosition testTilePos = CenteredTilePoint(tileX, tileY);
+				if (tileValue != 1)
+				{
+					v2 minCorner = -0.5f * V2(tilemap->tileSizeInUnits);
+					v2 maxCorner = 0.5f * V2(tilemap->tileSizeInUnits);
+					v2 relOldPlayerPos = TilemapPosDiff(tilemap, &oldPlayerPos,
+														 &testTilePos);
 
+						tMin = TestWall(minCorner.x, relOldPlayerPos.x,
+										relOldPlayerPos.y, playerDelta.x,
+										playerDelta.y, tMin,
+										minCorner.y, maxCorner.y);
+						tMin = TestWall(maxCorner.x, relOldPlayerPos.x,
+										relOldPlayerPos.y, playerDelta.x,
+										playerDelta.y, tMin,
+										minCorner.y, maxCorner.y);
+						tMin = TestWall(minCorner.y, relOldPlayerPos.y,
+										relOldPlayerPos.x, playerDelta.y,
+										playerDelta.x, tMin,
+										minCorner.x, maxCorner.x);
+						tMin = TestWall(maxCorner.y, relOldPlayerPos.y,
+										relOldPlayerPos.x, playerDelta.y,
+										playerDelta.x, tMin,
+										minCorner.x, maxCorner.x);
+
+				}
+			}
 		}
+
+		sandbox->playerSpeed = sandbox->playerSpeed +
+			playerAcceleration * GlobalDeltaTime;
+		sandbox->playerP.offset = oldPlayerPos.offset + playerDelta * tMin;
+		sandbox->playerP = RecanonicalizePosition(tilemap, sandbox->playerP);
+
+		//sandbox->playerSpeed = Reflect(sandbox->playerSpeed,  n);
 
 		ChunkPosition chunkPos = GetChunkPosition(tilemap, sandbox->playerP.tileX,
 												  sandbox->playerP.tileY);
 		DrawWorld(tilemap, sandbox->renderGroup, assetManager,
 				  sandbox->playerP);
 
-
-		// TODO: Fix rendering positioning. Now it works as if orignin for
-		// player position Y axis is in the middle of the tile.
-		// But X origin still in the left corner of the tile
-		f32 playerPixelX = (chunkPos.tileInChunkX * tilemap->tileSizeInUnits
-							+ sandbox->playerP.offsetX) * tilemap->unitsToRaw;
-		f32 playerPixelY = tilemap->tilemapChunkCountY * (f32)tilemap->tileSizeRaw - 
-			(chunkPos.tileInChunkY * tilemap->tileSizeInUnits	+
-			 sandbox->playerP.offsetY ) * tilemap->unitsToRaw;
-
 		f32 pX = (chunkPos.tileInChunkX * tilemap->tileSizeInUnits +
-				  sandbox->playerP.offsetX) * tilemap->unitsToRaw;
+				  sandbox->playerP.offset.x) * tilemap->unitsToRaw;
 		f32 pY = (chunkPos.tileInChunkY * tilemap->tileSizeInUnits +
-				  sandbox->playerP.offsetY) * tilemap->unitsToRaw;
+				  sandbox->playerP.offset.y) * tilemap->unitsToRaw;
 
 		pY = (tilemap->chunkSizeInTiles * tilemap->tileSizeRaw) - pY;
 			
@@ -342,6 +403,7 @@ namespace AB
 					  V3(pX, 3.0f, pY),
 					  tilemap->tileSizeRaw * 0.5f, V3(1.0f, 0.0f, 0.0f));
 		sandbox->camera.target = V3(pX, 0, pY);
+		sandbox->dirLight.target = V3(pX, 0, pY);
 
 		DEBUG_OVERLAY_TRACE_VAR(pX);
 		DEBUG_OVERLAY_TRACE_VAR(pY);
@@ -385,11 +447,12 @@ namespace AB
 		DEBUG_OVERLAY_PUSH_SLIDER("Kd", &kd, 0.0f, 10.0f);
 		DEBUG_OVERLAY_PUSH_VAR("Kd", kd);
 
-		DEBUG_OVERLAY_PUSH_SLIDER("Dir", &sandbox->dirLight.direction,
-								  -1.0f, 1.0f);
-		DEBUG_OVERLAY_PUSH_VAR("Dir", sandbox->dirLight.direction);
-		sandbox->dirLight.direction = Normalize(sandbox->dirLight.direction);
+		//DEBUG_OVERLAY_TRACE_VAR(sandbox->dirLight.from);
+		//DEBUG_OVERLAY_TRACE_VAR(sandbox->dirLight.target);
+		//DEBUG_OVERLAY_TRACE_VAR(sandbox->dirLightOffset);
+		//DEBUG_OVERLAY_PUSH_SLIDER("offset", &sandbox->dirLightOffset, -50, 50);
 
+		sandbox->dirLight.from = AddV3V3(sandbox->dirLight.target, sandbox->dirLightOffset);
 		sandbox->dirLight.ambient = V3(ka);
 		sandbox->dirLight.diffuse = V3(kd);
 
@@ -548,7 +611,7 @@ namespace AB
 			cam->pos = AddV3V3(MulV3F32(right, 0.2), cam->pos);
 		}
 
-		if (InputMouseButtonIsDown(inputManager, MouseButton::Middle))
+		if (InputMouseButtonIsDown(inputManager, MouseButton::Right))
 		{
 			v2 mousePos = InputGetMouseFrameOffset(inputManager);
 			cam->lastMousePos.x -= mousePos.x;// - cam->mouseUntrackedOffset;

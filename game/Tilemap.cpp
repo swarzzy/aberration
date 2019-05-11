@@ -16,13 +16,13 @@ namespace AB
 	inline TilemapPosition RecanonicalizePosition(Tilemap* tilemap,
 												  TilemapPosition pos)
 	{
-		RecanonicalizeCoord(tilemap->tileSizeInUnits, &pos.tileX, &pos.offsetX);
-		RecanonicalizeCoord(tilemap->tileSizeInUnits, &pos.tileY, &pos.offsetY);
+		RecanonicalizeCoord(tilemap->tileSizeInUnits, &pos.tileX, &pos.offset.x);
+		RecanonicalizeCoord(tilemap->tileSizeInUnits, &pos.tileY, &pos.offset.y);
 
-		AB_ASSERT(pos.offsetX >= -tilemap->tileRadiusInUnits);
-		AB_ASSERT(pos.offsetY >= -tilemap->tileRadiusInUnits);
-		AB_ASSERT(pos.offsetX < tilemap->tileRadiusInUnits);
-		AB_ASSERT(pos.offsetY < tilemap->tileRadiusInUnits);
+		AB_ASSERT(pos.offset.x >= -tilemap->tileRadiusInUnits);
+		AB_ASSERT(pos.offset.y >= -tilemap->tileRadiusInUnits);
+		AB_ASSERT(pos.offset.x <= tilemap->tileRadiusInUnits);
+		AB_ASSERT(pos.offset.y <= tilemap->tileRadiusInUnits);
 
 		return pos;
 	}
@@ -67,10 +67,10 @@ namespace AB
 		return result;
 	}
 
-	inline u32 GetTileValue(Tilemap* tilemap, u32 absChunkX, u32 absChunkY)
+	inline u32 GetTileValue(Tilemap* tilemap, u32 absTileX, u32 absTileY)
 	{
 		u32 result = 0;
-		ChunkPosition chunkPos = GetChunkPosition(tilemap, absChunkX, absChunkY);
+		ChunkPosition chunkPos = GetChunkPosition(tilemap, absTileX, absTileY);
 		Chunk* chunk = GetChunk(tilemap, chunkPos.chunkX, chunkPos.chunkY);
 		if (chunk)
 		{
@@ -121,6 +121,27 @@ namespace AB
 	{
 		u32 tileValue = GetTileValue(tilemap, p.tileX, p.tileY);
 		return tileValue == 1;
+	}
+
+	inline TilemapPosition CenteredTilePoint(u32 tileX, u32 tileY)
+	{
+		TilemapPosition result = {};
+		result.tileX = tileX;
+		result.tileY = tileY;
+		return result;
+	}
+
+	v2 TilemapPosDiff(const Tilemap* tilemap, const TilemapPosition* a, const TilemapPosition* b)
+	{
+		v2 result;
+		// NOTE: Potential integer overflow
+		i32 dX = a->tileX - b->tileX;
+		i32 dY = a->tileY - b->tileY;
+		f32 dOffX = a->offset.x - b->offset.x;
+		f32 dOffY = a->offset.y - b->offset.y;
+		result = V2(tilemap->tileSizeInUnits * dX + dOffX,
+					tilemap->tileSizeInUnits * dY + dOffY);
+		return result;
 	}
 
 	// NOTE: Temporary func just for test

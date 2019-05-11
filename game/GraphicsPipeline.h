@@ -22,7 +22,8 @@ namespace AB
 
 	enum FaceCullMode : u32
 	{
-		FACE_CULL_MODE_BACK
+		FACE_CULL_MODE_BACK,
+		FACE_CULL_MODE_FRONT,
 	};
 
 	enum DrawOrder : u32

@@ -107,6 +107,9 @@ out_FragColor = v4(pow(mappedColor, 1.0f / v3(u_Gamma)), 1.0f);
 		u32 multisampledFBOHandle;
 		u32 postfxFBOHandle;
 		i32 programHandle;
+		u32 shadowMapHandle;
+		u32 shadowPassFBHandle;
+		i32 shadowPassShaderHandle;
 	};
 	// NOTE: Does not setting temp arena point and does not flushes at the end.
 	// TODO: Implement memory stack propperly
@@ -456,7 +459,51 @@ out vec4 out_FragColor;
 									   renderer->config.numSamples);
 		_ReloadDownsampledFramebuffer(renderer, true);
 
+		u32 shadowMap;
+		GLCall(glGenTextures(1, & shadowMap));
+		GLCall(glBindTexture(GL_TEXTURE_2D, shadowMap));
+		GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32,
+							renderer->config.shadowMapRes,
+							renderer->config.shadowMapRes,
+							0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr));
+		GLCall(glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR,
+								V4(1.0f, 0.0f, 0.0f, 0.0f).data));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+							   GL_CLAMP_TO_BORDER));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+							   GL_CLAMP_TO_BORDER));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+
+		u32 shadowFB;
+		GLCall(glGenFramebuffers(1, &shadowFB));
+		GLCall(glBindFramebuffer(GL_FRAMEBUFFER, shadowFB));
+		GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+									  GL_TEXTURE_2D, shadowMap, 0));
+		u32 shadowFBStatus = 0;
+		GLCall(shadowFBStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER));
+		AB_ASSERT(shadowFBStatus == GL_FRAMEBUFFER_COMPLETE);
+		GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));		
+		renderer->impl->shadowPassFBHandle = shadowFB;
+		renderer->impl->shadowMapHandle = shadowMap;
 		BindFramebuffer(DEFAULT_FB_HANDLE, FB_TARGET_DRAW);
+
+		u32 shadowVertSz =
+			DebugGetFileSize("../assets/shaders/ShadowPassVert.glsl");
+		u32 shadowFragSz =
+			DebugGetFileSize("../assets/shaders/ShadowPassFrag.glsl");
+		void* shadowVertSrc = PushSize(tempArena, shadowVertSz + 1, 0);
+		void* shadowFragSrc = PushSize(tempArena, shadowFragSz + 1, 0);
+		u32 sVRd = DebugReadTextFile(shadowVertSrc, shadowVertSz + 1,
+									 "../assets/shaders/ShadowPassVert.glsl");
+		u32 sFRd = DebugReadTextFile(shadowFragSrc, shadowFragSz + 1,
+									 "../assets/shaders/ShadowPassFrag.glsl");
+		AB_CORE_ASSERT(sVRd == shadowVertSz + 1);
+		AB_CORE_ASSERT(sFRd == shadowFragSz + 1);
+
+		renderer->impl->shadowPassShaderHandle =
+			RendererCreateProgram(tempArena, (const char*)shadowVertSrc,
+								  (const char*)shadowFragSrc);
 
 		EndTemporaryMemory(tempArena);
 		return renderer;
@@ -581,7 +628,9 @@ out vec4 out_FragColor;
 	   
 		if (group->dirLightEnabled)
 		{
-			GLCall(glUniform3fv(dirLoc, 1, group->dirLight.direction.data));
+			v3 dir = Normalize(
+				SubV3V3(group->dirLight.target, group->dirLight.from));
+			GLCall(glUniform3fv(dirLoc, 1, dir.data));
 			GLCall(glUniform3fv(ambLoc, 1, group->dirLight.ambient.data));
 			GLCall(glUniform3fv(difLoc, 1, group->dirLight.diffuse.data));
 			GLCall(glUniform3fv(spcLoc, 1, group->dirLight.specular.data));
@@ -632,6 +681,7 @@ out vec4 out_FragColor;
 		GLCall(glUnmapBuffer(GL_UNIFORM_BUFFER));
 		GLCall(glBindBuffer(GL_UNIFORM_BUFFER, 0));
 	}
+	
 	struct DrawCallData
 	{
 		Transform* transform;
@@ -641,10 +691,9 @@ out vec4 out_FragColor;
 		b32 useDebugColor;		
 	};
 	
-	static DrawCallData
-	FetchDrawCallDataAndSetState(Renderer* renderer,
-								 RenderGroup* renderGroup,
-								 CommandQueueEntry* command)
+	static DrawCallData FetchDrawCallDataAndSetState(Renderer* renderer,
+													 RenderGroup* renderGroup,
+													 CommandQueueEntry* command)
 	{
 		AB_ASSERT(command);
 		DrawCallData result = {};
@@ -690,7 +739,7 @@ out vec4 out_FragColor;
 			EnableFaceCulling(renderer->pipeline, true);
 					
 		} break;
-			INVALID_DEFAULT_CASE();
+		INVALID_DEFAULT_CASE();
 		}
 			
 		if (result.blendMode == BLEND_MODE_OPAQUE)
@@ -712,8 +761,7 @@ out vec4 out_FragColor;
 		return result;
 	}
 
-	static void
-	VertexBufferToDraw(Mesh* mesh)
+	static void VertexBufferToDraw(Mesh* mesh)
 	{
 		GLCall(glBindBuffer(GL_ARRAY_BUFFER, mesh->api_vb_handle));
 
@@ -756,9 +804,21 @@ out vec4 out_FragColor;
 #endif
 	}
 
-	static void
-	SetPerMeshUniformsAndTextures(Renderer* renderer, AssetManager* assetManager,
-								  Mesh* mesh, DrawCallData dcData)
+	static void ShadowPassSetPerMeshMatices(Renderer* renderer,
+											RenderGroup* renderGroup,
+											DrawCallData dcData)
+	{
+		GLuint modelLoc;
+		GLCall(modelLoc =
+			   glGetUniformLocation(renderer->impl->shadowPassShaderHandle,
+									"modelMatrix")); 
+		GLCall(glUniformMatrix4fv(modelLoc, 1, GL_FALSE,
+								  dcData.transform->worldMatrix.data));
+	}
+
+	static void SetPerMeshUniformsAndTextures(Renderer* renderer,
+											  AssetManager* assetManager,
+											  Mesh* mesh, DrawCallData dcData)
 	{
 		GLuint ambLoc = glGetUniformLocation(renderer->impl->programHandle,
 											 "material.ambinet");
@@ -830,32 +890,14 @@ out vec4 out_FragColor;
 		}
 
 	}
-	
-	void RendererRender(Renderer* renderer, AssetManager* assetManager,
-						RenderGroup* renderGroup)
+// TODO: Move it to some better place
+#define SHADOW_MAP_TEXTURE_SLOT GL_TEXTURE4
+#define SHADOW_MAP_TEXTURE_SLOT_NUMBER 4
+	static void MainPass(Renderer* renderer, RenderGroup* renderGroup,
+						 AssetManager* assetManager,
+						 CommandQueueEntry* commandBuffer,
+						 m4x4* lightSpaceMtx)
 	{
-		if (renderGroup->commandQueueAt == 0)
-		{
-			return;
-		}
-
-		CopyArray(CommandQueueEntry,
-				  renderGroup->commandQueueCapacity,
-				  renderGroup->tmpCommandQueue,
-				  renderGroup->commandQueue);
-
-#if 1
-				
-		CommandQueueEntry* commandBuffer =
-			RenderGroupSortCommandQueue(renderGroup->commandQueue,
-										renderGroup->tmpCommandQueue,
-										0,
-										renderGroup->commandQueueAt - 1,
-										RendererSortPred);
-#else
-		CommandQueueEntry* commandBuffer= renderGroup->commandQueue;
-#endif
-
 		GLCall(glUseProgram(renderer->impl->programHandle));
 
 		m4x4 viewProj = MulM4M4(renderGroup->projectionMatrix,
@@ -864,16 +906,29 @@ out vec4 out_FragColor;
 		
 		GLuint viewProjLoc;
 		GLuint viewPosLoc;
+		GLuint lightSpaceLoc;
+		GLuint shadowMapLoc;
 		GLCall(viewProjLoc = glGetUniformLocation(renderer->impl->programHandle,
 												  "viewProjMatrix"));
 		GLCall(viewPosLoc = glGetUniformLocation(renderer->impl->programHandle,
 												 "u_ViewPos"));
+		GLCall(lightSpaceLoc = glGetUniformLocation(renderer->impl->programHandle,
+													"lightSpaceMatrix"));
+		GLCall(shadowMapLoc = glGetUniformLocation(renderer->impl->programHandle,
+												   "shadowMap"));
+
 
 		GLCall(glUniformMatrix4fv(viewProjLoc, 1, GL_FALSE,
 								  viewProj.data));
 
 		GLCall(glUniform3fv(viewPosLoc, 1, viewPos->data));
 
+		GLCall(glUniformMatrix4fv(lightSpaceLoc, 1, GL_FALSE,
+								  lightSpaceMtx->data));
+		GLCall(glUniform1i(shadowMapLoc, SHADOW_MAP_TEXTURE_SLOT_NUMBER));
+
+		GLCall(glActiveTexture(SHADOW_MAP_TEXTURE_SLOT));
+		GLCall(glBindTexture(GL_TEXTURE_2D, renderer->impl->shadowMapHandle));
 
 		FillLightUniforms(renderer, renderGroup);
 		FillPointLightUnformBuffer(renderer, renderGroup);
@@ -892,7 +947,8 @@ out vec4 out_FragColor;
 		PipelineCommitState(renderer->pipeline);
 
 		BindFramebuffer(renderer->impl->multisampledFBOHandle, FB_TARGET_DRAW);
-		GLCall(glViewport(0, 0, renderer->config.renderResolutionW, renderer->config.renderResolutionH));
+		GLCall(glViewport(0, 0, renderer->config.renderResolutionW,
+						  renderer->config.renderResolutionH));
 		ClearCurrentFramebuffer(CLEAR_COLOR | CLEAR_DEPTH);
 		DrawSkybox(renderer, renderGroup);
 		GLCall(glUseProgram(renderer->impl->programHandle));
@@ -927,12 +983,118 @@ out vec4 out_FragColor;
 			
 			}
 		}
-
 		PipelineResetState(renderer->pipeline);
+		BindFramebuffer(0, FB_TARGET_DRAW);
+	}
+
+	static void ShadowPass(Renderer* renderer, RenderGroup* renderGroup,
+						   AssetManager* assetManager,
+						   CommandQueueEntry* commandBuffer,
+						   m4x4* lightSpaceMtx)
+	{
+		GLCall(glUseProgram(renderer->impl->shadowPassShaderHandle));
+
+		GLuint viewProjLoc;
+		GLCall(viewProjLoc =
+			   glGetUniformLocation(renderer->impl->shadowPassShaderHandle,
+									"viewProjMatrix"));
+
+		GLCall(glUniformMatrix4fv(viewProjLoc, 1, GL_FALSE,
+								  lightSpaceMtx->data));
+
+		PipelineResetBackend(renderer->pipeline);
+		EnableDepthTest(renderer->pipeline, true);
+		glEnable(GL_DEPTH_TEST);
+		WriteDepth(renderer->pipeline, true);
+		SetDepthFunc(renderer->pipeline, DEPTH_FUNC_LESS);
+		EnableBlending(renderer->pipeline, false);
+		EnableFaceCulling(renderer->pipeline, true);
+		SetFaceCullingMode(renderer->pipeline,
+						   FACE_CULL_MODE_BACK);
+		SetDrawOrder(renderer->pipeline, DRAW_ORDER_CCW);
+		
+		PipelineCommitState(renderer->pipeline);
+
+		BindFramebuffer(renderer->impl->shadowPassFBHandle, FB_TARGET_DRAW);
+		GLCall(glViewport(0, 0, renderer->config.shadowMapRes,
+						  renderer->config.shadowMapRes));
+		ClearCurrentFramebuffer(CLEAR_DEPTH);
+		
+		for (u32 at = 0; at < renderGroup->commandQueueAt; at++)
+		{
+			PipelineResetState(renderer->pipeline);
+			CommandQueueEntry* command = commandBuffer + at;
+			
+			if (!(command->commandType == RENDER_COMMAND_SET_DIR_LIGHT ||
+				  command->commandType == RENDER_COMMAND_SET_POINT_LIGHT))
+			{
+				DrawCallData dcData = {};			
+				dcData = FetchDrawCallDataAndSetState(renderer,
+													  renderGroup, command);
+
+				Mesh* mesh = AB::AssetGetMeshData(assetManager, dcData.meshHandle);
+
+				VertexBufferToDraw(mesh);
+				ShadowPassSetPerMeshMatices(renderer, renderGroup, dcData);
+
+				if (mesh->api_ib_handle != 0)
+				{
+					GLCall(glDrawElements(GL_TRIANGLES, (GLsizei)mesh->num_indices,
+										  GL_UNSIGNED_INT, 0));
+				}
+				else
+				{
+					GLCall(glDrawArrays(GL_TRIANGLES, 0, mesh->num_vertices));
+				}
+			
+			}
+		}
+		PipelineResetState(renderer->pipeline);
+		BindFramebuffer(0, FB_TARGET_DRAW);
+	}
+
+	static v3 casterPos = {0.0f, 1.0f, 0.0f};
+	static v3 casterDir = {};
+	void RendererRender(Renderer* renderer, AssetManager* assetManager,
+						RenderGroup* renderGroup)
+	{
+		if (renderGroup->commandQueueAt == 0)
+		{
+			return;
+		}
+
+		CopyArray(CommandQueueEntry,
+				  renderGroup->commandQueueCapacity,
+				  renderGroup->tmpCommandQueue,
+				  renderGroup->commandQueue);
+
+#if 1
+				
+		CommandQueueEntry* commandBuffer =
+			RenderGroupSortCommandQueue(renderGroup->commandQueue,
+										renderGroup->tmpCommandQueue,
+										0,
+										renderGroup->commandQueueAt - 1,
+										RendererSortPred);
+#else
+		CommandQueueEntry* commandBuffer= renderGroup->commandQueue;
+#endif
+		DEBUG_OVERLAY_PUSH_SLIDER("pos", &casterPos, -30, 30);
+		DEBUG_OVERLAY_PUSH_SLIDER("dir", &casterDir, -1, 1);
+		casterDir = Normalize(casterDir);
+		//casterPos = Normalize(casterPos);
+		m4x4 lightProjection = OrthogonalRH(-10.0f, 10.0f, -10.0f, 10.0f,
+											0.1f, 50.0f);
+		
+		m4x4 lookat = LookAtRH(renderGroup->dirLight.from,
+							   renderGroup->dirLight.target, V3(0, 1, 0));
+		m4x4 lightSpace = MulM4M4(lightProjection, lookat);
+
+		ShadowPass(renderer, renderGroup, assetManager, commandBuffer, &lightSpace);
+		MainPass(renderer, renderGroup, assetManager, commandBuffer, &lightSpace);
 		EnableDepthTest(renderer->pipeline, false);
 		
 		GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
-		
 		BindFramebuffer(renderer->impl->multisampledFBOHandle, FB_TARGET_READ);
 		BindFramebuffer(renderer->impl->postfxFBOHandle, FB_TARGET_DRAW);
 		// TODO: Framebuffers resolution, remove depth buffer frompostfx fbo?
@@ -942,9 +1104,7 @@ out vec4 out_FragColor;
 								 0, 0,
 								 renderer->config.renderResolutionW,
 								 renderer->config.renderResolutionH,
-								 GL_COLOR_BUFFER_BIT, GL_LINEAR
-								 ));
-
+								 GL_COLOR_BUFFER_BIT, GL_LINEAR));
 		BindFramebuffer(DEFAULT_FB_HANDLE, FB_TARGET_DRAW);
 		u32 w, h;
 		WindowGetSize(&w, &h);
