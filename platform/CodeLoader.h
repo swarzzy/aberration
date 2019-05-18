@@ -1,5 +1,5 @@
 #pragma once
-#include "AB.h"
+#include "Shared.h"
 
 namespace AB
 {
@@ -8,17 +8,12 @@ namespace AB
 	struct MemoryArena;
 	struct PlatformState;
 	
-	typedef void(GameInitFn)(MemoryArena*, PlatformState*);
-	typedef void(GameReloadFn)(MemoryArena*, PlatformState*);
-	typedef void(GameUpdateFn)(MemoryArena*, PlatformState*);
-	typedef void(GameRenderFn)(MemoryArena*, PlatformState*);
-
+	typedef void(GameUpdateAndRenderFn)(MemoryArena*, PlatformState*,
+										GameUpdateAndRenderReason);
+	
 	struct GameCode
 	{
-		GameInitFn* GameInit;
-		GameReloadFn* GameReload;
-		GameUpdateFn* GameUpdate;
-		GameRenderFn* GameRender;
+		GameUpdateAndRenderFn* GameUpdateAndRender;
 		u64 libLastChangeTime;
 		char libFullPath[MAX_GAME_LIB_PATH];
 		char libDir[MAX_GAME_LIB_PATH];

@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <xmmintrin.h>
@@ -32,11 +31,25 @@ typedef __m128				f128;
 #define HPM_USE_NAMESPACE
 
 #define HPM_CALL //__vectorcall
-
 namespace hpm
 {
 	constexpr f32 PI_32 = 3.14159265358979323846f;
 	constexpr f32 FLOAT_EPS = 0.000001f;
+
+	inline f32 AbsF32(f32 value)
+	{
+		return value >= 0.0f ? value : -value;
+	}
+
+	inline u32 AbsI32(i32 value)
+	{
+		return value >= 0 ? (u32)value : (u32)(-value);
+	}
+
+	inline u32 SignBit(f32 val)
+	{
+		return signbit(val);
+	}
 
 	inline f32 Square(f32 v)
 	{
@@ -75,29 +88,14 @@ namespace hpm
 		return (i32)floorf(value);
 	}
 
+	inline i32 Ceil(f32 value)
+	{
+		return (i32)ceilf(value);
+	}
+
 	inline i32 RoundF32I32(f32 value)
 	{
 		return (i32)roundf(value);
-	}
-	
-	inline int Abs(int val)
-	{
-		return val > 0 ? val : -val;
-	}
-
-	inline float Abs(float val)
-	{
-		return val > 0 ? val : -val;
-	}
-
-	inline short Abs(short val)
-	{
-		return val > 0 ? val : -val;
-	}
-
-	inline long Abs(long val)
-	{
-		return val > 0 ? val : -val;
 	}
 
 	inline float Minimum(float a, float b)
@@ -233,7 +231,7 @@ namespace hpm
 			Vector3 xyz;
 			f32 _w;
 		};		
-	};	
+	};
 
 	inline Vector2 V2(f32 x, f32 y)
 	{
@@ -411,6 +409,146 @@ namespace hpm
 	{
 		return Vector2{ left.x / scalar, left.y / scalar};
 	}
+
+	inline Vector2 operator/(Vector2 v, f32 s)
+	{
+		return Vector2{ v.x / s, v.y / s };
+	}
+
+	inline Vector2 operator/(f32 s, Vector2 v)
+	{
+		return Vector2{ v.x / s, v.y / s };
+	}
+
+
+	
+	inline Vector3 operator+(Vector3 l, Vector3 r)
+	{
+		return Vector3{ l.x + r.x, l.y + r.y, l.z + r.z };
+	}
+
+	inline Vector3 operator+(Vector3 v, f32 s)
+	{
+		return Vector3{ v.x + s, v.y + s, v.z + s };		
+	}
+
+ 	inline Vector3 operator+(f32 s, Vector3 v)
+	{
+		return Vector3{ v.x + s, v.y + s, v.z + s };		
+	}
+
+	inline Vector3& operator+=(Vector3& l, Vector3 r)
+	{
+		l.x += r.x;
+		l.y += r.y;
+		l.z += r.z;
+		return l;
+	}
+
+	inline Vector3& operator+=(Vector3& l, f32 s)
+	{
+		l.x += s;
+		l.y += s;
+		l.z += s;
+		return l;
+	}
+
+	inline Vector3 operator-(Vector3 l, Vector3 r)
+	{
+		return Vector3{ l.x - r.x, l.y - r.y, l.z - r.z };
+	}
+
+	inline Vector3 operator-(Vector3 v, f32 s)
+	{
+		return Vector3{ v.x - s, v.y - s, v.z - s };		
+	}
+
+	inline Vector3 operator-(f32 s, Vector3 v)
+	{
+		return Vector3{ v.x - s, v.y - s, v.z - s };		
+	}
+
+	inline Vector3& operator-=(Vector3& l, Vector3 r)
+	{
+		l.x -= r.x;
+		l.y -= r.y;
+		l.z -= r.z;
+		return l;
+	}
+
+	inline Vector3& operator-=(Vector3& l, f32 s)
+	{
+		l.x -= s;
+		l.y -= s;
+		l.z -= s;
+		return l;
+	}
+
+	inline Vector3 operator-(Vector3 v)
+	{
+		v.x = -v.x;
+		v.y = -v.y;
+		v.z = -v.z;
+		return v;
+	}
+
+	inline Vector3 operator*(Vector3 v, f32 s)
+	{
+		return Vector3{ v.x * s, v.y * s, v.z * s };
+	}
+	
+	inline Vector3 operator*(f32 s, Vector3 v)
+	{
+		return Vector3{ v.x * s, v.y * s, v.z * s };
+	}
+
+	inline Vector3& operator*=(Vector3& l, f32 s)
+	{
+		l.x *= s;
+		l.y *= s;
+		l.z *= s;
+		return l;
+	}
+ 
+	inline Vector3 operator/(Vector3 v, f32 s)
+	{
+		return Vector3{ v.x / s, v.y / s, v.z / s };
+	}
+ 
+	inline Vector3 operator/(f32 s, Vector3 v)
+	{
+		return Vector3{ v.x / s, v.y / s, v.z / s };
+	}
+
+	inline Vector3& operator/=(Vector3& v, f32 s)
+	{
+		v.x /= s;
+		v.y /= s;
+		v.z /= s;
+		return v;
+	}
+ 
+
+
+	inline Vector4& operator/=(Vector4& v, f32 s)
+	{
+		v.x /= s;
+		v.y /= s;
+		v.z /= s;
+		v.w /= s;
+		return v;
+	}
+
+	inline Vector4& operator*=(Vector4& v, f32 s)
+	{
+		v.x *= s;
+		v.y *= s;
+		v.z *= s;
+		v.w *= s;
+		return v;
+	}
+ 
+
 
 
 	inline Vector3 HPM_CALL AddV3V3(Vector3 left, Vector3 right)
@@ -829,34 +967,30 @@ namespace hpm
 		return r;
 	}
 
-	Matrix3 HPM_CALL Inverse(Matrix3 m);
+	b32 Inverse(Matrix3* m);
 	
 #if defined(HYPERMATH_IMPL)
 
-	Matrix3 HPM_CALL Inverse(Matrix3 m)
+	b32 Inverse(Matrix3* m)
 	{
-
-		f32 a11 = m._22 * m._33 - m._23 * m._32; 
-		f32 a12 = - (m._21 * m._33 - m._23 * m._31);
-		f32 a13 = m._21 * m._32 - m._22 * m._31;
+		b32 result = false;
+		f32 a11 = m->_22 * m->_33 - m->_23 * m->_32; 
+		f32 a12 = - (m->_21 * m->_33 - m->_23 * m->_31);
+		f32 a13 = m->_21 * m->_32 - m->_22 * m->_31;
 		
-		f32 a21 = - (m._12 * m._33 - m._32 * m._13);
-		f32 a22 = m._11 * m._33 - m._13 * m._31;
-		f32 a23 = - (m._11 * m._32 - m._12 * m._31);
+		f32 det = (m->_11 * a11 + m->_12 * a12 + m->_13 * a13);
+		// TODO: define this in hypemath
+		if (AbsF32(det) > FLOAT_EPS)
+		{
+					
+			f32 a21 = - (m->_12 * m->_33 - m->_32 * m->_13);
+			f32 a22 = m->_11 * m->_33 - m->_13 * m->_31;
+			f32 a23 = - (m->_11 * m->_32 - m->_12 * m->_31);
 		
-		f32 a31 = m._12 * m._23 - m._22 * m._13;
-		f32 a32 = - (m._11 * m._23 - m._21 * m._13);
-		f32 a33 = m._11 * m._22 - m._21 * m._12;
-
-		f32 det = (m._11 * a11 + m._12 * a12 + m._13 * a13);
-		// NOTE: Quietly return an indetity matix if no inverse matrix exist
-		if (det == 0)
-		{
-			return Identity3();
-		}
-		else
-		{
-			
+			f32 a31 = m->_12 * m->_23 - m->_22 * m->_13;
+			f32 a32 = - (m->_11 * m->_23 - m->_21 * m->_13);
+			f32 a33 = m->_11 * m->_22 - m->_21 * m->_12;
+						
 			f32 oneOverDet = 1.0f / det;
 
 			Matrix3 inv;
@@ -870,8 +1004,11 @@ namespace hpm
 			inv._32 = a23 * oneOverDet;
 			inv._33 = a33 * oneOverDet;
 
-			return inv;
+			*m = inv;
+			result = true;
 		}
+
+		return result;
 	}
 
 #endif
@@ -1373,8 +1510,7 @@ namespace hpm
 			result = Normalize(result);
 		}
 		return result;
-	}
-
+	}	
 }
 #if defined(HPM_USE_NAMESPACE)
 using namespace hpm;

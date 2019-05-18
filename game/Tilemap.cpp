@@ -3,17 +3,43 @@
 namespace AB
 {
 	inline void RecanonicalizeCoord(f32 tileSizeUnits,
-									u32* tileCoord,
-									f32* coord)
+									u32* restrict tileCoord,
+									f32* restrict coord)
 	{
 		i32 tileOffset = RoundF32I32(*coord / tileSizeUnits);
-		// NOTE: tileCoord might go out if bounds here
-		// It will be clamped in RecanonicalizePosition
-		*tileCoord += tileOffset;
-		*coord -= (f32)tileOffset * tileSizeUnits;
+		// TODO: Made this function branchless.
+		if (tileOffset < 0)
+		{
+			if ((AbsI32(tileOffset) > *tileCoord))
+			{
+				*tileCoord = 0;
+				*coord = -0.5f * tileSizeUnits;
+			}
+			else
+			{
+				*tileCoord += tileOffset;
+				*coord -= (f32)tileOffset * tileSizeUnits;				
+			}
+		}
+		else 
+		{
+			// NOTE: If u32 has an owerflow, then sum of the coord would
+			// be less than the coord itsef. It will be wrong if
+			// an overflowed sum will be equal to the coord
+			if (tileOffset + *tileCoord < (u32)(*tileCoord))
+			{
+				*tileCoord = 0xffffffff;
+				*coord = 0.5f * tileSizeUnits;
+			}
+			else
+			{
+				*tileCoord += tileOffset;
+				*coord -= (f32)tileOffset * tileSizeUnits;				
+			}
+		}
 	}
 
-	inline TilemapPosition RecanonicalizePosition(Tilemap* tilemap,
+	inline TilemapPosition RecanonicalizePosition(const Tilemap* tilemap,
 												  TilemapPosition pos)
 	{
 		RecanonicalizeCoord(tilemap->tileSizeInUnits, &pos.tileX, &pos.offset.x);
@@ -27,7 +53,7 @@ namespace AB
 		return pos;
 	}
 
-	inline Chunk* GetChunk(Tilemap* tilemap, u32 chunkX, u32 chunkY)
+	inline Chunk* GetChunk(const Tilemap* tilemap, u32 chunkX, u32 chunkY)
 	{
 		Chunk* chunk = nullptr;
 		if (chunkX < tilemap->tilemapChunkCountX &&
@@ -39,7 +65,7 @@ namespace AB
 		return chunk;
 	}
 
-	inline ChunkPosition GetChunkPosition(Tilemap* tilemap, u32 absTileX,
+	inline ChunkPosition GetChunkPosition(const Tilemap* tilemap, u32 absTileX,
 										  u32 absTileY)
 	{
 		ChunkPosition result;
@@ -51,7 +77,8 @@ namespace AB
 		return result;
 	}
 
-	inline u32 GetTileValueInChunk(Tilemap* tilemap, Chunk* chunk,
+	
+	inline u32 GetTileValueInChunk(const Tilemap* tilemap, const Chunk* chunk,
 							u32 tileX, u32 tileY)
 	{
 		u32 result = 0;
@@ -67,7 +94,7 @@ namespace AB
 		return result;
 	}
 
-	inline u32 GetTileValue(Tilemap* tilemap, u32 absTileX, u32 absTileY)
+	inline u32 GetTileValue(const Tilemap* tilemap, u32 absTileX, u32 absTileY)
 	{
 		u32 result = 0;
 		ChunkPosition chunkPos = GetChunkPosition(tilemap, absTileX, absTileY);
@@ -81,7 +108,7 @@ namespace AB
 		return result;		
 	}
 
-	inline void SetTileValueInChunk(MemoryArena* arena, Tilemap* tilemap,
+	inline void SetTileValueInChunk(MemoryArena* arena, const Tilemap* tilemap,
 									Chunk* chunk, u32 tileX, u32 tileY, u32 value)
 	{
 		AB_ASSERT(tileX < tilemap->chunkSizeInTiles);
@@ -117,7 +144,7 @@ namespace AB
 							cPos.tileInChunkX, cPos.tileInChunkY, value);
 	}
 
-	b32 TestWorldPoint(Tilemap* tilemap, TilemapPosition p)
+	b32 TestWorldPoint(const Tilemap* tilemap, TilemapPosition p)
 	{
 		u32 tileValue = GetTileValue(tilemap, p.tileX, p.tileY);
 		return tileValue == 1;
@@ -144,6 +171,14 @@ namespace AB
 		return result;
 	}
 
+	TilemapPosition OffsetTilemapPos(const Tilemap* tilemap,
+									 TilemapPosition pos, v2 offset)
+	{
+		pos.offset += offset;
+		auto newPos = RecanonicalizePosition(tilemap, pos);
+		return newPos;
+	}
+
 	// NOTE: Temporary func just for test
 	inline void SetTileColor(Tilemap* tilemap, Chunk* chunk,
 							 u32 tileX, u32 tileY, v3 color)
@@ -155,7 +190,7 @@ namespace AB
 		chunk->colors[tileY * tilemap->chunkSizeInTiles + tileX] = color;		
 	}
 
-	inline v3 GetTileColor(Tilemap* tilemap, Chunk* chunk,
+	inline v3 GetTileColor(const Tilemap* tilemap, Chunk* chunk,
 							u32 tileX, u32 tileY)
 	{
 		v3 result = {};

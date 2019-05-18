@@ -527,11 +527,14 @@ namespace AB {
 		return renderer->viewSpaceDim;
 	}
 
-	hpm::Vector2 Renderer2DGetMousePositionOnCanvas(Renderer2DProperties* renderer, InputMgr* inputManager) {
+	hpm::Vector2 Renderer2DGetMousePositionOnCanvas(Renderer2DProperties* renderer)
+	{
 		uint32 w = 0;
 		uint32 h = 0;
 		WindowGetSize(&w, &h);
-		hpm::Vector2 mousePos= InputGetMousePosition(inputManager);
+		hpm::Vector2 mousePos;
+		mousePos.x = GlobalInput.rawMouseX;
+		mousePos.y = GlobalInput.rawMouseY;
 		AB_CORE_ASSERT(w && h, "Screen size is zero!");
 		float32 xMouseInCanvasSpace = (float32)mousePos.x * (float32)renderer->viewSpaceDim.x / w;
 		float32 yMouseInCanvasSpace = (float32)mousePos.y * (float32)renderer->viewSpaceDim.y / h;
@@ -577,14 +580,19 @@ namespace AB {
 		}
 	}
 
-	bool32 Renderer2DDrawRectangleColorUI(Renderer2DProperties* renderer, InputMgr* inputManager, hpm::Vector2 min, hpm::Vector2 max, uint16 depth, float32 angle, float32 anchor, color32 color) {
+	bool32 Renderer2DDrawRectangleColorUI(Renderer2DProperties* renderer,
+										  hpm::Vector2 min, hpm::Vector2 max,
+										  uint16 depth, float32 angle,
+										  float32 anchor, color32 color) {
 		// TODO: THIS is temporary
 		uint32 w;
 		uint32 h;
 		WindowGetSize(&w, &h);
 		uint32 xMouse = 0;
 		uint32 yMouse = 0;
-		hpm::Vector2 mousePos = InputGetMousePosition(inputManager);
+		hpm::Vector2 mousePos;
+		mousePos.x = GlobalInput.rawMouseX;
+		mousePos.y = GlobalInput.rawMouseY;
 		AB_CORE_ASSERT(w && h, "Screen size is zero!");
 		float32 xMouseInCanvasSpace = (float32)mousePos.x * (float32)renderer->viewSpaceDim.x / w;
 		float32 yMouseInCanvasSpace = (float32)mousePos.y * (float32)renderer->viewSpaceDim.y / h;

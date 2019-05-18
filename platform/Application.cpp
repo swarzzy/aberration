@@ -12,12 +12,6 @@ namespace AB {
 
 	Application* g_Application = nullptr;
 
-	inline static void _WindowRegisterInputManager(void* manager,
-												   PlatformInputCallbacks* callbacks)
-	{
-		WindowRegisterInputManager(g_Application->window, manager, callbacks);
-	}
-
 	inline static void _WindowGetSize(u32* width, u32* height)
 	{
 		WindowGetSize(g_Application->window, width, height);
@@ -49,10 +43,12 @@ namespace AB {
 	void AppRun(Application* app)
 	{
 		AB_CORE_INFO("Aberration engine");
+
 		app->state.runningTime = AB::GetCurrentRawTime();
 		
-		app->window = WindowAllocateAndInit(app->systemMemory,
-											"Aberration", 1280, 720);
+		app->window = WindowAllocate(app->systemMemory);
+		WindowSetInputStatePtr(app->window, &app->state.input);
+		WindowInit(app->window, "Aberration", 1280, 720);
 		WindowEnableVSync(app->window, true);
 
 		LoadFunctionsResult glResult = OpenGLLoadFunctions(app->systemMemory);
@@ -61,7 +57,6 @@ namespace AB {
 		app->state.gl = glResult.funcTable;
 		app->state.gl = glResult.funcTable;
 		
-		app->state.functions.RegisterInputManager = _WindowRegisterInputManager;
 		app->state.functions.WindowGetSize = _WindowGetSize;
 		app->state.functions.PlatformSetCursorPosition = _WindowSetMousePosition;
 		app->state.functions.WindowActive = _WindowActive;
@@ -83,13 +78,16 @@ namespace AB {
 		b32 codeLoaded = UpdateGameCode(app->gameCode, app->window);
 		AB_CORE_ASSERT(codeLoaded, "Failed to load code");
 
-		app->gameMemory = AllocateArena(MEGABYTES(64));
+		app->gameMemory = AllocateArena(MEGABYTES(1024));
 		
 		i64 updateTimer = UPDATE_INTERVAL;
 		i64 tickTimer = SECOND_INTERVAL;
 		u32 updatesSinceLastTick = 0;
 
-		app->gameCode->GameInit(app->gameMemory, &app->state);
+		app->gameCode->GameUpdateAndRender(app->gameMemory, &app->state,
+										   GUR_REASON_INIT);
+
+		auto* inputState = &app->state.input;
 
 		while (AB::WindowIsOpen(app->window))
 		{
@@ -109,33 +107,54 @@ namespace AB {
 				WindowGetSize(app->window,
 							  &app->state.windowWidth,
 							  &app->state.windowHeight);
-				app->state.windowActive = WindowActive(app->window);
 				GetLocalTime(&app->state.localTime);
 
 				b32 codeReloaded = UpdateGameCode(app->gameCode, app->window);
 				if (codeReloaded)
 				{
-					app->gameCode->GameReload(app->gameMemory, &app->state);				
+					app->gameCode->GameUpdateAndRender(app->gameMemory,
+													   &app->state,
+													   GUR_REASON_RELOAD);				
 				}
 				updateTimer = UPDATE_INTERVAL;
 				updatesSinceLastTick++;
-				app->gameCode->GameUpdate(app->gameMemory, &app->state);
+				app->gameCode->GameUpdateAndRender(app->gameMemory, &app->state,
+												   GUR_REASON_UPDATE);
 			}
 
 			//app->state.gl->_glClearColor(1.0, 1.0, 0.0, 1.0);
 			//app->state.gl->_glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			app->gameCode->GameRender(app->gameMemory, &app->state);
+			app->gameCode->GameUpdateAndRender(app->gameMemory, &app->state,
+											   GUR_REASON_RENDER);
 			
 			AB::WindowSwapBuffers(app->window);
 
+			// NOTE: Cache hell!!!
+			for (u32 keyIndex = 0; keyIndex < KEYBOARD_KEYS_COUNT; keyIndex ++)
+			{
+				app->state.input.keys[keyIndex].wasPressed =
+					app->state.input.keys[keyIndex].pressedNow;
+			}
+
+			for (u32 mbIndex = 0; mbIndex < MOUSE_BUTTONS_COUNT; mbIndex++)
+			{
+				app->state.input.mouseButtons[mbIndex].wasPressed =
+					app->state.input.mouseButtons[mbIndex].pressedNow;
+			}
+
+			inputState->scrollFrameOffset = 0;
+			inputState->mouseFrameOffsetX = 0;
+			inputState->mouseFrameOffsetY = 0;
+			
 			int64 current_time = AB::GetCurrentRawTime();
 			app->state.frameTime = current_time - app->state.runningTime;
 			app->state.runningTime = current_time;
 			tickTimer -= app->state.frameTime;
 			updateTimer -= app->state.frameTime;
 			app->state.fps = SECOND_INTERVAL / app->state.frameTime;
-			app->state.deltaTime = app->state.frameTime / (1000.0f * 1000.0f);
+			app->state.absDeltaTime = app->state.frameTime / (1000.0f * 1000.0f);
+			app->state.gameDeltaTime = app->state.absDeltaTime * app->state.gameSpeed;
 		}
 	}
 }

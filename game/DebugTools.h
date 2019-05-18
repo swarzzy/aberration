@@ -1,5 +1,5 @@
 #pragma once
-#include "AB.h"
+#include "Shared.h"
 #include <hypermath.h>
 #include "Memory.h"
 #include "render/DebugRenderer.h"
@@ -10,7 +10,6 @@ namespace AB
 	struct DebugOverlay
 	{
 		DebugRenderer* renderer;
-		InputManager* inputManager;
 		i64 frameTime;
 		i64 fps;
 		i64 ups;
@@ -21,7 +20,6 @@ namespace AB
 
 	DebugOverlay* CreateDebugOverlay(MemoryArena* memory,
 									 DebugRenderer* renderer,
-									 InputManager* inputManager,
 									 v2 renderCanvasSize);
 	
 	void DrawDebugOverlay(DebugOverlay* properties);
@@ -55,6 +53,7 @@ namespace AB
 #define DEBUG_OVERLAY_PUSH_TOGGLE(title, varPtr) DebugOverlayPushToggle(g_StaticStorage->debugOverlay, title, varPtr)
 #define DEBUG_OVERLAY_PUSH_SLIDER(title, val, min, max) DebugOverlayPushSlider(g_StaticStorage->debugOverlay, title, val, min, max)
 
+#define DEBUG_OVERLAY_SLIDER(var, min, max) DebugOverlayPushSlider(g_StaticStorage->debugOverlay, #var, &var, min, max)
 #define DEBUG_OVERLAY_TRACE_VAR(variableName)  DebugOverlayPushVar(g_StaticStorage->debugOverlay, #variableName, variableName)
 
 }

@@ -1,9 +1,8 @@
 #pragma once
-#include "AB.h"
+#include "Shared.h"
 
 namespace AB
-{
-	
+{	
 	struct TilemapPosition
 	{
 		u32 tileX;

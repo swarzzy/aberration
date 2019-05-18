@@ -6,6 +6,14 @@ namespace AB
 {
 	struct AnnoCamera
 	{
+		b32 debugMode;
+		v3 debugPos;
+		v3 debugFront;
+		f32 debugPitch;
+		f32 debugYaw;
+		f32 debugSpeed;
+		m4x4 debugLookAt;
+		
 		f32 longSmoothness;
 		f32 latSmoothness;
 		f32 distSmoothness;
@@ -17,16 +25,10 @@ namespace AB
 		f32 distance;
 		v2 lastMousePos;
 		f32 targetDistance;
-		struct
-		{
-			b32 forward;
-			b32 back;
-			b32 left;
-			b32 right;
-		} frameMovementFlags;
+		m4x4 lookAt;
 	};
 
-	struct InputState
+	struct MouseInputState
 	{
 		b32 mouseCaptured;
 		f32 lastMouseX;
@@ -46,12 +48,13 @@ namespace AB
 		f32 gamma;
 		f32 exposure;
 		AnnoCamera camera;
-		InputState inputState;
+		MouseInputState inputState;
 		DirectionalLight dirLight;
 		TilemapPosition playerP;
 		v2 playerSpeed;
 		World* world;
 		v3 dirLightOffset;
+		FrustumVertices camFrustum;
 	};
 	
 
@@ -59,11 +62,9 @@ namespace AB
 	void Init(MemoryArena* arena,
 			  MemoryArena* tempArena,
 			  Sandbox* sandbox,
-			  AssetManager* assetManager,
-			  InputManager* inputManager);
+			  AssetManager* assetManager);
 	
 	void Render(Sandbox* sandbox,
 				AssetManager* assetManager,
-				Renderer* renderer,
-				InputManager* inputManager);
+				Renderer* renderer);
 }

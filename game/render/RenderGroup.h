@@ -1,5 +1,5 @@
 #pragma once
-#include "AB.h"
+#include "Shared.h"
 #include <hypermath.h>
 
 namespace AB
@@ -141,7 +141,8 @@ namespace AB
 									   void* command);
 	void RenderGroupResetQueue(RenderGroup* group);
 	
-	void RenderGroupSetCamera(RenderGroup* group, v3 front, v3 position);
+	void RenderGroupSetCamera(RenderGroup* group, v3 front, v3 position,
+							  m4x4* lookAt);
 
 	typedef b32(RenderGroupCommandQueueSortPred)(u64 a, u64 b);
 

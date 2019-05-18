@@ -1,10 +1,8 @@
 #define HYPERMATH_IMPL 
 #include <hypermath.h>
-#include "AB.h"
 #include "Shared.h"
 #include "Memory.h"
 #include "OpenGL.h"
-#include "InputManager.h"
 #include "render/DebugRenderer.h"
 #include "DebugTools.h"
 #include "AssetManager.h"
@@ -32,10 +30,12 @@ namespace AB
 	static PlatformState* g_Platform;
 	static StaticStorage* g_StaticStorage;
 	static GLFuncTable* g_OpenGLFuncTable;
-
-#define GlobalDeltaTime g_Platform->deltaTime
-
+// NOTE: Actual frame tile
+#define GlobalAbsDeltaTime g_Platform->absDeltaTime
+// NOTE: Frame time corrected by game speed
+#define GlobalGameDeltaTime g_Platform->gameDeltaTime
 // NOTE: Why clang inserts the dot by itself
+#define GlobalInput g_Platform->input
 #if defined(_MSC_VER)
 #define PLATFORM_FUNCTION(func) g_Platform->functions.##func
 #else
@@ -118,7 +118,7 @@ namespace AB
 #define glBlitFramebuffer GL_FUNCTION(glBlitFramebuffer)
 #define glTexParameterfv GL_FUNCTION(glTexParameterfv)
 		
-	static constexpr u32 OPENGL_LOG_BUFFER_SIZE = 256;
+		static constexpr u32 OPENGL_LOG_BUFFER_SIZE = 256;
 	static char g_OpenGLLogBuffer[OPENGL_LOG_BUFFER_SIZE];
 
 	void _OpenGLClearErrorQueue()
@@ -183,25 +183,57 @@ namespace AB
 
 }
 
-extern "C" GAME_CODE_ENTRY void GameInit(AB::MemoryArena* arena,
-										 AB::PlatformState* platform)
+void GameInit(AB::MemoryArena* arena,  AB::PlatformState* platform);
+void GameReload(AB::MemoryArena* arena,  AB::PlatformState* platform);
+void GameUpdate(AB::MemoryArena* arena,  AB::PlatformState* platform);
+void GameRender(AB::MemoryArena* arena,  AB::PlatformState* platform);
+
+extern "C" GAME_CODE_ENTRY void
+GameUpdateAndRender(AB::MemoryArena* arena,
+					AB::PlatformState* platform,
+					AB::GameUpdateAndRenderReason reason)
+{
+	using namespace AB;
+	switch (reason)
+	{
+	case GUR_REASON_INIT:
+	{
+		GameInit(arena, platform);
+	} break;
+	case GUR_REASON_RELOAD:
+	{
+		GameReload(arena, platform);
+	} break;
+	case GUR_REASON_UPDATE:
+	{
+		GameUpdate(arena, platform);
+	} break;
+	case GUR_REASON_RENDER:
+	{
+		GameRender(arena, platform);
+	} break;
+	INVALID_DEFAULT_CASE
+	}
+}
+
+void GameInit(AB::MemoryArena* arena,
+			  AB::PlatformState* platform)
 {
 	using namespace AB;
 	g_StaticStorage = (AB::StaticStorage*)PushSize(arena, KILOBYTES(1), 1);
 	g_Platform = platform;
 	g_OpenGLFuncTable = platform->gl;
 
+	g_Platform->gameSpeed = 1.0f;
+
 	g_StaticStorage->tempArena = AllocateSubArena(arena, arena->size / 2);
 	AB_CORE_ASSERT(g_StaticStorage->tempArena, "Failed to allocate tempArena.");
 
-	g_StaticStorage->inputManager = InputInitialize(arena, platform);
 	g_StaticStorage->debugRenderer = Renderer2DInitialize(arena,
 														  g_StaticStorage->tempArena,
 														  1280, 720);
-	InputConnectToPlatform(g_StaticStorage->inputManager, platform);
 	DebugOverlay* debugOverlay = CreateDebugOverlay(arena,
 													g_StaticStorage->debugRenderer,
-													g_StaticStorage->inputManager,
 													V2(1280, 720));
 	DebugOverlayEnableMainPane(debugOverlay, true);
 	g_StaticStorage->assetManager = AssetManagerInitialize(arena,
@@ -226,29 +258,24 @@ extern "C" GAME_CODE_ENTRY void GameInit(AB::MemoryArena* arena,
 	
 	Init(arena, g_StaticStorage->tempArena,
 		 g_StaticStorage->gameVars,
-		 g_StaticStorage->assetManager,
-		 g_StaticStorage->inputManager);
+		 g_StaticStorage->assetManager);
 }
 
-extern "C" GAME_CODE_ENTRY void GameReload(AB::MemoryArena* arena,
-										   AB::PlatformState* platform)
+void GameReload(AB::MemoryArena* arena, AB::PlatformState* platform)
 {
 	using namespace AB;
 	g_Platform = platform;
 	g_OpenGLFuncTable = platform->gl; 
 	g_StaticStorage = (StaticStorage*)arena->begin;
-	InputConnectToPlatform(g_StaticStorage->inputManager, platform);
 }
 
-extern "C" GAME_CODE_ENTRY void GameUpdate(AB::MemoryArena* arena,
-										   AB::PlatformState* platform)
+void GameUpdate(AB::MemoryArena* arena, AB::PlatformState* platform)
 {
 	using namespace AB;
 	UpdateDebugOverlay(g_StaticStorage->debugOverlay, platform);
 }
 
-extern "C" GAME_CODE_ENTRY void GameRender(AB::MemoryArena* arena,
-										   AB::PlatformState* platform)
+void GameRender(AB::MemoryArena* arena, AB::PlatformState* platform)
 {
 	using namespace AB;
 	platform->gl->_glClearColor(0.9, 0.9, 0.9, 1.0);
@@ -257,15 +284,12 @@ extern "C" GAME_CODE_ENTRY void GameRender(AB::MemoryArena* arena,
 	
 	Render(g_StaticStorage->gameVars,
 		   g_StaticStorage->assetManager,
-		   g_StaticStorage->renderer,
-		   g_StaticStorage->inputManager);
+		   g_StaticStorage->renderer);
 	
 	Renderer2DFlush(g_StaticStorage->debugRenderer, g_Platform);
-	InputEndFrame(g_StaticStorage->inputManager);
 }
 
 #include "Log.cpp"
-#include "InputManager.cpp"
 #include "ExtendedMath.cpp"
 #include "ImageLoader.cpp"
 #include "render/DebugRenderer.cpp"

@@ -181,7 +181,7 @@ typedef unsigned long  int     khronos_usize_t;
 typedef          float         khronos_float_t;
 #endif
 
-#include "AB.h"
+#include "Shared.h"
 #include "Log.h"
 
 // Aberration OpenGL header

@@ -33,7 +33,7 @@ namespace AB {
 					BMPInfoHeaderV3* v3 = (BMPInfoHeaderV3*)infoHeader;
 					if (infoHeader->height < 0) {
 						bottomUp = false;
-						image.height = (uint32)hpm::Abs(v3->height);
+						image.height = (uint32)AbsI32(v3->height);
 					}
 					else {
 						image.height = v3->height;
@@ -48,7 +48,7 @@ namespace AB {
 						BMPInfoHeaderV4* v4 = (BMPInfoHeaderV4*)infoHeader;
 						if (v4->height < 0) {
 							bottomUp = false;
-							image.height = (uint32)hpm::Abs(v4->height);
+							image.height = (uint32)hpm::AbsI32(v4->height);
 						}
 						else {
 							image.height = v4->height;

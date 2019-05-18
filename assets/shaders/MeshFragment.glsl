@@ -122,6 +122,7 @@ void main()
 
 	f32 shadowKoef = CalcShadow(f_LightSpacePosition, viewDir, normal);
 	shadowKoef = 1.0f - shadowKoef;
+	//shadowKoef = 1.0f;
 
 	vec3 specSample;
 	if (material.use_spec_map) {

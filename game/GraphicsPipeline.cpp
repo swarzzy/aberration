@@ -35,7 +35,7 @@ namespace AB
 		{
 		case DEPTH_FUNC_LESS: { glFunc = GL_LESS; } break;
 		case DEPTH_FUNC_GREATER: { glFunc = GL_LESS; } break;
-		INVALID_DEFAULT_CASE();
+		INVALID_DEFAULT_CASE
 		}
 		GLCall(glDepthFunc(glFunc));		
 	}
@@ -58,7 +58,7 @@ namespace AB
 		switch(func)
 		{
 		case BLEND_FUNC_ADD: { glFunc = GL_FUNC_ADD; } break;
-		INVALID_DEFAULT_CASE();
+		INVALID_DEFAULT_CASE
 		}
 		GLCall(glBlendEquation(glFunc));		
 	}
@@ -71,13 +71,13 @@ namespace AB
 		{
 		case BLEND_FACTOR_SRC_ALPHA: { src = GL_SRC_ALPHA; } break;
 		case BLEND_FACTOR_ONE_MINUS_SRC_ALPHA: { src = GL_ONE_MINUS_SRC_ALPHA; } break;
-		INVALID_DEFAULT_CASE();
+		INVALID_DEFAULT_CASE
 		}
 		switch(dstFac)
 		{
 		case BLEND_FACTOR_SRC_ALPHA: { dst = GL_SRC_ALPHA; } break;
 		case BLEND_FACTOR_ONE_MINUS_SRC_ALPHA: { dst = GL_ONE_MINUS_SRC_ALPHA; } break;
-		INVALID_DEFAULT_CASE();
+		INVALID_DEFAULT_CASE
 		}
 
 		GLCall(glBlendFunc(src, dst));
@@ -102,7 +102,7 @@ namespace AB
 		{
 		case FACE_CULL_MODE_BACK: { glMode = GL_BACK; } break;
 		case FACE_CULL_MODE_FRONT: { glMode = GL_FRONT; } break;
-		INVALID_DEFAULT_CASE();
+		INVALID_DEFAULT_CASE
 		}
 		GLCall(glCullFace(glMode));
 	}
@@ -113,7 +113,7 @@ namespace AB
 		switch(order)
 		{
 		case DRAW_ORDER_CCW: { glOrder = GL_CCW; } break;
-	   	INVALID_DEFAULT_CASE();
+	   	INVALID_DEFAULT_CASE
 		}
 		GLCall(glFrontFace(glOrder));
 	}
@@ -125,7 +125,7 @@ namespace AB
 		{
 		case POLYGON_FILL_MODE_FILL: { glMode = GL_FILL; } break;
 		case POLYGON_FILL_MODE_LINE: { glMode = GL_LINE; } break;
-	   	INVALID_DEFAULT_CASE();
+	   	INVALID_DEFAULT_CASE
 		}
 		GLCall(glPolygonMode(GL_FRONT_AND_BACK, glMode));		
 	}

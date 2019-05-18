@@ -1,6 +1,6 @@
 #pragma once
 
-#include "AB.h"
+#include "Shared.h"
 #include <hypermath.h>
 
 namespace AB {

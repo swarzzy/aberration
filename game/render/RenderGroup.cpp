@@ -299,13 +299,12 @@ namespace AB
 		}
 	}
 
-	void RenderGroupSetCamera(RenderGroup* group, v3 front, v3 position)
+	void RenderGroupSetCamera(RenderGroup* group, v3 front, v3 position,
+							  m4x4* lookAt)
 	{
 		group->camera.front = Normalize(front);
 		group->camera.position = position;
-		group->camera.lookAt = LookAtRH(position,
-										AddV3V3(position, front),
-										V3(0.0f, 1.0f, 0.0f));
+		group->camera.lookAt = *lookAt;
 	}
 
 

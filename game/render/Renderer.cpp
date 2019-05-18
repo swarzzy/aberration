@@ -739,7 +739,7 @@ out vec4 out_FragColor;
 			EnableFaceCulling(renderer->pipeline, true);
 					
 		} break;
-		INVALID_DEFAULT_CASE();
+		INVALID_DEFAULT_CASE
 		}
 			
 		if (result.blendMode == BLEND_MODE_OPAQUE)
@@ -755,7 +755,7 @@ out vec4 out_FragColor;
 
 		} else
 		{
-			INVALID_CODE_PATH();
+			INVALID_CODE_PATH
 		}
 
 		return result;
@@ -851,7 +851,9 @@ out vec4 out_FragColor;
 		GLCall(glUniformMatrix4fv(modelLoc, 1, GL_FALSE,
 								  dcData.transform->worldMatrix.data));
 
-		m4x4 inv = M4x4(Inverse(M3x3(dcData.transform->worldMatrix)));
+		m3x3 invWorldMtx = M3x3(dcData.transform->worldMatrix);
+		Inverse(&invWorldMtx);
+		m4x4 inv = M4x4(invWorldMtx);
 		m4x4 normalMatrix = Transpose(inv);
 
 		GLuint normalLoc = glGetUniformLocation(renderer->impl->programHandle,
@@ -1090,7 +1092,7 @@ out vec4 out_FragColor;
 							   renderGroup->dirLight.target, V3(0, 1, 0));
 		m4x4 lightSpace = MulM4M4(lightProjection, lookat);
 
-		ShadowPass(renderer, renderGroup, assetManager, commandBuffer, &lightSpace);
+		//ShadowPass(renderer, renderGroup, assetManager, commandBuffer, &lightSpace);
 		MainPass(renderer, renderGroup, assetManager, commandBuffer, &lightSpace);
 		EnableDepthTest(renderer->pipeline, false);
 		

@@ -1,10 +1,9 @@
 #pragma once
-#include "AB.h"
 #include "Shared.h"
 #include "PlatformOpenGL.h"
 
-namespace AB{
-
+namespace AB
+{
 	struct GameCode;
 	struct WindowProperties;
 

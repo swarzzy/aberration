@@ -30,7 +30,8 @@ namespace AB {
 
 	static constexpr uint32 WINDOW_TITLE_SIZE = 32;
 
-	struct WindowProperties {
+	struct WindowProperties
+	{
 		char title[32];
 		uint32 width;
 		uint32 height;
@@ -45,13 +46,10 @@ namespace AB {
 		TRACKMOUSEEVENT Win32MouseTrackEvent;
 		bool32 mouseInClientArea;
 
-		void* inputManager;
-		PlatformMouseCallbackFn* PlatformMouseCallback;
-		PlatformMouseButtonCallbackFn* PlatformMouseButtonCallback;
-		PlatformKeyCallbackFn* PlatformKeyCallback;
-		PlatformFocusCallbackFn* PlatformFocusCallback;
-		PlatformMouseLeaveCallbackFn* PlatformMouseLeaveCallback;
-		PlatformMouseScrollCallbackFn* PlatformMouseScrollCallback;
+		InputState* inputStatePtr;
+		//TODO: These
+		//PlatformFocusCallbackFn* PlatformFocusCallback;
+		//PlatformMouseLeaveCallbackFn* PlatformMouseLeaveCallback;
 
 		uint8 keyTable[KEYBOARD_KEYS_COUNT];
 	};
@@ -62,21 +60,32 @@ namespace AB {
 	static uint8 _Win32KeyConvertToABKeycode(WindowProperties* window, uint64 Win32Key);
 	static void _Win32Initialize(WindowProperties* window);
 
+	
+	inline static void ProcessMButtonEvent(InputState* input,
+										   MouseButton button, b32 state) 
+	{
+		input->mouseButtons[button].wasPressed =
+			input->mouseButtons[button].pressedNow;
+		input->mouseButtons[button].pressedNow = state;
+	}
 
-	WindowProperties* WindowAllocateAndInit(MemoryArena* arena,
-											const char* title,
-											uint32 width, uint32 height)
+	WindowProperties* WindowAllocate(MemoryArena* arena)
 	{
 		WindowProperties* window = nullptr;
 		window = (WindowProperties*)PushSize(arena,
 											 sizeof(WindowProperties),
 											 alignof(WindowProperties));
 		AB_CORE_ASSERT(window, "Allocation failed");
+		return window;
+	}
+
+	void WindowInit(WindowProperties* window, const char* title,
+					uint32 width, uint32 height)
+	{
 		strcpy_s(window->title, WINDOW_TITLE_SIZE, title);
 		window->width = width;
 		window->height = height;
-		_Win32Initialize(window);
-		return window;
+		_Win32Initialize(window);		
 	}
 
 	void WindowDestroy(WindowProperties* window) {
@@ -125,31 +134,6 @@ namespace AB {
 			wglSwapIntervalEXT(0);
 	}
 
-	void WindowRegisterInputManager(WindowProperties* window,
-									void* inputManager,
-									PlatformInputCallbacks* callbacks) {
-		if (inputManager && callbacks)
-		{
-			window->inputManager = inputManager;
-			window->PlatformMouseCallback = callbacks->PlatformMouseCallback;
-			window->PlatformMouseButtonCallback = callbacks->PlatformMouseButtonCallback;
-			window->PlatformKeyCallback = callbacks->PlatformKeyCallback;
-			window->PlatformFocusCallback = callbacks->PlatformFocusCallback;
-			window->PlatformMouseLeaveCallback = callbacks->PlatformMouseLeaveCallback;
-			window->PlatformMouseScrollCallback = callbacks->PlatformMouseScrollCallback;
-		}
-		else
-		{
-			window->inputManager = nullptr;
-			window->PlatformMouseCallback = nullptr;
-			window->PlatformMouseButtonCallback = nullptr;
-			window->PlatformKeyCallback = nullptr;
-			window->PlatformFocusCallback = nullptr;
-			window->PlatformMouseLeaveCallback = nullptr;
-			window->PlatformMouseScrollCallback = nullptr;
-		}
-	}
-
 	void WindowGetSize(WindowProperties* window, uint32* width, uint32* height) {
 		*width = window->width;
 		*height = window->height;
@@ -183,6 +167,11 @@ namespace AB {
 	void WindowShowCursor(WindowProperties* window, bool32 show) {
 		// TODO: Make this work (SetCursor())
 		//::ShowCursor(show ? TRUE : FALSE);
+	}
+
+	void WindowSetInputStatePtr(WindowProperties* window, InputState* inputPtr)
+	{
+		window->inputStatePtr = inputPtr;
 	}
 
 	bool WindowMouseInClientArea(WindowProperties* window) {
@@ -260,8 +249,8 @@ namespace AB {
 			WS_OVERLAPPEDWINDOW | WS_VISIBLE,
 			CW_USEDEFAULT,
 			CW_USEDEFAULT,
-			hpm::Abs(actualSize.left) + hpm::Abs(actualSize.right),
-			hpm::Abs(actualSize.top) + hpm::Abs(actualSize.bottom),
+			hpm::AbsI32(actualSize.left) + hpm::AbsI32(actualSize.right),
+			hpm::AbsI32(actualSize.top) + hpm::AbsI32(actualSize.bottom),
 			NULL,
 			NULL,
 			instance,
@@ -384,114 +373,96 @@ namespace AB {
 
 				// MOUSE INPUT
 
-			case WM_MOUSEMOVE: {
-				if (!window->mouseInClientArea) {
+			case WM_MOUSEMOVE:
+			{
+				if (!window->mouseInClientArea)
+				{
 					window->mouseInClientArea = true;
 					TrackMouseEvent(&window->Win32MouseTrackEvent);
-					if (window->inputManager && window->PlatformMouseLeaveCallback) {
-						window->PlatformMouseLeaveCallback(window->inputManager, true);
-					}
+					window->inputStatePtr->mouseInWindow = true;
 				}
 				int32 mousePositionX = GET_X_LPARAM(lParam);
 				int32 mousePositionY = GET_Y_LPARAM(lParam);
-				if (window->inputManager && window->PlatformMouseCallback) {
-					window->PlatformMouseCallback(window->inputManager,
-												  mousePositionX,
-												  window->height - mousePositionY,
-												  window->width, window->height);
-				}
-
+				mousePositionY = window->height - mousePositionY;
+				window->inputStatePtr->mouseFrameOffsetX =
+					mousePositionX - window->inputStatePtr->rawMouseX;
+				window->inputStatePtr->mouseFrameOffsetY =
+					mousePositionY - window->inputStatePtr->rawMouseY;
+				window->inputStatePtr->rawMouseX = (f32)mousePositionX;
+				window->inputStatePtr->rawMouseY = (f32)mousePositionY;
+				
 			} break;
 
-			case WM_LBUTTONDOWN: {
-				if (window->inputManager && window->PlatformMouseButtonCallback) {
-					window->PlatformMouseButtonCallback(window->inputManager,
-														MouseButton::Left, true);
-				}
+			case WM_LBUTTONDOWN:
+			{
+				ProcessMButtonEvent(window->inputStatePtr, MBUTTON_LEFT, true);
 			} break;
 
-			case WM_LBUTTONUP: {
-				if (window->inputManager && window->PlatformMouseButtonCallback) {
-					window->PlatformMouseButtonCallback(window->inputManager,
-														MouseButton::Left, false);
-				}
+			case WM_LBUTTONUP:
+			{
+				ProcessMButtonEvent(window->inputStatePtr, MBUTTON_LEFT, false);
 			} break;
 
-			case WM_RBUTTONDOWN: {
-				if (window->inputManager && window->PlatformMouseButtonCallback) {
-					window->PlatformMouseButtonCallback(window->inputManager,
-														MouseButton::Right, true);
-				}
+			case WM_RBUTTONDOWN:
+			{
+				ProcessMButtonEvent(window->inputStatePtr, MBUTTON_RIGHT, true);
 			} break;
 
-			case WM_RBUTTONUP: {
-				if (window->inputManager && window->PlatformMouseButtonCallback) {
-					window->PlatformMouseButtonCallback(window->inputManager,
-														MouseButton::Right, false);
-				}
+			case WM_RBUTTONUP:
+			{
+				ProcessMButtonEvent(window->inputStatePtr, MBUTTON_RIGHT, false);
 			} break;
 
-			case WM_MBUTTONDOWN: {
-				if (window->inputManager && window->PlatformMouseButtonCallback) {
-					window->PlatformMouseButtonCallback(window->inputManager,
-														MouseButton::Middle, true);
-				}
+			case WM_MBUTTONDOWN:
+			{
+				ProcessMButtonEvent(window->inputStatePtr, MBUTTON_MIDDLE, true);
 			} break;
 
-			case WM_MBUTTONUP: {
-				if (window->inputManager && window->PlatformMouseButtonCallback) {
-					window->PlatformMouseButtonCallback(window->inputManager,
-														MouseButton::Middle, false);
-				}
+			case WM_MBUTTONUP:
+			{
+				ProcessMButtonEvent(window->inputStatePtr, MBUTTON_MIDDLE, false);
 			} break;
 
-			case WM_XBUTTONDOWN: {
+			case WM_XBUTTONDOWN:
+			{
 				auto state = HIWORD(wParam);
-				if (state & XBUTTON1) {
-					if (window->inputManager && window->PlatformMouseButtonCallback) { 
-						window->PlatformMouseButtonCallback(window->inputManager,
-															MouseButton::XButton1, true);
-					}
+				if (state & XBUTTON1)
+				{
+					ProcessMButtonEvent(window->inputStatePtr,
+									   MBUTTON_XBUTTON1, true);
 				}
-				else {
-					if (window->inputManager && window->PlatformMouseButtonCallback) {
-						window->PlatformMouseButtonCallback(window->inputManager,
-															MouseButton::XButton2, true);
-					}
+				else
+				{
+					ProcessMButtonEvent(window->inputStatePtr,
+									   MBUTTON_XBUTTON2, true);					
 				}
 			} break;
 
-			case WM_XBUTTONUP: {
+			case WM_XBUTTONUP:
+			{
 				auto state = HIWORD(wParam);
-				if (state & XBUTTON1) {
-					if (window->inputManager && window->PlatformMouseButtonCallback) {
-						window->PlatformMouseButtonCallback(window->inputManager,
-															MouseButton::XButton1, false);
-					}
+				if (state & XBUTTON1)
+				{
+					ProcessMButtonEvent(window->inputStatePtr,
+									   MBUTTON_XBUTTON1, false);	
 				}
-				else {
-					if (window->inputManager && window->PlatformMouseButtonCallback) {
-						window->PlatformMouseButtonCallback(window->inputManager,
-															MouseButton::XButton2, false);
-					}
+				else
+				{
+					ProcessMButtonEvent(window->inputStatePtr,
+									   MBUTTON_XBUTTON2, false);	
 				}
 			} break;
 
 			case WM_MOUSELEAVE: {
 				window->mouseInClientArea = false;
-				if (window->inputManager && window->PlatformMouseLeaveCallback) {
-					window->PlatformMouseLeaveCallback(window->inputManager,
-													   false);
-				}
+				window->inputStatePtr->mouseInWindow = false;
 			} break;
 
 			case WM_MOUSEWHEEL: {
 				i32 delta = GET_WHEEL_DELTA_WPARAM(wParam);
 				i32 numSteps = delta / WHEEL_DELTA;
-				if (window->inputManager && window->PlatformMouseScrollCallback) {
-					window->PlatformMouseScrollCallback(window->inputManager,
-														numSteps);
-				}
+				window->inputStatePtr->scrollOffset = numSteps;
+				window->inputStatePtr->scrollFrameOffset = numSteps;
 			} break;
 
 				// ^^^^ MOUSE INPUT
@@ -501,14 +472,13 @@ namespace AB {
 			case WM_SYSKEYDOWN:
 			case WM_KEYDOWN: {
 				// TODO: Repeat counts for now doesnt working on windows
+				// TODO: Why they are not working and why is this TODO here?
 				uint32 key = _Win32KeyConvertToABKeycode(window, wParam);
 				bool32 state = true;
 				uint16 sys_repeat_count =  AB_KEY_REPEAT_COUNT_FROM_LPARAM(lParam);
-				if (window->inputManager && window->PlatformKeyCallback) {
-					window->PlatformKeyCallback(window->inputManager,
-												static_cast<KeyboardKey>(key),
-												state, sys_repeat_count);
-				}
+				window->inputStatePtr->keys[key].wasPressed =
+					window->inputStatePtr->keys[key].pressedNow;
+				window->inputStatePtr->keys[key].pressedNow = state;
 			} break;
 
 			case WM_SYSKEYUP:
@@ -516,11 +486,9 @@ namespace AB {
 				uint32 key = _Win32KeyConvertToABKeycode(window, wParam);
 				bool32 state = false;
 				uint16 sys_repeat_count = 0;
-				if (window->inputManager && window->PlatformKeyCallback) {
-					window->PlatformKeyCallback(window->inputManager,
-												static_cast<KeyboardKey>(key),
-												state, sys_repeat_count);
-				}
+				window->inputStatePtr->keys[key].wasPressed =
+					window->inputStatePtr->keys[key].pressedNow;
+				window->inputStatePtr->keys[key].pressedNow = state;
 			} break;
 
 				// ^^^^ KEYBOARD INPUT
@@ -532,10 +500,9 @@ namespace AB {
 				else {
 					window->activeWindow = false;
 				}
-				if (window->inputManager && window->PlatformFocusCallback) {
-					window->PlatformFocusCallback(window->inputManager,
-												  wParam == TRUE ? true : false);
-				}
+				AB_CORE_ASSERT(window->inputStatePtr,
+							   "Set inputStatePtr before init window");
+				window->inputStatePtr->activeApp = window->activeWindow;
 			} break;
 			default: {
 				result = DefWindowProc(windowHandle, message, wParam, lParam);
@@ -552,131 +519,131 @@ namespace AB {
 	static uint8 _Win32KeyConvertToABKeycode(WindowProperties* window, uint64 Win32Key) {
 		if (Win32Key < KEYBOARD_KEYS_COUNT)
 			return window->keyTable[Win32Key];
-		return static_cast<uint8>(KeyboardKey::InvalidKey);
+		return KEY_INVALIDKEY;
 	}
 
 	static void _Win32InitKeyTable(uint8* keytable) {
-		memset(keytable, static_cast<uint8>(KeyboardKey::InvalidKey), KEYBOARD_KEYS_COUNT);
+		memset(keytable, KEY_INVALIDKEY, KEYBOARD_KEYS_COUNT);
 
-		keytable[0x08] = static_cast<uint8>(KeyboardKey::Backspace);
-		keytable[0x09] = static_cast<uint8>(KeyboardKey::Tab);
-		keytable[0x0c] = static_cast<uint8>(KeyboardKey::Clear);
-		keytable[0x0d] = static_cast<uint8>(KeyboardKey::Enter);
-		keytable[0x10] = static_cast<uint8>(KeyboardKey::Shift);
-		keytable[0x11] = static_cast<uint8>(KeyboardKey::Ctrl);
-		keytable[0x12] = static_cast<uint8>(KeyboardKey::Alt);
-		keytable[0x13] = static_cast<uint8>(KeyboardKey::Pause);
-		keytable[0x14] = static_cast<uint8>(KeyboardKey::CapsLock);
-		keytable[0x1b] = static_cast<uint8>(KeyboardKey::Escape);
-		keytable[0x20] = static_cast<uint8>(KeyboardKey::Space);
-		keytable[0x21] = static_cast<uint8>(KeyboardKey::PageUp);
-		keytable[0x22] = static_cast<uint8>(KeyboardKey::PageDown);
-		keytable[0x23] = static_cast<uint8>(KeyboardKey::End);
-		keytable[0x24] = static_cast<uint8>(KeyboardKey::Home);
-		keytable[0x25] = static_cast<uint8>(KeyboardKey::Left);
-		keytable[0x26] = static_cast<uint8>(KeyboardKey::Up);
-		keytable[0x27] = static_cast<uint8>(KeyboardKey::Right);
-		keytable[0x28] = static_cast<uint8>(KeyboardKey::Down);
-		keytable[0x2c] = static_cast<uint8>(KeyboardKey::PrintScreen);
-		keytable[0x2d] = static_cast<uint8>(KeyboardKey::Insert);
-		keytable[0x2e] = static_cast<uint8>(KeyboardKey::Delete);
-		keytable[0x30] = static_cast<uint8>(KeyboardKey::Key0);
-		keytable[0x31] = static_cast<uint8>(KeyboardKey::Key1);
-		keytable[0x32] = static_cast<uint8>(KeyboardKey::Key2);
-		keytable[0x33] = static_cast<uint8>(KeyboardKey::Key3);
-		keytable[0x34] = static_cast<uint8>(KeyboardKey::Key4);
-		keytable[0x35] = static_cast<uint8>(KeyboardKey::Key5);
-		keytable[0x36] = static_cast<uint8>(KeyboardKey::Key6);
-		keytable[0x37] = static_cast<uint8>(KeyboardKey::Key7);
-		keytable[0x38] = static_cast<uint8>(KeyboardKey::Key8);
-		keytable[0x39] = static_cast<uint8>(KeyboardKey::Key9);
-		keytable[0x41] = static_cast<uint8>(KeyboardKey::A);
-		keytable[0x42] = static_cast<uint8>(KeyboardKey::B);
-		keytable[0x43] = static_cast<uint8>(KeyboardKey::C);
-		keytable[0x44] = static_cast<uint8>(KeyboardKey::D);
-		keytable[0x45] = static_cast<uint8>(KeyboardKey::E);
-		keytable[0x46] = static_cast<uint8>(KeyboardKey::F);
-		keytable[0x47] = static_cast<uint8>(KeyboardKey::G);
-		keytable[0x48] = static_cast<uint8>(KeyboardKey::H);
-		keytable[0x49] = static_cast<uint8>(KeyboardKey::I);
-		keytable[0x4a] = static_cast<uint8>(KeyboardKey::J);
-		keytable[0x4b] = static_cast<uint8>(KeyboardKey::K);
-		keytable[0x4c] = static_cast<uint8>(KeyboardKey::L);
-		keytable[0x4d] = static_cast<uint8>(KeyboardKey::M);
-		keytable[0x4e] = static_cast<uint8>(KeyboardKey::N);
-		keytable[0x4f] = static_cast<uint8>(KeyboardKey::O);
-		keytable[0x50] = static_cast<uint8>(KeyboardKey::P);
-		keytable[0x51] = static_cast<uint8>(KeyboardKey::Q);
-		keytable[0x52] = static_cast<uint8>(KeyboardKey::R);
-		keytable[0x53] = static_cast<uint8>(KeyboardKey::S);
-		keytable[0x54] = static_cast<uint8>(KeyboardKey::T);
-		keytable[0x55] = static_cast<uint8>(KeyboardKey::U);
-		keytable[0x56] = static_cast<uint8>(KeyboardKey::V);
-		keytable[0x57] = static_cast<uint8>(KeyboardKey::W);
-		keytable[0x58] = static_cast<uint8>(KeyboardKey::X);
-		keytable[0x59] = static_cast<uint8>(KeyboardKey::Y);
-		keytable[0x5a] = static_cast<uint8>(KeyboardKey::Z);
-		keytable[0x5b] = static_cast<uint8>(KeyboardKey::LeftSuper);
-		keytable[0x5c] = static_cast<uint8>(KeyboardKey::RightSuper);
-		keytable[0x60] = static_cast<uint8>(KeyboardKey::NumPad0);
-		keytable[0x61] = static_cast<uint8>(KeyboardKey::NumPad1);
-		keytable[0x62] = static_cast<uint8>(KeyboardKey::NumPad2);
-		keytable[0x63] = static_cast<uint8>(KeyboardKey::NumPad3);
-		keytable[0x64] = static_cast<uint8>(KeyboardKey::NumPad4);
-		keytable[0x65] = static_cast<uint8>(KeyboardKey::NumPad5);
-		keytable[0x66] = static_cast<uint8>(KeyboardKey::NumPad6);
-		keytable[0x67] = static_cast<uint8>(KeyboardKey::NumPad7);
-		keytable[0x68] = static_cast<uint8>(KeyboardKey::NumPad8);
-		keytable[0x69] = static_cast<uint8>(KeyboardKey::NumPad9);
-		keytable[0x6a] = static_cast<uint8>(KeyboardKey::NumPadMultiply);
-		keytable[0x6b] = static_cast<uint8>(KeyboardKey::NumPadAdd);
-		keytable[0x6d] = static_cast<uint8>(KeyboardKey::NumPadSubtract);
-		keytable[0x6e] = static_cast<uint8>(KeyboardKey::NumPadDecimal);
-		keytable[0x6f] = static_cast<uint8>(KeyboardKey::NumPadDivide);
-		keytable[0x70] = static_cast<uint8>(KeyboardKey::F1);
-		keytable[0x71] = static_cast<uint8>(KeyboardKey::F2);
-		keytable[0x72] = static_cast<uint8>(KeyboardKey::F3);
-		keytable[0x73] = static_cast<uint8>(KeyboardKey::F4);
-		keytable[0x74] = static_cast<uint8>(KeyboardKey::F5);
-		keytable[0x75] = static_cast<uint8>(KeyboardKey::F6);
-		keytable[0x76] = static_cast<uint8>(KeyboardKey::F7);
-		keytable[0x77] = static_cast<uint8>(KeyboardKey::F8);
-		keytable[0x78] = static_cast<uint8>(KeyboardKey::F9);
-		keytable[0x79] = static_cast<uint8>(KeyboardKey::F10);
-		keytable[0x7a] = static_cast<uint8>(KeyboardKey::F11);
-		keytable[0x7b] = static_cast<uint8>(KeyboardKey::F12);
-		keytable[0x7c] = static_cast<uint8>(KeyboardKey::F13);
-		keytable[0x7d] = static_cast<uint8>(KeyboardKey::F14);
-		keytable[0x7e] = static_cast<uint8>(KeyboardKey::F15);
-		keytable[0x7f] = static_cast<uint8>(KeyboardKey::F16);
-		keytable[0x80] = static_cast<uint8>(KeyboardKey::F17);
-		keytable[0x81] = static_cast<uint8>(KeyboardKey::F18);
-		keytable[0x82] = static_cast<uint8>(KeyboardKey::F19);
-		keytable[0x83] = static_cast<uint8>(KeyboardKey::F20);
-		keytable[0x84] = static_cast<uint8>(KeyboardKey::F21);
-		keytable[0x85] = static_cast<uint8>(KeyboardKey::F22);
-		keytable[0x86] = static_cast<uint8>(KeyboardKey::F23);
-		keytable[0x87] = static_cast<uint8>(KeyboardKey::F24);
-		keytable[0x90] = static_cast<uint8>(KeyboardKey::NumLock);
-		keytable[0x91] = static_cast<uint8>(KeyboardKey::ScrollLock);
-		keytable[0xa0] = static_cast<uint8>(KeyboardKey::LeftShift);
-		keytable[0xa1] = static_cast<uint8>(KeyboardKey::RightShift);
+		keytable[0x08] = KEY_BACKSPACE;
+		keytable[0x09] = KEY_TAB;
+		keytable[0x0c] = KEY_CLEAR;
+		keytable[0x0d] = KEY_ENTER;
+		keytable[0x10] = KEY_SHIFT;
+		keytable[0x11] = KEY_CTRL;
+		keytable[0x12] = KEY_ALT;
+		keytable[0x13] = KEY_PAUSE;
+		keytable[0x14] = KEY_CAPSLOCK;
+		keytable[0x1b] = KEY_ESCAPE;
+		keytable[0x20] = KEY_SPACE;
+		keytable[0x21] = KEY_PAGEUP;
+		keytable[0x22] = KEY_PAGEDOWN;
+		keytable[0x23] = KEY_END;
+		keytable[0x24] = KEY_HOME;
+		keytable[0x25] = KEY_LEFT;
+		keytable[0x26] = KEY_UP;
+		keytable[0x27] = KEY_RIGHT;
+		keytable[0x28] = KEY_DOWN;
+		keytable[0x2c] = KEY_PRINTSCREEN;
+		keytable[0x2d] = KEY_INSERT;
+		keytable[0x2e] = KEY_DELETE;
+		keytable[0x30] = KEY_KEY0;
+		keytable[0x31] = KEY_KEY1;
+		keytable[0x32] = KEY_KEY2;
+		keytable[0x33] = KEY_KEY3;
+		keytable[0x34] = KEY_KEY4;
+		keytable[0x35] = KEY_KEY5;
+		keytable[0x36] = KEY_KEY6;
+		keytable[0x37] = KEY_KEY7;
+		keytable[0x38] = KEY_KEY8;
+		keytable[0x39] = KEY_KEY9;
+		keytable[0x41] = KEY_A;
+		keytable[0x42] = KEY_B;
+		keytable[0x43] = KEY_C;
+		keytable[0x44] = KEY_D;
+		keytable[0x45] = KEY_E;
+		keytable[0x46] = KEY_F;
+		keytable[0x47] = KEY_G;
+		keytable[0x48] = KEY_H;
+		keytable[0x49] = KEY_I;
+		keytable[0x4a] = KEY_J;
+		keytable[0x4b] = KEY_K;
+		keytable[0x4c] = KEY_L;
+		keytable[0x4d] = KEY_M;
+		keytable[0x4e] = KEY_N;
+		keytable[0x4f] = KEY_O;
+		keytable[0x50] = KEY_P;
+		keytable[0x51] = KEY_Q;
+		keytable[0x52] = KEY_R;
+		keytable[0x53] = KEY_S;
+		keytable[0x54] = KEY_T;
+		keytable[0x55] = KEY_U;
+		keytable[0x56] = KEY_V;
+		keytable[0x57] = KEY_W;
+		keytable[0x58] = KEY_X;
+		keytable[0x59] = KEY_Y;
+		keytable[0x5a] = KEY_Z;
+		keytable[0x5b] = KEY_LEFTSUPER;
+		keytable[0x5c] = KEY_RIGHTSUPER;
+		keytable[0x60] = KEY_NUMPAD0;
+		keytable[0x61] = KEY_NUMPAD1;
+		keytable[0x62] = KEY_NUMPAD2;
+		keytable[0x63] = KEY_NUMPAD3;
+		keytable[0x64] = KEY_NUMPAD4;
+		keytable[0x65] = KEY_NUMPAD5;
+		keytable[0x66] = KEY_NUMPAD6;
+		keytable[0x67] = KEY_NUMPAD7;
+		keytable[0x68] = KEY_NUMPAD8;
+		keytable[0x69] = KEY_NUMPAD9;
+		keytable[0x6a] = KEY_NUMPADMULTIPLY;
+		keytable[0x6b] = KEY_NUMPADADD;
+		keytable[0x6d] = KEY_NUMPADSUBTRACT;
+		keytable[0x6e] = KEY_NUMPADDECIMAL;
+		keytable[0x6f] = KEY_NUMPADDIVIDE;
+		keytable[0x70] = KEY_F1;
+		keytable[0x71] = KEY_F2;
+		keytable[0x72] = KEY_F3;
+		keytable[0x73] = KEY_F4;
+		keytable[0x74] = KEY_F5;
+		keytable[0x75] = KEY_F6;
+		keytable[0x76] = KEY_F7;
+		keytable[0x77] = KEY_F8;
+		keytable[0x78] = KEY_F9;
+		keytable[0x79] = KEY_F10;
+		keytable[0x7a] = KEY_F11;
+		keytable[0x7b] = KEY_F12;
+		keytable[0x7c] = KEY_F13;
+		keytable[0x7d] = KEY_F14;
+		keytable[0x7e] = KEY_F15;
+		keytable[0x7f] = KEY_F16;
+		keytable[0x80] = KEY_F17;
+		keytable[0x81] = KEY_F18;
+		keytable[0x82] = KEY_F19;
+		keytable[0x83] = KEY_F20;
+		keytable[0x84] = KEY_F21;
+		keytable[0x85] = KEY_F22;
+		keytable[0x86] = KEY_F23;
+		keytable[0x87] = KEY_F24;
+		keytable[0x90] = KEY_NUMLOCK;
+		keytable[0x91] = KEY_SCROLLLOCK;
+		keytable[0xa0] = KEY_LEFTSHIFT;
+		keytable[0xa1] = KEY_RIGHTSHIFT;
 		// Only Ctrl now works and processed by SYSKEY events
-		//keytable[0xa2] = static_cast<uint8>(KeyboardKey::LeftCtrl);
-		//keytable[0xa3] = static_cast<uint8>(KeyboardKey::RightCtrl);
-		//keytable[0xa4] = static_cast<uint8>(KeyboardKey::LeftAlt); 0x11
-		keytable[0xa5] = static_cast<uint8>(KeyboardKey::Menu);
-		keytable[0xba] = static_cast<uint8>(KeyboardKey::Semicolon);
-		keytable[0xbb] = static_cast<uint8>(KeyboardKey::Equal);
-		keytable[0xbc] = static_cast<uint8>(KeyboardKey::Comma);
-		keytable[0xbd] = static_cast<uint8>(KeyboardKey::Minus);
-		keytable[0xbe] = static_cast<uint8>(KeyboardKey::Period);
-		keytable[0xbf] = static_cast<uint8>(KeyboardKey::Slash);
-		keytable[0xc0] = static_cast<uint8>(KeyboardKey::Tilde);
-		keytable[0xdb] = static_cast<uint8>(KeyboardKey::LeftBracket);
-		keytable[0xdc] = static_cast<uint8>(KeyboardKey::BackSlash);
-		keytable[0xdd] = static_cast<uint8>(KeyboardKey::RightBracket);
-		keytable[0xde] = static_cast<uint8>(KeyboardKey::Apostrophe);
+		//keytable[0xa2] = KeyboardKey::LeftCtrl;
+		//keytable[0xa3] = KeyboardKey::RightCtrl;
+		//keytable[0xa4] = KeyboardKey::LeftAlt; 0x11
+		keytable[0xa5] = KEY_MENU;
+		keytable[0xba] = KEY_SEMICOLON;
+		keytable[0xbb] = KEY_EQUAL;
+		keytable[0xbc] = KEY_COMMA;
+		keytable[0xbd] = KEY_MINUS;
+		keytable[0xbe] = KEY_PERIOD;
+		keytable[0xbf] = KEY_SLASH;
+		keytable[0xc0] = KEY_TILDE;
+		keytable[0xdb] = KEY_LEFTBRACKET;
+		keytable[0xdc] = KEY_BACKSLASH;
+		keytable[0xdd] = KEY_RIGHTBRACKET;
+		keytable[0xde] = KEY_APOSTROPHE;
 	}
 	
 }

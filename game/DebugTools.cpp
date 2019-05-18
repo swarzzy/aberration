@@ -23,7 +23,6 @@ namespace AB
 
 	DebugOverlay* CreateDebugOverlay(MemoryArena* memory,
 									 DebugRenderer* renderer,
-									 InputManager* inputManager,
 									 v2 renderCanvasSize)
 	{
 		DebugOverlay* overlay = nullptr;
@@ -33,7 +32,6 @@ namespace AB
 		AB_CORE_ASSERT(overlay, "Allocation failed.");
 		overlay->overlayBeginPos = { 10, renderCanvasSize.y - 40 };
 		overlay->renderer = renderer;
-		overlay->inputManager = inputManager;
 		return overlay;
 	}
 	
@@ -44,7 +42,6 @@ namespace AB
 		AB::Renderer2DFillRectangleColor(overlay->renderer, { 20, canvas.y - 30 },
 										 8, 0, 0, { 430, 30 }, backColor);
 		b32 pressed = AB::Renderer2DDrawRectangleColorUI(overlay->renderer,
-														 overlay->inputManager,
 														 { 0, canvas.y - 30 },
 														 { 20, 30 }, 10, 0, 0,
 														 (u32)DebugUIColors::Pomegranate);
@@ -147,7 +144,7 @@ namespace AB
 		
 		Rectangle bRect = Renderer2DGetStringBoundingRect(overlay->renderer,
 														  {}, 20.0f, string);
-		overlay->overlayAdvance += Abs(bRect.min.y) + DEBUG_OVERLAY_LINE_GAP;
+		overlay->overlayAdvance += AbsF32(bRect.min.y) + DEBUG_OVERLAY_LINE_GAP;
 	}
 
 	static void _DebugOverlayPushSlider(DebugOverlay* overlay,
@@ -194,10 +191,9 @@ namespace AB
 									 SubV2V2(block.max, block.min),
 									 (u32)DebugUIColors::Pomegranate);
 
-		if (InputMouseButtonIsDown(overlay->inputManager, MouseButton::Left))
+		if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow)
 		{
-			v2 mousePos = Renderer2DGetMousePositionOnCanvas(overlay->renderer,
-															 overlay->inputManager);
+			v2 mousePos = Renderer2DGetMousePositionOnCanvas(overlay->renderer);
 
 			Rectangle testRect = {{area.min.x + blockCenterOff, area.min.y},
 								  {area.max.x - blockCenterOff, area.max.y}};
@@ -318,10 +314,9 @@ namespace AB
 										 (u32)DebugUIColors::Pomegranate);
 		}
 		
-		if (InputMouseButtonIsPressed(overlay->inputManager, MouseButton::Left))
+		if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow)
 		{
-			v2 mousePos = Renderer2DGetMousePositionOnCanvas(overlay->renderer,
-															 overlay->inputManager);
+			v2 mousePos = Renderer2DGetMousePositionOnCanvas(overlay->renderer);
 			if (Contains(outerRect, { mousePos.x, mousePos.y }))
 			{
 				*val = !(*val);

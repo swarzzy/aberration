@@ -1,5 +1,4 @@
 #pragma once
-#include "AB.h"
 #include "Shared.h"
 
 namespace AB
@@ -67,8 +66,8 @@ namespace AB
 #endif
 #endif
 
-#define INVALID_DEFAULT_CASE() AB_CORE_FATAL("Invalid default case.")
-#define INVALID_CODE_PATH() AB_CORE_FATAL("Invalid code path.")
+#define INVALID_DEFAULT_CASE AB_CORE_FATAL("Invalid default case.");
+#define INVALID_CODE_PATH AB_CORE_FATAL("Invalid code path.");
 
 #define AB_ASSERT(expr, ...) AB_CORE_ASSERT(expr, ##__VA_ARGS__)
 

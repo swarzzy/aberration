@@ -15,25 +15,10 @@ const char* TEMP_GAME_CODE_DLL_NAME = "Game_temp.dll";
 
 namespace AB
 {
-	static void GameInitDummy(MemoryArena*, PlatformState*)
+	static void GameUpdateAndRenderDummy(MemoryArena*, PlatformState*,
+										 GameUpdateAndRenderReason)
 	{
-		//AB_CORE_WARN("Game code is not loaded.");
-	}
-
-	static void GameReloadDummy(MemoryArena*, PlatformState*)
-	{
-		//AB_CORE_WARN("Game code is not loaded.");
-	}
-	
-	
-	static void GameUpdateDummy(MemoryArena*, PlatformState*)
-	{
-		//AB_CORE_WARN("Game code is not loaded.");		
-	}
-	
-	static void GameRenderDummy(MemoryArena*, PlatformState*)
-	{
-		//AB_CORE_WARN("Game code is not loaded.");
+		
 	}
 	
 	struct GameCodeImpl
@@ -52,11 +37,8 @@ namespace AB
 												 sizeof(GameCodeImpl),
 												 alignof(GameCodeImpl));
 		AB_CORE_ASSERT(gameCode->impl, "Allocation failed");
-		
-		gameCode->GameInit = GameInitDummy;
-		gameCode->GameReload = GameReloadDummy;
-		gameCode->GameUpdate = GameUpdateDummy;
-		gameCode->GameRender = GameRenderDummy;
+
+		gameCode->GameUpdateAndRender = GameUpdateAndRenderDummy;
 		return gameCode;
 	}
 
@@ -64,17 +46,14 @@ namespace AB
 	{
 		char tmpLibPath[MAX_GAME_LIB_PATH];
 		// TODO: Use strcat instead of FormatString.
-		FormatString(tmpLibPath, MAX_GAME_LIB_PATH, "%s%s", gameCode->libDir, TEMP_GAME_CODE_DLL_NAME);
+		FormatString(tmpLibPath, MAX_GAME_LIB_PATH, "%s%s",
+					 gameCode->libDir, TEMP_GAME_CODE_DLL_NAME);
 		
 		//char stubPath[MAX_GAME_LIB_PATH];
 		//FormatString(stubPath, MAX_GAME_LIB_PATH, "%s%s", gameCode->libDir, "foo");
-		WindowRegisterInputManager(window, nullptr, {});
 		FreeLibrary(gameCode->impl->libHandle);
-		
-		gameCode->GameInit = GameInitDummy;
-		gameCode->GameReload = GameReloadDummy;
-		gameCode->GameUpdate = GameUpdateDummy;
-		gameCode->GameRender = GameRenderDummy;
+
+		gameCode->GameUpdateAndRender = GameUpdateAndRenderDummy;
 		//MoveFile(tmpLibPath, stubPath);
 		DeleteFile(tmpLibPath);
 	}
@@ -102,21 +81,14 @@ namespace AB
 					gameCode->impl->libHandle = LoadLibrary(buff);//
 					if (gameCode->impl->libHandle)
 					{
-						GameInitFn* gameInit = (GameInitFn*)GetProcAddress(gameCode->impl->libHandle,
-																		   "GameInit");
-						GameReloadFn* gameReload = (GameReloadFn*)GetProcAddress(gameCode->impl->libHandle,
-																				 "GameReload");
-						GameUpdateFn* gameUpdate = (GameUpdateFn*)GetProcAddress(gameCode->impl->libHandle,
-																				 "GameUpdate");
-						GameRenderFn* gameRender = (GameRenderFn*)GetProcAddress(gameCode->impl->libHandle,
-																				 "GameRender");
+						GameUpdateAndRenderFn* gameUpdateAndRender = 
+							(GameUpdateAndRenderFn*)GetProcAddress(gameCode->impl->libHandle,
+																   "GameUpdateAndRender");
 						
-						if (gameInit && gameReload && gameUpdate && gameRender)
+						if (gameUpdateAndRender)
 						{
-							gameCode->GameInit = gameInit;
-							gameCode->GameReload = gameReload;
-							gameCode->GameUpdate = gameUpdate;
-							gameCode->GameRender = gameRender;
+							gameCode->GameUpdateAndRender =
+								gameUpdateAndRender;
 							updated = true;
 							gameCode->libLastChangeTime = writeTime;
 						}
@@ -132,13 +104,13 @@ namespace AB
 				}
 				else
 				{
-					AB_CORE_INFO("Waiting for game code loading.");
+					//AB_CORE_INFO("Waiting for game code loading.");
 				}
 			}
 		}
 		else
 		{
-			AB_CORE_ERROR("Game code not found");
+			//AB_CORE_ERROR("Game code not found");
 		}
 		return updated;
 	}

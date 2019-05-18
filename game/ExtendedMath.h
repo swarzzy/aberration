@@ -1,29 +1,127 @@
 #pragma once
-#include "AB.h"
+#include "Shared.h"
 #include <hypermath.h>
 
-namespace AB {
-	struct Rectangle {
-		Vector2 min;
-		Vector2 max;
+namespace AB
+{
+	struct Rectangle
+	{
+		v2 min;
+		v2 max;
 	};
 		
-	struct Transform {
+	struct Transform
+	{
 		// Quat rotation;
-		Matrix4 worldMatrix;
+		m4x4 worldMatrix;
 	};
 
-	struct BBoxAligned {
-		Vector3 min;
-		Vector3 max;
+	struct BBoxAligned
+	{
+		v3 min;
+		v3 max;
 	};
 
-	inline bool32 Contains(Rectangle rect, Vector2 point) {
+	union Plane
+	{
+		struct
+		{
+			f32 a, b, c, d;
+		};
+		
+		struct
+		{
+			Vector3 normal;
+			f32 _d;
+		};
+	};
+
+	struct Frustum
+	{
+		Plane farPlane;
+		Plane leftPlane;
+		Plane rightPlane;
+		Plane topPlane;
+		Plane bottomPlane;
+		Plane nearPlane;
+	};
+
+	union FrustumVertices
+	{
+		struct
+		{
+			v3 nearLeftTop;
+			v3 nearLeftBottom;
+			v3 nearRightTop;
+			v3 nearRightBottom;
+			v3 farLeftTop;
+			v3 farLeftBottom;
+			v3 farRightTop;
+			v3 farRightBottom;
+		};
+		struct
+		{
+			v3 vertices[8];
+		};
+	};
+
+	union v2u
+	{
+		struct
+		{
+			u32 x, y;
+		};
+	};
+
+	BBoxAligned RealignBBoxAligned(BBoxAligned aabb);
+	Frustum FrustumFromProjRH(const m4x4* perspMtx);
+
+	void GenFrustumVertices(const m3x3* camRotation, v3 camPos, f32 near, f32 far,
+							f32 fovDeg, f32 aspectRatio, FrustumVertices* out);
+	
+	b32 IntersectPlanes3(Plane p1, Plane p2, Plane p3, v3* out);
+	b32 GenFrustumVertices(const Frustum* frustum, FrustumVertices* vertices);
+
+	inline Plane Normalize(Plane p)
+	{
+		Plane result = p;
+		f32 length = Length(p.normal);
+		result.normal /= length;
+		result.d /= length;
+		return result;
+	}
+
+	inline b32 IntersectPlanes3(Plane p1, Plane p2, Plane p3, v3* out)
+	{
+		b32 result = false;
+		m3x3 a = {};
+		a._11 = p1.normal.x;
+		a._12 = p1.normal.y;
+		a._13 = p1.normal.z;
+		a._21 = p2.normal.x;
+		a._22 = p2.normal.y;
+		a._23 = p2.normal.z;
+		a._31 = p3.normal.x;
+		a._32 = p3.normal.y;
+		a._33 = p3.normal.z;
+
+		v3 b = V3(p1.d, p2.d, p3.d);
+
+		if (Inverse(&a))
+		{
+			*out = MulM3V3(a, b);
+			result = true;
+		}
+
+		return result;
+	}
+
+
+	inline b32 Contains(Rectangle rect, v2 point)
+	{
 		return	point.x > rect.min.x && 
 			point.y > rect.min.y && 
 			point.x < rect.max.x &&
 			point.y < rect.max.y;
 	}
-
-	AB_API BBoxAligned RealignBBoxAligned(BBoxAligned aabb);
 }

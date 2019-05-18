@@ -1,5 +1,5 @@
 #pragma once
-#include "AB.h"
+#include "Shared.h"
 #include <hypermath.h>
 #include "../ExtendedMath.h"
 #include "RenderGroup.h"

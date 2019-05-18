@@ -1,5 +1,5 @@
 #pragma once
-#include "AB.h"
+#include "Shared.h"
 #include "../ImageLoader.h"
 
 namespace hpm {
@@ -33,10 +33,8 @@ namespace AB {
 	uint32 Renderer2DGetDrawCallCount(Renderer2DProperties* renderer);
 	hpm::Vector2 Renderer2DGetCanvasSize(Renderer2DProperties* renderer);
 
-	hpm::Vector2 Renderer2DGetMousePositionOnCanvas(Renderer2DProperties* renderer,
-													InputMgr* inputManager);
+	hpm::Vector2 Renderer2DGetMousePositionOnCanvas(Renderer2DProperties* renderer);
 	bool32 Renderer2DDrawRectangleColorUI(Renderer2DProperties* renderer,
-										  InputMgr* inputManager,
 										  hpm::Vector2 min, hpm::Vector2 max,
 										  uint16 depth, float32 angle,
 										  float32 anchor, color32 color);
