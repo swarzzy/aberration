@@ -2,6 +2,9 @@
 #include "Shared.h"
 #include <hypermath.h>
 
+// TODO: Sorting for instanced batches
+// For now they always rendered last in the opaque queue
+
 namespace AB
 {
 	struct DirectionalLight
@@ -11,6 +14,8 @@ namespace AB
 		v3 ambient;
 		v3 diffuse;
 		v3 specular;
+		//v2 shadowCoverageRectMin;
+		//v2 shadowCoverageRectMax;
 	};
 
 	struct PointLight
@@ -32,10 +37,13 @@ namespace AB
 	enum RenderCommandType : byte
 	{
 		RENDER_COMMAND_DRAW_MESH = 0,
-		RENDER_COMMAND_DRAW_MESH_WIREFRAME = 1,
-		RENDER_COMMAND_SET_DIR_LIGHT = 2,
-		RENDER_COMMAND_SET_POINT_LIGHT = 3,
-		RENDER_COMMAND_DRAW_DEBUG_CUBE = 4,
+		RENDER_COMMAND_DRAW_MESH_WIREFRAME,
+		RENDER_COMMAND_SET_DIR_LIGHT,
+		RENDER_COMMAND_SET_POINT_LIGHT,
+		RENDER_COMMAND_DRAW_DEBUG_CUBE,
+		RENDER_COMMAND_BEGIN_DEBUG_CUBE_INSTANCING,
+		RENDER_COMMAND_PUSH_DEBUG_CUBE_INSTANCE,
+		RENDER_COMMAND_END_DEBUG_CUBE_INSTANCING
 	};
 
 	enum RenderSortCriteria : byte
@@ -78,6 +86,21 @@ namespace AB
 		PointLight light;		
 	};
 
+	struct RenderCommandBeginDebugCubeInctancing
+	{
+		BlendMode blendMode;
+		RenderSortCriteria sortCriteria;
+		i32 _meshHandle;
+	};
+
+	struct RenderCommandPushDebugCubeInstance
+	{
+		// NOTE: Using m4x4 instead of transform because this struct
+		// will be used for tight packing data into instansing buffer
+		m4x4 worldMatrix;
+		v3 color;
+	};
+
 	enum RenderKeyKindBit : u64
 	{
 		KIND_BIT_PIPELINE_CONF = 0,
@@ -94,26 +117,38 @@ namespace AB
 	{
 		u64 sortKey;
 		u32 rbOffset;
-		u16 _reserved0;
-	   	byte _reserved1;
+		u16 instanceCount;
+	   	byte _reserved0;
 		RenderCommandType commandType;
 	};
 
-	struct Camera
+	struct CameraState
 	{
 		v3 position;
 		v3 front;
 		m4x4 lookAt;
 	};
 
+#pragma pack(push, 1)
+	struct RCPushDebugCubeInstancePacked
+	{
+		// NOTE: Using m4x4 instead of transform because this struct
+		// will be used for tight packing data into instansing buffer
+		f32 worldMatrix[16];
+		f32 r;
+		f32 g;
+		f32 b;
+	};
+#pragma pack(pop)
+
 	struct RenderGroup
 	{
-		Camera camera;
+		CameraState camera;
 		i32 skyboxHandle;
 
 		b32 dirLightEnabled;
 		DirectionalLight dirLight;
-
+		
 		PointLight* pointLights;
 		u32 pointLightsNum;
 		u32 pointLightsAt;
@@ -122,6 +157,10 @@ namespace AB
 		byte* renderBufferAt;
 		u32 renderBufferSize;
 		u32 renderBufferFree;
+
+		b32 pendingInstancingArray;
+		u16 instancingArrayCount;
+		CommandQueueEntry* pendingInstancingCommandHeader;
 
 		CommandQueueEntry* commandQueue;
 		CommandQueueEntry* tmpCommandQueue;
@@ -151,5 +190,12 @@ namespace AB
 												   u32 beg, u32 end,
 												   RenderGroupCommandQueueSortPred* pred);
 
+	// NOTE: Debug stuff
+	void DrawDebugCube(RenderGroup* renderGroup, AssetManager* assetManager,
+					   v3 position, f32 scale, v3 color);
+
+	void DrawDebugCubeInstanced(RenderGroup* renderGroup,
+								AssetManager* assetManager,
+								v3 position, f32 scale, v3 color);
 
 }

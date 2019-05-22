@@ -46,24 +46,6 @@ namespace AB
 		Plane nearPlane;
 	};
 
-	union FrustumVertices
-	{
-		struct
-		{
-			v3 nearLeftTop;
-			v3 nearLeftBottom;
-			v3 nearRightTop;
-			v3 nearRightBottom;
-			v3 farLeftTop;
-			v3 farLeftBottom;
-			v3 farRightTop;
-			v3 farRightBottom;
-		};
-		struct
-		{
-			v3 vertices[8];
-		};
-	};
 
 	union v2u
 	{
@@ -76,11 +58,7 @@ namespace AB
 	BBoxAligned RealignBBoxAligned(BBoxAligned aabb);
 	Frustum FrustumFromProjRH(const m4x4* perspMtx);
 
-	void GenFrustumVertices(const m3x3* camRotation, v3 camPos, f32 near, f32 far,
-							f32 fovDeg, f32 aspectRatio, FrustumVertices* out);
-	
 	b32 IntersectPlanes3(Plane p1, Plane p2, Plane p3, v3* out);
-	b32 GenFrustumVertices(const Frustum* frustum, FrustumVertices* vertices);
 
 	inline Plane Normalize(Plane p)
 	{

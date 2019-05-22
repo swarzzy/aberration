@@ -1,6 +1,5 @@
 #include "DebugTools.h"
 #include "render/DebugRenderer.h"
-#include "InputManager.h"
 #include "Log.h"
 #include "Memory.h"
 #include "ExtendedMath.h"

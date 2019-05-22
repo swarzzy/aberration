@@ -641,6 +641,12 @@ namespace hpm
 		return Sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z);
 	}
 
+	inline f32 HPM_CALL LengthSq(Vector3 vector)
+	{
+		return vector.x * vector.x + vector.y * vector.y + vector.z * vector.z;
+	}
+
+
 	inline f32 HPM_CALL Length(Vector4 vector)
 	{
 		return Sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z + vector.w * vector.w);

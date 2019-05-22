@@ -2,128 +2,12 @@
 // TODO: This is temporary for rand()
 #include <stdlib.h>
 
+#include "Tilemap.cpp"
+#include "Camera.cpp"
+
+
 namespace AB
 {
-	void DrawDebugCube(RenderGroup* renderGroup,
-					   AssetManager* assetManager,
-					   v3 position, f32 scale, v3 color)
-	{
-		RenderCommandDrawDebugCube cubeCommand = {};
-		m4x4 world = Identity4();
-		world = Translate(world, position);
-		world = Scale(world, V3(scale));
-		cubeCommand.transform.worldMatrix = world;
-		cubeCommand.color = color;
-
-		RenderGroupPushCommand(renderGroup,
-							   assetManager,
-							   RENDER_COMMAND_DRAW_DEBUG_CUBE,
-							   (void*)(&cubeCommand));
-
-	}
-
-    void DrawTile(Tilemap* tilemap, RenderGroup* renderGroup,
-				  AssetManager* assetManager, TilemapPosition origin,
-				  TilemapPosition tile)
-	{
-		ChunkPosition chunkOrigin = GetChunkPosition(tilemap, origin.tileX,
-													 origin.tileY);
-		ChunkPosition chunkTile = GetChunkPosition(tilemap, tile.tileX,
-												   tile.tileY);
-
-		u32 tileValue = GetTileValue(tilemap, tile.tileX, tile.tileY);
-		if (tileValue)
-		{
-			i32 chunkDiffX = chunkTile.chunkX - chunkOrigin.chunkX;
-			i32 chunkDiffY = chunkTile.chunkY - chunkOrigin.chunkY;
-			i32 tileDiffX = chunkTile.tileInChunkX - chunkOrigin.tileInChunkX;
-			i32 tileDiffY = chunkTile.tileInChunkY - chunkOrigin.tileInChunkY;
-			f32 x = ((chunkDiffX * (i32)tilemap->chunkSizeInTiles + tileDiffX) *
-					 tilemap->tileSizeInUnits - origin.offset.x - tilemap->tileRadiusInUnits) *
-				tilemap->unitsToRaw;
-			f32 y = -((chunkDiffY * (i32)tilemap->chunkSizeInTiles + tileDiffY) *
-					  tilemap->tileSizeInUnits - origin.offset.y - tilemap->tileRadiusInUnits) * tilemap->unitsToRaw;
-
-			// TODO: Thus is temporary
-			v3 color;
-			f32 yOffset = 0.0f;
-			if (tileValue == 3)
-			{
-				yOffset = 2.0f;
-			}
-			else
-			{
-				yOffset = 0.0f;
-			}
-			Chunk* chunk = GetChunk(tilemap, chunkTile.chunkX, chunkTile.chunkY);
-			color = GetTileColor(tilemap,  chunk, chunkTile.tileInChunkX,
-								 chunkTile.tileInChunkY);
-
-			DrawDebugCube(renderGroup,
-						  assetManager,
-						  V3(x, yOffset, y), tilemap->tileSizeRaw * 0.5f, color);
-		}
-	}
-
-	inline u32 SafeSub(u32 a, u32 b)
-	{
-		u32 result;
-		if (b > a)
-		{
-			result = 0;
-		}
-		else
-		{
-			result = a - b;
-		}
-		return result;
-	}
-
-	inline u32 SafeAdd(u32 a, u32 b)
-	{
-		u32 result;
-		if (a + b < a)
-		{
-			result = 0xffffffff;
-		}
-		else
-		{
-			result = a + b;
-		}
-		return result;
-	}
-
-	void DrawWorld(Tilemap* tilemap, RenderGroup* renderGroup,
-				   AssetManager* assetManager, TilemapPosition origin,
-				   u32 w, u32 h)
-	{
-		u32 width = tilemap->chunkSizeInTiles * w;
-		u32 height = tilemap->chunkSizeInTiles * h;
-
-		// TODO: SafeSub at the end of the world
-		u32 beginX = SafeSub(origin.tileX, width / 2);
-		u32 beginY = SafeSub(origin.tileY,  height / 2);
-
-		u32 endX = SafeAdd(origin.tileX, width / 2);
-		u32 endY = SafeAdd(origin.tileY, height / 2);
-
-
-		for (u32 y = beginY; y < endY; y++)
-		{
-			for (u32 x = beginX; x < endX; x++)
-			{
-				DrawTile(tilemap, renderGroup,
-						 assetManager, origin,
-						 TilemapPosition{x, y});
-
-			}
-		}
-
-	}
-
-	void UpdateCamera(AnnoCamera* cam,
-					  RenderGroup* renderGroup, Tilemap* tilemap);
-
 	void Init(MemoryArena* arena,
 			  MemoryArena* tempArena,
 			  Sandbox* sandbox,
@@ -131,28 +15,15 @@ namespace AB
 	{
 		sandbox->renderGroup = AllocateRenderGroup(arena, MEGABYTES(300),
 												   128000, 32);
+#if 0
 		sandbox->renderGroup->projectionMatrix = PerspectiveRH(45.0f,
 															   16.0f / 9.0f,
 															   0.1f,
 															   300.0f);
-
-
+#endif
 		sandbox->dirLight.ambient = V3(0.05f);
 		sandbox->dirLight.diffuse = V3(1.1f);
 		sandbox->dirLightOffset = V3(-10, 38, 17);
-		Frustum frustum = FrustumFromProjRH(&PerspectiveRH(45.0f,
-														   16.0f / 9.0f,
-														   0.1f,
-														   1.0f));
-		m4x4 persp = sandbox->renderGroup->projectionMatrix;
-
-		b32 result = false;
-		v3 out = {};
-		result = IntersectPlanes3(frustum.leftPlane,
-								  frustum.nearPlane, frustum.bottomPlane, &out);
-
-		result = GenFrustumVertices(&frustum, &sandbox->camFrustum);
-		AB_ASSERT(result);
 		
 		BeginTemporaryMemory(tempArena);
 #if 0
@@ -176,17 +47,22 @@ namespace AB
 		sandbox->camera.distSmoothness = 0.3f;
 		sandbox->camera.pos = V3(0.0f, 0.0f, -1.0f);
 		sandbox->camera.front = V3(0.0, 0.0f, 1.0f);
+		sandbox->camera.fov = 45.0f;
+		sandbox->camera.aspectRatio = 16.0f / 9.0f;
+		sandbox->camera.nearPlane = 0.1f;
+		sandbox->camera.farPlane = 150.0f;
+		sandbox->camera.targetWorldPos.tileX = 16 * 2 + 3; // 
+		sandbox->camera.targetWorldPos.tileY = 16 * 2 + 3;
+		sandbox->camera.targetWorldPos.offset.x = 1.0f;
+		sandbox->camera.targetWorldPos.offset.y = 1.0f;
+		sandbox->camera.cullPosAdjust = 1.5f;
+
 	
 		//SubscribeKeyboardEvents(&sandbox->camera, inputManager,
 		//						&sandbox->inputState);
 
 		sandbox->gamma = 2.2f;
 		sandbox->exposure = 1.0f;
-
-		sandbox->playerP.tileX = 16 * 2 + 3;
-		sandbox->playerP.tileY = 16 * 2 + 3;
-		sandbox->playerP.offset.x = 1.0f;
-		sandbox->playerP.offset.y = 1.0f;
 
 		sandbox->world = (World*)PushSize(arena, sizeof(World), alignof(World));
 		AB_ASSERT(sandbox->world);
@@ -248,270 +124,31 @@ namespace AB
 	
 
 	}
-	
-	static b32 TestWall(f32 wallX, f32 relPlayerX, f32 relPlayerY,
-						f32 playerDeltaX, f32 playerDeltaY,
-						f32 minCornerY, f32 maxCornerY, f32* tMin)
-	{
-		b32 collided = false;
-		if (AbsF32(playerDeltaX) > FLOAT_EPS)
-		{
-			f32 tEps = 0.01f;
-			f32 tResult = (wallX - relPlayerX) / playerDeltaX;
-			f32 y = relPlayerY + playerDeltaY * tResult;
-			if ((tResult >= 0.0f) && (*tMin > tResult))
-			{
-				if ((y >= minCornerY) && (y <= maxCornerY))
-				{
-					*tMin = MAXIMUM(0.0f, tResult - tEps);
-					collided = true;
-				}
-			}
-		}
-		return collided;
-	}
-	
+		
 	void Render(Sandbox* sandbox,
 				AssetManager* assetManager,
 				Renderer* renderer)
 	{
 		DEBUG_OVERLAY_SLIDER(g_Platform->gameSpeed, 0.0f, 10.0f);
 		Tilemap* tilemap = &sandbox->world->tilemap;
-		v3 _frontDir = V3(sandbox->camera.front.x, 0.0f, sandbox->camera.front.z);
-		// NOTE: Do we need normalaze that
-		_frontDir = Normalize(_frontDir);
-		// NOTE: Maybe store it in camera explicitly
-		v3 _rightDir = Cross(_frontDir, V3(0.0f, 1.0f, 0.0f));
-		_rightDir = Normalize(_rightDir);
-
-		// NOTE: Neagating Z because tilemap coords have Y axis pointing down-to-up
-		// while right handed actual world coords have it
-		// pointing opposite directhion.
-		v2 frontDir = V2(_frontDir.x, -_frontDir.z);
-		v2 rightDir = V2(_rightDir.x, -_rightDir.z);
-
-		DEBUG_OVERLAY_TRACE_VAR(frontDir);
-		DEBUG_OVERLAY_TRACE_VAR(rightDir);
-		v2 playerAcceleration = {};
-		if (!sandbox->camera.debugMode)
-		{
-			if (GlobalInput.keys[KEY_W].pressedNow)
-			{
-				playerAcceleration += frontDir;
-			}
-			if (GlobalInput.keys[KEY_S].pressedNow)
-			{
-				playerAcceleration -= frontDir;
-			}
-			if (GlobalInput.keys[KEY_A].pressedNow)
-			{
-				playerAcceleration -= rightDir;
-			}
-			if (GlobalInput.keys[KEY_D].pressedNow)
-			{
-				playerAcceleration += rightDir;
-			}
-		}
-
-		playerAcceleration = Normalize(playerAcceleration);
-		f32 playerSpeed = 20.0f;
-		playerAcceleration *= playerSpeed;
-
-		f32 friction = 3.0f;
-		playerAcceleration = playerAcceleration - sandbox->playerSpeed * friction;
-
-		v2 playerDelta;
-		playerDelta = 0.5f * playerAcceleration *
-			Square(GlobalGameDeltaTime) + 
-			sandbox->playerSpeed *
-			GlobalGameDeltaTime;
-
-		TilemapPosition newPlayerPos = sandbox->playerP;
-
-		newPlayerPos = OffsetTilemapPos(tilemap, newPlayerPos, playerDelta);
-
-		v2 colliderSize = V2(tilemap->tileSizeInUnits,
-							 tilemap->tileSizeInUnits);
-
-		u32 colliderTileWidth = Ceil(colliderSize.x / tilemap->tileSizeInUnits);
-		u32 colliderTileHeight = Ceil(colliderSize.y / tilemap->tileSizeInUnits);
-
-		u32 minTileY = MINIMUM(sandbox->playerP.tileY, newPlayerPos.tileY);
-		u32 maxTileY = MAXIMUM(sandbox->playerP.tileY, newPlayerPos.tileY);
-		u32 minTileX = MINIMUM(sandbox->playerP.tileX, newPlayerPos.tileX);
-		u32 maxTileX = MAXIMUM(sandbox->playerP.tileX, newPlayerPos.tileX);
-
-		if (minTileY >= colliderTileHeight)
-		{
-			minTileY -= colliderTileHeight;
-		}
-		if (minTileX >= colliderTileWidth)
-		{
-			minTileX -= colliderTileWidth;			
-		}
-		// TODO: Prevent overflow at the end of the world
-		maxTileY += colliderTileHeight;
-		maxTileX += colliderTileWidth;
-
-		b32 hit = false;
-		f32 tRemaining = 1.0f;
-		for (u32 pass = 0; (pass < 4) && (tRemaining > 0.0f); pass++)
-		{
-			// TODO: Temporary offseting for collision detection
-			auto testingPos = sandbox->playerP;//OffsetTilemapPos(tilemap, sandbox->playerP,
-			//			   V2(tilemap->tileSizeInUnits * 0.5f));
-
-			v2 wallNormal = V2(0.0f);
-			f32 tMin = 1.0f;
-			for (u32 tileY = minTileY; tileY <= maxTileY; tileY++)
-			{
-				for (u32 tileX = minTileX; tileX <= maxTileX; tileX++)
-				{
-					u32 tileValue = GetTileValue(tilemap, tileX, tileY);
-					TilemapPosition testTilePos = CenteredTilePoint(tileX, tileY);
-					if (tileValue != 1)
-					{
-						v2 minCorner = -0.5f * V2(tilemap->tileSizeInUnits);
-						v2 maxCorner = 0.5f * V2(tilemap->tileSizeInUnits);
-						minCorner -= colliderSize;
-						//maxCorner += colliderSize;
-						v2 relOldPlayerPos = TilemapPosDiff(tilemap, &testingPos,
-															&testTilePos);
-
-						if (TestWall(minCorner.x, relOldPlayerPos.x,
-									 relOldPlayerPos.y, playerDelta.x,
-									 playerDelta.y,
-									 minCorner.y, maxCorner.y, &tMin))
-						{
-							wallNormal = V2(1.0f, 0.0f);
-							hit = true;
-						}
-						
-						if(TestWall(maxCorner.x, relOldPlayerPos.x,
-									relOldPlayerPos.y, playerDelta.x,
-									playerDelta.y,
-									minCorner.y, maxCorner.y, &tMin))
-						{
-							wallNormal = V2(-1.0f, 0.0f);
-							hit = true;
-						}
-						if(TestWall(minCorner.y, relOldPlayerPos.y,
-									relOldPlayerPos.x, playerDelta.y,
-									playerDelta.x,
-									minCorner.x, maxCorner.x, &tMin))
-						{
-							wallNormal = V2(0.0f, 1.0f);
-							hit = true;
-						}
-						if(TestWall(maxCorner.y, relOldPlayerPos.y,
-									relOldPlayerPos.x, playerDelta.y,
-									playerDelta.x,
-									minCorner.x, maxCorner.x, &tMin))
-						{
-							wallNormal = V2(0.0f, -1.0f);
-							hit = true;
-						}
-					}
-				}
-			}
-			v2 playerFrameOffset = playerDelta * tMin;
-			sandbox->playerP = OffsetTilemapPos(tilemap, sandbox->playerP,
-												playerFrameOffset);
-			if (hit)
-			{
-				tRemaining -= tMin * tRemaining;
-				sandbox->playerSpeed = sandbox->playerSpeed -
-					Dot(sandbox->playerSpeed, wallNormal) * wallNormal;
-				playerDelta *= 1.0f - tMin;
-				playerDelta = playerDelta -
-					Dot(playerDelta, wallNormal) * wallNormal;				
-			}
-			else
-			{
-				break;
-			}
-		}
-
-		//sandbox->playerSpeed = Reflect(sandbox->playerSpeed,  wallNormal);
-
-		sandbox->playerSpeed = sandbox->playerSpeed +
-			playerAcceleration * GlobalGameDeltaTime;
-
-		ChunkPosition chunkPos = GetChunkPosition(tilemap, sandbox->playerP.tileX,
-												  sandbox->playerP.tileY);
+		
+		MoveCameraTarget(&sandbox->camera, tilemap);
+		ChunkPosition chunkPos =
+			GetChunkPosition(tilemap,
+							 sandbox->camera.targetWorldPos.tileX,
+							 sandbox->camera.targetWorldPos.tileY);
 
 		UpdateCamera(&sandbox->camera,
 					 sandbox->renderGroup, tilemap);
-
-		FrustumVertices camFV = {};
-		m3x3 camRot = M3x3(sandbox->camera.lookAt);
-		v3 camPos = (sandbox->camera.pos - sandbox->camera.target) * tilemap->unitsToRaw;
-		DEBUG_OVERLAY_TRACE_VAR(camPos);
-		GenFrustumVertices(&camRot, camPos,
-						   0.1f, 300.0f, 45.0f,
-						   16.0f / 9.0f, &camFV);
-
-		f32 frustumMinX = camFV.vertices[0].x;
-		f32 frustumMinY = camFV.vertices[0].y;
-		f32 frustumMaxX = camFV.vertices[0].x;
-		f32 frustumMaxY = camFV.vertices[0].y;
-		   
-		for (u32 i = 1; i < 8; i++)
-		{
-			if (camFV.vertices[i].x < frustumMinX)
-			{
-				frustumMinX = camFV.vertices[i].x;
-			}
-			if (camFV.vertices[i].x > frustumMaxX)
-			{
-				frustumMaxX = camFV.vertices[i].x;
-			}
-			if (camFV.vertices[i].z < frustumMinY)
-			{
-				frustumMinY = camFV.vertices[i].z;
-			}
-			if (camFV.vertices[i].z > frustumMaxY)
-			{
-				frustumMaxY = camFV.vertices[i].z;
-			}
-		}
-		f32 chunkSize = tilemap->chunkSizeInTiles * tilemap->tileSizeInUnits;
-#if 1
-		frustumMinX *= tilemap->toUnits;
-		frustumMaxX *= tilemap->toUnits;
-		frustumMinY *= tilemap->toUnits;
-		frustumMaxY *= tilemap->toUnits;
-#endif
-		DEBUG_OVERLAY_TRACE_VAR(frustumMinX);
-		DEBUG_OVERLAY_TRACE_VAR(frustumMaxX);
-		DEBUG_OVERLAY_TRACE_VAR(frustumMinY);
-		DEBUG_OVERLAY_TRACE_VAR(frustumMaxY);
-
-
-		i32 chunkMinX = RoundF32I32(frustumMinX / chunkSize + 0.5f);
-		i32 chunkMaxX = RoundF32I32(frustumMaxX / chunkSize + 0.5f);
-		i32 chunkMinY = RoundF32I32(frustumMinY / chunkSize + 0.5f);
-		i32 chunkMaxY = RoundF32I32(frustumMaxY / chunkSize + 0.5f);
-
-		DEBUG_OVERLAY_TRACE_VAR(chunkMinX);
-		DEBUG_OVERLAY_TRACE_VAR(chunkMaxX);
-		DEBUG_OVERLAY_TRACE_VAR(chunkMinY);
-		DEBUG_OVERLAY_TRACE_VAR(chunkMaxY);
-
-		u32 w = AbsI32(chunkMaxX - chunkMinX);
-		u32 h = AbsI32(chunkMaxY - chunkMinY);
-		DEBUG_OVERLAY_TRACE_VAR(w);
-		DEBUG_OVERLAY_TRACE_VAR(h);
-
-		// Traverse all prefetched chunks and check for frustum - box intersection
-		
-		DrawWorld(tilemap, sandbox->renderGroup, assetManager,
-				  sandbox->playerP, w - 2, h - 2);
+		DrawWorldInstancedMinMax(tilemap, sandbox->renderGroup, assetManager,
+								 sandbox->camera.targetWorldPos,
+								 sandbox->camera.frustumGroundAABB,
+								 &sandbox->camera.frustumGroundPoints);
 
 		f32 pX = (chunkPos.tileInChunkX * tilemap->tileSizeInUnits +
-				  sandbox->playerP.offset.x) * tilemap->unitsToRaw;
+				  sandbox->camera.targetWorldPos.offset.x) * tilemap->unitsToRaw;
 		f32 pY = (chunkPos.tileInChunkY * tilemap->tileSizeInUnits +
-				  sandbox->playerP.offset.y) * tilemap->unitsToRaw;
+				  sandbox->camera.targetWorldPos.offset.y) * tilemap->unitsToRaw;
 
 		pY = (tilemap->chunkSizeInTiles * tilemap->tileSizeRaw) - pY;
 			
@@ -520,18 +157,9 @@ namespace AB
 					  V3(0.0f, 3.0f, 0.0f),
 					  //V3(pX, 3.0f, pY),
 					  tilemap->tileSizeRaw * 0.5f, V3(1.0f, 0.0f, 0.0f));
-#if 1
-		for (u32 i = 0; i < 8; i++)
-		{
-			DrawDebugCube(sandbox->renderGroup,
-						  assetManager,
-						  camFV.vertices[i],
-						  8.0f, V3(0.0f, 0.0f, 1.0f)); 
-		}
-#endif
 
 		//sandbox->camera.target = V3(pX, 0, pY);
-		sandbox->dirLight.target = V3(pX, 0, pY);
+		//sandbox->dirLight.target = V3(pX, 0, pY);
 
 		DEBUG_OVERLAY_TRACE_VAR(pX);
 		DEBUG_OVERLAY_TRACE_VAR(pY);
@@ -551,16 +179,6 @@ namespace AB
 		planeCommand.meshHandle = sandbox->mansionMeshHandle;
 		planeCommand.transform.worldMatrix = Identity4();
 		planeCommand.blendMode = BLEND_MODE_OPAQUE;
-#if 0
-
-		DrawDebugCube(sandbox->renderGroup,
-					  assetManager,
-					  V3(0.0f), 1.0f, V3(1.0f, 0.0f, 0.0f));
-		RenderGroupPushCommand(sandbox->renderGroup,
-							   assetManager,
-							   RENDER_COMMAND_DRAW_MESH,
-							   (void*)(&planeCommand));
-#endif
 
 		f32 ka = sandbox->dirLight.ambient.r;
 		f32 kd = sandbox->dirLight.diffuse.r;
@@ -571,14 +189,16 @@ namespace AB
 		DEBUG_OVERLAY_PUSH_SLIDER("Kd", &kd, 0.0f, 10.0f);
 		DEBUG_OVERLAY_PUSH_VAR("Kd", kd);
 
-		//DEBUG_OVERLAY_TRACE_VAR(sandbox->dirLight.from);
-		//DEBUG_OVERLAY_TRACE_VAR(sandbox->dirLight.target);
-		//DEBUG_OVERLAY_TRACE_VAR(sandbox->dirLightOffset);
-		//DEBUG_OVERLAY_PUSH_SLIDER("offset", &sandbox->dirLightOffset, -50, 50);
+		DEBUG_OVERLAY_TRACE_VAR(sandbox->dirLight.from);
+		DEBUG_OVERLAY_TRACE_VAR(sandbox->dirLight.target);
+		DEBUG_OVERLAY_TRACE_VAR(sandbox->dirLightOffset);
+		DEBUG_OVERLAY_PUSH_SLIDER("offset", &sandbox->dirLightOffset, -50, 50);
 
-		sandbox->dirLight.from = AddV3V3(sandbox->dirLight.target, sandbox->dirLightOffset);
+		sandbox->dirLight.from = AddV3V3(sandbox->dirLight.target,
+										 sandbox->dirLightOffset);
 		sandbox->dirLight.ambient = V3(ka);
 		sandbox->dirLight.diffuse = V3(kd);
+		
 
 		RenderCommandSetDirLight dirLightCommand = {};
 		dirLightCommand.light = sandbox->dirLight;
@@ -590,173 +210,6 @@ namespace AB
 
 		RendererRender(renderer, assetManager, sandbox->renderGroup);
 		RenderGroupResetQueue(sandbox->renderGroup);
-	}
-	
-	void UpdateCamera(AnnoCamera* cam,
-					  RenderGroup* renderGroup, Tilemap* tilemap)
-	{
-		if (GlobalInput.keys[KEY_F1].pressedNow &&
-			!GlobalInput.keys[KEY_F1].wasPressed)
-		{
-			cam->debugMode = !cam->debugMode;	
-		}
-
-		if (!cam->debugMode)
-		{
-#if 0
-			if (cam->frameMovementFlags.forward)
-			{
-				cam->pos = AddV3V3(MulV3F32(cam->front, 0.2), cam->pos);
-			}
-			if (cam->frameMovementFlags.back)
-			{
-				cam->pos = SubV3V3(cam->pos, MulV3F32(cam->front, 0.2));
-			}
-			if (cam->frameMovementFlags.left)
-			{
-				v3 right = Normalize(Cross(cam->front, { 0, 1, 0 }));
-				cam->pos = SubV3V3(cam->pos, MulV3F32(right, 0.2));
-			}
-			if (cam->frameMovementFlags.right)
-			{
-				v3 right = Normalize(Cross(cam->front, { 0, 1, 0 }));
-				cam->pos = AddV3V3(MulV3F32(right, 0.2), cam->pos);
-			}
-#endif
-
-			if (GlobalInput.mouseButtons[MBUTTON_RIGHT].pressedNow)
-			{
- 				v2 mousePos;
-				mousePos.x = GlobalInput.mouseFrameOffsetX;
-				mousePos.y = GlobalInput.mouseFrameOffsetY;
-				cam->lastMousePos.x -= mousePos.x;// - cam->mouseUntrackedOffset;
-				cam->lastMousePos.y -= mousePos.y;
-				//DEBUG_OVERLAY_PUSH_VAR("mouse y:", mousePos.y);
-			}
-
-			if (cam->lastMousePos.y < 95.0f)
-			{
-				cam->lastMousePos.y = 95.0f;
-				//cam->latitude = 95.000001f;
-			}
-			else if (cam->lastMousePos.y > 170.0f)
-			{
-				cam->lastMousePos.y = 170.0f;
-				//cam->latitude = 170.00001f;
-			}
-
-		
-			f32 scrollSpeed = 5.0f;
-		
-			i32 frameScrollOffset = GlobalInput.scrollFrameOffset;
-			cam->targetDistance -= frameScrollOffset * scrollSpeed;
-
-			if (cam->targetDistance < 5.0f)
-			{
-				cam->targetDistance = 5.0f;
-			} else if (cam->targetDistance > 50.0f)
-			{
-				cam->targetDistance = 50.0f;
-			}
-
-			cam->latitude = Lerp(cam->latitude, cam->lastMousePos.y,
-								 cam->latSmoothness);
-
-			cam->longitude = Lerp(cam->longitude, cam->lastMousePos.x,
-								  cam->longSmoothness);
-
-			cam->distance = Lerp(cam->distance, cam->targetDistance,
-								 cam->distSmoothness);
-
-
-			//	DEBUG_OVERLAY_PUSH_SLIDER("r", &cam->distance, 1.0f, 10.0f);
-			//DEBUG_OVERLAY_PUSH_VAR("r", cam->distance);
-
-			///DEBUG_OVERLAY_PUSH_SLIDER("target", &cam->target, 0.0f, 10.0f);
-			//DEBUG_OVERLAY_PUSH_VAR("target", cam->target);
-			//DEBUG_OVERLAY_PUSH_SLIDER("height", &cam->latitude, 0.0f, 180.0f);
-			//	DEBUG_OVERLAY_PUSH_VAR("height", cam->latitude);
-
-			f32 latitude = ToRadians(cam->latitude);
-			f32 longitude = ToRadians(cam->longitude);
-			f32 polarAngle = PI_32 - latitude;
-
-			f32 z = cam->target.z + cam->distance * Sin(polarAngle) * Cos(longitude);
-			f32 x = cam->target.x + cam->distance * Sin(polarAngle) * Sin(longitude);
-			f32 y = cam->target.y + cam->distance * Cos(polarAngle);
-
-			cam->pos = V3(x, y, z);
-		
-			cam->front = Normalize(SubV3V3(cam->target, cam->pos));
-
-			v3 pos = cam->pos * tilemap->unitsToRaw;
-			v3 front = cam->front * tilemap->unitsToRaw;
-
-			cam->lookAt = LookAtRH(pos,
-								   AddV3V3(pos, front),
-								   V3(0.0f, 1.0f, 0.0f));
-		
-			RenderGroupSetCamera(renderGroup,
-								 // Normalization?
-								 front, 
-								 pos,
-								 &cam->lookAt);
-		}
-		else
-		{
-			DEBUG_OVERLAY_PUSH_SLIDER("Debug camera speed:", &cam->debugSpeed,
-									  0.0f, 10.0f);
-			if (GlobalInput.keys[KEY_W].pressedNow)
-			{
-				cam->debugPos += cam->debugFront * GlobalAbsDeltaTime
-					* cam->debugSpeed;
-			}
-			if (GlobalInput.keys[KEY_S].pressedNow)
-			{
-				cam->debugPos -= cam->debugFront * GlobalAbsDeltaTime
-					* cam->debugSpeed;
-			}
-			if (GlobalInput.keys[KEY_A].pressedNow)
-			{
-				v3 right = Normalize(Cross(cam->debugFront, { 0, 1, 0 }));
-				cam->debugPos -= right * GlobalAbsDeltaTime
-					* cam->debugSpeed;
-			}
-			if (GlobalInput.keys[KEY_D].pressedNow)
-			{
-				v3 right = Normalize(Cross(cam->debugFront, { 0, 1, 0 }));
-				cam->debugPos += right * GlobalAbsDeltaTime
-					* cam->debugSpeed;
-			}
-
-			cam->debugPitch += GlobalInput.mouseFrameOffsetY;
-			cam->debugYaw += GlobalInput.mouseFrameOffsetX;
-			
-			if (cam->debugPitch > 89.0f)
-				cam->debugPitch = 89.0f;
-			if (cam->debugPitch < -89.0f)
-				cam->debugPitch = -89.0f;
-
-			cam->debugFront.x = Cos(ToRadians(cam->debugPitch))
-				* Cos(ToRadians(cam->debugYaw));
-			cam->debugFront.y = Sin(ToRadians(cam->debugPitch));
-			cam->debugFront.z = Cos(ToRadians(cam->debugPitch))
-				* Sin(ToRadians(cam->debugYaw));
-			cam->debugFront = Normalize(cam->debugFront);
-
-			v3 pos = cam->debugPos * tilemap->unitsToRaw;
-			v3 front = cam->debugFront * tilemap->unitsToRaw;
-			
-			cam->debugLookAt = LookAtRH(pos,
-										AddV3V3(pos, front),
-										V3(0.0f, 1.0f, 0.0f));
-		
-			RenderGroupSetCamera(renderGroup,
-								 front,
-								 pos,
-								 &cam->debugLookAt);
-		}
-
 	}
 
 }
@@ -1355,4 +808,116 @@ void DrawWorld(const Tilemap* tilemap, RenderGroup* renderGroup,
 
 		InputSubscribeEvent(inputManager, &cursorEvent);
 	}
+#endif
+#if 0 
+    void DrawTile(Tilemap* tilemap, RenderGroup* renderGroup,
+				  AssetManager* assetManager, TilemapPosition origin,
+				  TilemapPosition tile)
+	{
+		ChunkPosition chunkOrigin = GetChunkPosition(tilemap, origin.tileX,
+													 origin.tileY);
+		ChunkPosition chunkTile = GetChunkPosition(tilemap, tile.tileX,
+												   tile.tileY);
+
+		u32 tileValue = GetTileValue(tilemap, tile.tileX, tile.tileY);
+		if (tileValue)
+		{
+			i32 chunkDiffX = chunkTile.chunkX - chunkOrigin.chunkX;
+			i32 chunkDiffY = chunkTile.chunkY - chunkOrigin.chunkY;
+			i32 tileDiffX = chunkTile.tileInChunkX - chunkOrigin.tileInChunkX;
+			i32 tileDiffY = chunkTile.tileInChunkY - chunkOrigin.tileInChunkY;
+			f32 x = ((chunkDiffX * (i32)tilemap->chunkSizeInTiles + tileDiffX) *
+					 tilemap->tileSizeInUnits - origin.offset.x - tilemap->tileRadiusInUnits) *
+				tilemap->unitsToRaw;
+			f32 y = -((chunkDiffY * (i32)tilemap->chunkSizeInTiles + tileDiffY) *
+					  tilemap->tileSizeInUnits - origin.offset.y - tilemap->tileRadiusInUnits) * tilemap->unitsToRaw;
+
+			// TODO: Thus is temporary
+			v3 color;
+			f32 yOffset = 0.0f;
+			if (tileValue == 3)
+			{
+				yOffset = 2.0f;
+			}
+			else
+			{
+				yOffset = 0.0f;
+			}
+			Chunk* chunk = GetChunk(tilemap, chunkTile.chunkX, chunkTile.chunkY);
+			color = GetTileColor(tilemap,  chunk, chunkTile.tileInChunkX,
+								 chunkTile.tileInChunkY);
+
+			DrawDebugCube(renderGroup,
+						  assetManager,
+						  V3(x, yOffset, y), tilemap->tileSizeRaw * 0.5f, color);
+		}
+	}
+
+
+void DrawWorld(Tilemap* tilemap, RenderGroup* renderGroup,
+			   AssetManager* assetManager, TilemapPosition origin,
+			   u32 w, u32 h)
+{
+	u32 width = tilemap->chunkSizeInTiles * w;
+	u32 height = tilemap->chunkSizeInTiles * h;
+
+	// TODO: SafeSub at the end of the world
+	u32 beginX = SafeSub(origin.tileX, width / 2);
+	u32 beginY = SafeSub(origin.tileY,  height / 2);
+
+	u32 endX = SafeAdd(origin.tileX, width / 2);
+	u32 endY = SafeAdd(origin.tileY, height / 2);
+
+
+	for (u32 y = beginY; y < endY; y++)
+	{
+		for (u32 x = beginX; x < endX; x++)
+		{
+			DrawTile(tilemap, renderGroup,
+					 assetManager, origin,
+					 TilemapPosition{x, y});
+
+		}
+	}
+
+}
+	void DrawWorldInstanced(Tilemap* tilemap, RenderGroup* renderGroup,
+							AssetManager* assetManager, TilemapPosition origin,
+							u32 w, u32 h, i32 minX, i32 maxX, i32 minY, i32 maxY)
+	{
+		u32 width = w;
+		u32 height = h;
+
+		// TODO: SafeSub at the end of the world
+		u32 beginX = SafeSub(origin.tileX, width / 2);// - offsetX;
+		u32 beginY = SafeSub(origin.tileY,  height / 2);// - offsetY;
+
+		u32 endX = SafeAdd(origin.tileX, width / 2);// - offsetX;
+		u32 endY = SafeAdd(origin.tileY, height / 2);// - offsetY;
+
+		RenderCommandBeginDebugCubeInctancing begCommand = {};
+		begCommand.blendMode = BLEND_MODE_OPAQUE;
+
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_BEGIN_DEBUG_CUBE_INSTANCING,
+							   (void*)(&begCommand));
+
+		for (u32 y = beginY; y < endY; y++)
+		{
+			for (u32 x = beginX; x < endX; x++)
+			{
+				DrawTileInstanced(tilemap, renderGroup,
+								  assetManager, origin,
+								  TilemapPosition{x, y}, nullptr);
+
+			}
+		}
+
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_END_DEBUG_CUBE_INSTANCING,
+							   nullptr);
+	}
+	
 #endif

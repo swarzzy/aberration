@@ -117,6 +117,9 @@ namespace AB
 #define glUniformMatrix4fv GL_FUNCTION(glUniformMatrix4fv)
 #define glBlitFramebuffer GL_FUNCTION(glBlitFramebuffer)
 #define glTexParameterfv GL_FUNCTION(glTexParameterfv)
+#define glVertexAttribDivisor GL_FUNCTION(glVertexAttribDivisor)
+#define glDrawElementsInstanced GL_FUNCTION(glDrawElementsInstanced)
+#define glDrawArraysInstanced GL_FUNCTION(glDrawArraysInstanced)
 		
 		static constexpr u32 OPENGL_LOG_BUFFER_SIZE = 256;
 	static char g_OpenGLLogBuffer[OPENGL_LOG_BUFFER_SIZE];

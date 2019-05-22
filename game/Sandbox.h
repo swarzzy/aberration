@@ -1,40 +1,9 @@
 #pragma once
 #include "Tilemap.h"
-#include "Tilemap.cpp"
+#include "Camera.h"
 
 namespace AB
 {
-	struct AnnoCamera
-	{
-		b32 debugMode;
-		v3 debugPos;
-		v3 debugFront;
-		f32 debugPitch;
-		f32 debugYaw;
-		f32 debugSpeed;
-		m4x4 debugLookAt;
-		
-		f32 longSmoothness;
-		f32 latSmoothness;
-		f32 distSmoothness;
-		f32 longitude;
-		f32 latitude;
-		v3 pos;
-		v3 front;
-		v3 target;
-		f32 distance;
-		v2 lastMousePos;
-		f32 targetDistance;
-		m4x4 lookAt;
-	};
-
-	struct MouseInputState
-	{
-		b32 mouseCaptured;
-		f32 lastMouseX;
-		f32 lastMouseY;
-	};
-
 	struct World
 	{
 		Tilemap tilemap;
@@ -47,14 +16,14 @@ namespace AB
 		i32 planeMeshHandle;
 		f32 gamma;
 		f32 exposure;
-		AnnoCamera camera;
-		MouseInputState inputState;
+		Camera camera;
+		//MouseInputState inputState;
 		DirectionalLight dirLight;
-		TilemapPosition playerP;
-		v2 playerSpeed;
+		//TilemapPosition playerP;
+		//v2 playerSpeed;
 		World* world;
 		v3 dirLightOffset;
-		FrustumVertices camFrustum;
+		//FrustumVertices camFrustum;
 	};
 	
 

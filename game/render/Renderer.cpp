@@ -110,6 +110,8 @@ out_FragColor = v4(pow(mappedColor, 1.0f / v3(u_Gamma)), 1.0f);
 		u32 shadowMapHandle;
 		u32 shadowPassFBHandle;
 		i32 shadowPassShaderHandle;
+		i32 debugInstancingShaderHandle;
+		u32 debugInstancingVBHandle;
 	};
 	// NOTE: Does not setting temp arena point and does not flushes at the end.
 	// TODO: Implement memory stack propperly
@@ -130,9 +132,6 @@ out_FragColor = v4(pow(mappedColor, 1.0f / v3(u_Gamma)), 1.0f);
 
 		const char* vertexShaderHeader = R"(
 #define out_Position gl_Position
-layout (location = 0) in v3 v_Position;
-layout (location = 1) in v2 v_UV;
-layout (location = 2) in v3 v_Normal;
 )";
 
 		const char* fragmentShaderHeader = R"(
@@ -216,7 +215,6 @@ out vec4 out_FragColor;
 								AB_CORE_ASSERT(message);
 								GLCall(glGetProgramInfoLog(programHandle, logLength, 0, message));
 								AB_CORE_ERROR("Shader program linking error:\n%s", message);
-								free(message);
 							}
 						} 
 						else 
@@ -233,7 +231,6 @@ out vec4 out_FragColor;
 						AB_CORE_ASSERT(message);
 						GLCall(glGetShaderInfoLog(fragmentHandle, logLength, nullptr, message));
 						AB_CORE_ERROR("Frgament shader compilation error:\n%s", message);
-						free(message);
 					}
 				}
 				else 
@@ -249,7 +246,6 @@ out vec4 out_FragColor;
 				AB_CORE_ASSERT(message);
 				GLCall(glGetShaderInfoLog(vertexHandle, logLength, nullptr, message));
 				AB_CORE_ERROR("Vertex shader compilation error:\n%s", message);
-				free(message);
 			}
 		}
 		else 
@@ -505,6 +501,27 @@ out vec4 out_FragColor;
 			RendererCreateProgram(tempArena, (const char*)shadowVertSrc,
 								  (const char*)shadowFragSrc);
 
+		u32 dbgInstVertSz =
+			DebugGetFileSize("../assets/shaders/DebugInstancingVert.glsl");
+		u32 dbgInstFragSz =
+			DebugGetFileSize("../assets/shaders/DebugInstancingFrag.glsl");
+		void* dbgInstVertSrc = PushSize(tempArena, dbgInstVertSz + 1, 0);
+		void* dbgInstFragSrc = PushSize(tempArena, dbgInstFragSz + 1, 0);
+		u32 diVRd = DebugReadTextFile(dbgInstVertSrc, dbgInstVertSz + 1,
+									 "../assets/shaders/DebugInstancingVert.glsl");
+		u32 diFRd = DebugReadTextFile(dbgInstFragSrc, dbgInstFragSz + 1,
+									 "../assets/shaders/DebugInstancingFrag.glsl");
+		AB_CORE_ASSERT(diVRd == dbgInstVertSz + 1);
+		AB_CORE_ASSERT(diFRd == dbgInstFragSz + 1);
+
+		renderer->impl->debugInstancingShaderHandle =
+			RendererCreateProgram(tempArena, (const char*)dbgInstVertSrc,
+								  (const char*)dbgInstFragSrc);
+
+		u32 dbgInsVBO = 0;
+		GLCall(glGenBuffers(1, &dbgInsVBO));
+		renderer->impl->debugInstancingVBHandle = dbgInsVBO;
+
 		EndTemporaryMemory(tempArena);
 		return renderer;
 	}
@@ -606,24 +623,24 @@ out vec4 out_FragColor;
 		return a < b;
 	}
 	
-	static void FillLightUniforms(Renderer* renderer, RenderGroup* group)
+	static void FillLightUniforms(Renderer* renderer, RenderGroup* group, i32 shaderHandle)
 	{
-		GLCall(glUseProgram(renderer->impl->programHandle));
-		auto diffMapLoc = glGetUniformLocation(renderer->impl->programHandle,
+		GLCall(glUseProgram(shaderHandle));
+		auto diffMapLoc = glGetUniformLocation(shaderHandle,
 											   "material.diffuse_map");
 
-		auto specMapLoc = glGetUniformLocation(renderer->impl->programHandle,
+		auto specMapLoc = glGetUniformLocation(shaderHandle,
 											   "material.spec_map");
 		GLCall(glUniform1i(diffMapLoc, 0));
 		GLCall(glUniform1i(specMapLoc, 1));
 
-		auto dirLoc = glGetUniformLocation(renderer->impl->programHandle,
+		auto dirLoc = glGetUniformLocation(shaderHandle,
 										   "dir_light.direction");
-		auto ambLoc = glGetUniformLocation(renderer->impl->programHandle,
+		auto ambLoc = glGetUniformLocation(shaderHandle,
 										   "dir_light.ambient");
-		auto difLoc = glGetUniformLocation(renderer->impl->programHandle,
+		auto difLoc = glGetUniformLocation(shaderHandle,
 										   "dir_light.diffuse");
-		auto spcLoc = glGetUniformLocation(renderer->impl->programHandle,
+		auto spcLoc = glGetUniformLocation(shaderHandle,
 										   "dir_light.specular");
 	   
 		if (group->dirLightEnabled)
@@ -682,7 +699,7 @@ out vec4 out_FragColor;
 		GLCall(glBindBuffer(GL_UNIFORM_BUFFER, 0));
 	}
 	
-	struct DrawCallData
+	struct DrawCallData    
 	{
 		Transform* transform;
 		BlendMode blendMode;
@@ -739,8 +756,9 @@ out vec4 out_FragColor;
 			EnableFaceCulling(renderer->pipeline, true);
 					
 		} break;
+		
 		INVALID_DEFAULT_CASE
-		}
+			}
 			
 		if (result.blendMode == BLEND_MODE_OPAQUE)
 		{
@@ -756,7 +774,7 @@ out vec4 out_FragColor;
 		} else
 		{
 			INVALID_CODE_PATH
-		}
+				}
 
 		return result;
 	}
@@ -932,7 +950,7 @@ out vec4 out_FragColor;
 		GLCall(glActiveTexture(SHADOW_MAP_TEXTURE_SLOT));
 		GLCall(glBindTexture(GL_TEXTURE_2D, renderer->impl->shadowMapHandle));
 
-		FillLightUniforms(renderer, renderGroup);
+		FillLightUniforms(renderer, renderGroup, renderer->impl->programHandle);
 		FillPointLightUnformBuffer(renderer, renderGroup);
 		BindPointLightUniformBuffer(renderer);
 
@@ -959,34 +977,161 @@ out vec4 out_FragColor;
 		{
 			PipelineResetState(renderer->pipeline);
 			CommandQueueEntry* command = commandBuffer + at;
-			
-			if (!(command->commandType == RENDER_COMMAND_SET_DIR_LIGHT ||
-				  command->commandType == RENDER_COMMAND_SET_POINT_LIGHT))
+			// NOTE: All instancing here is for now
+			if (command->commandType == RENDER_COMMAND_BEGIN_DEBUG_CUBE_INSTANCING)
 			{
-				DrawCallData dcData = {};			
-				dcData = FetchDrawCallDataAndSetState(renderer,
-													  renderGroup, command);
+				auto* renderData =
+					(RenderCommandBeginDebugCubeInctancing*)
+					(renderGroup->renderBuffer + command->rbOffset);
+				
+				BlendMode blendMode = renderData->blendMode;
+				i32 meshHandle = renderData->_meshHandle;
+				u16 instanceCount = command->instanceCount;
+				SetPolygonFillMode(renderer->pipeline,
+								   POLYGON_FILL_MODE_FILL);
+				EnableFaceCulling(renderer->pipeline, true);
 
-				Mesh* mesh = AB::AssetGetMeshData(assetManager, dcData.meshHandle);
+				if (blendMode == BLEND_MODE_OPAQUE)
+				{
+					GLCall(glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE));
+					GLCall(glDisable(GL_SAMPLE_COVERAGE));
+
+				}
+				else if (blendMode == BLEND_MODE_TRANSPARENT)
+				{
+					GLCall(glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE));
+					GLCall(glEnable(GL_SAMPLE_COVERAGE));
+
+				} else
+				{
+					INVALID_CODE_PATH
+						}
+
+				Mesh* mesh = AB::AssetGetMeshData(assetManager, meshHandle);
+
+				
+				VertexBufferToDraw(mesh);
+				//SetPerMeshUniformsAndTextures(renderer, assetManager,
+				//							  mesh, dcData);
+				GLCall(glUseProgram(renderer->impl->debugInstancingShaderHandle));
+
+				m4x4 viewProj = MulM4M4(renderGroup->projectionMatrix,
+										renderGroup->camera.lookAt);
+				v3* viewPos = &renderGroup->camera.position;
+		
+				GLuint viewProjLoc;
+				GLuint viewPosLoc;
+				GLuint lightSpaceLoc;
+				GLuint shadowMapLoc;
+				GLCall(viewProjLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
+														  "viewProjMatrix"));
+				GLCall(viewPosLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
+														 "u_ViewPos"));
+				GLCall(lightSpaceLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
+															"lightSpaceMatrix"));
+				GLCall(shadowMapLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
+														   "shadowMap"));
+
+
+				GLCall(glUniformMatrix4fv(viewProjLoc, 1, GL_FALSE,
+										  viewProj.data));
+
+				GLCall(glUniform3fv(viewPosLoc, 1, viewPos->data));
+
+				GLCall(glUniformMatrix4fv(lightSpaceLoc, 1, GL_FALSE,
+										  lightSpaceMtx->data));
+				GLCall(glUniform1i(shadowMapLoc, SHADOW_MAP_TEXTURE_SLOT_NUMBER));
+
+				GLCall(glActiveTexture(SHADOW_MAP_TEXTURE_SLOT));
+				GLCall(glBindTexture(GL_TEXTURE_2D, renderer->impl->shadowMapHandle));
+
+				FillLightUniforms(renderer, renderGroup, renderer->impl->debugInstancingShaderHandle);
+				// TODO: Point lights
+				//FillPointLightUnformBuffer(renderer, renderGroup);
+				//BindPointLightUniformBuffer(renderer);
+
+				
+				u32 instancingVBO = renderer->impl->debugInstancingVBHandle;
+				GLCall(glBindBuffer(GL_ARRAY_BUFFER, instancingVBO));
+				u32 bufferSize =
+					instanceCount * sizeof(RenderCommandPushDebugCubeInstance);
+				byte* instanceData = (byte*)renderData +
+					sizeof(RenderCommandBeginDebugCubeInctancing);
+				GLCall(glBufferData(GL_ARRAY_BUFFER, bufferSize,
+									instanceData, GL_STATIC_DRAW));
+				GLCall(glEnableVertexAttribArray(3));
+				GLCall(glEnableVertexAttribArray(4));
+				GLCall(glEnableVertexAttribArray(5));
+				GLCall(glEnableVertexAttribArray(6));
+				u32 stride = sizeof(m4x4) + sizeof(v3);
+				GLCall(glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, stride,
+											 nullptr));
+				GLCall(glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, stride,
+											 (void*)(sizeof(v4))));
+				GLCall(glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, stride,
+											 (void*)(sizeof(v4) * 2)));
+				GLCall(glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, stride,
+											 (void*)(sizeof(v4) * 3)));
+
+				GLCall(glEnableVertexAttribArray(7));
+				GLCall(glVertexAttribPointer(7, 3, GL_FLOAT, GL_FALSE, stride,
+											 (void*)(sizeof(v4) * 4)));
+
+				GLCall(glVertexAttribDivisor(3, 1));
+				GLCall(glVertexAttribDivisor(4, 1));
+				GLCall(glVertexAttribDivisor(5, 1));
+				GLCall(glVertexAttribDivisor(6, 1));
+				GLCall(glVertexAttribDivisor(7, 1));
 
 				VertexBufferToDraw(mesh);
-				SetPerMeshUniformsAndTextures(renderer, assetManager,
-											  mesh, dcData);
-
+				
 				if (mesh->api_ib_handle != 0)
 				{
-					GLCall(glDrawElements(GL_TRIANGLES, (GLsizei)mesh->num_indices,
-										  GL_UNSIGNED_INT, 0));
+					GLCall(glDrawElementsInstanced(GL_TRIANGLES,
+												   (GLsizei)mesh->num_indices,
+												   GL_UNSIGNED_INT,
+												   0, instanceCount));
 				}
 				else
 				{
-					GLCall(glDrawArrays(GL_TRIANGLES, 0, mesh->num_vertices));
+					GLCall(glDrawArraysInstanced(GL_TRIANGLES,
+												 0, mesh->num_vertices,
+												 instanceCount));
 				}
+
+			}
+			else
+			{
+				if (!(command->commandType == RENDER_COMMAND_SET_DIR_LIGHT ||
+					  command->commandType == RENDER_COMMAND_SET_POINT_LIGHT))
+				{
+					DrawCallData dcData = {};			
+					dcData = FetchDrawCallDataAndSetState(renderer,
+														  renderGroup, command);
+
+					Mesh* mesh = AB::AssetGetMeshData(assetManager, dcData.meshHandle);
+
+					VertexBufferToDraw(mesh);
+					GLCall(glUseProgram(renderer->impl->programHandle));
+					SetPerMeshUniformsAndTextures(renderer, assetManager,
+												  mesh, dcData);
+
+					if (mesh->api_ib_handle != 0)
+					{
+						GLCall(glDrawElements(GL_TRIANGLES, (GLsizei)mesh->num_indices,
+											  GL_UNSIGNED_INT, 0));
+					}
+					else
+					{
+						GLCall(glDrawArrays(GL_TRIANGLES, 0, mesh->num_vertices));
+					}
 			
+				}
 			}
 		}
 		PipelineResetState(renderer->pipeline);
 		BindFramebuffer(0, FB_TARGET_DRAW);
+		
 	}
 
 	static void ShadowPass(Renderer* renderer, RenderGroup* renderGroup,
@@ -1055,8 +1200,6 @@ out vec4 out_FragColor;
 		BindFramebuffer(0, FB_TARGET_DRAW);
 	}
 
-	static v3 casterPos = {0.0f, 1.0f, 0.0f};
-	static v3 casterDir = {};
 	void RendererRender(Renderer* renderer, AssetManager* assetManager,
 						RenderGroup* renderGroup)
 	{
@@ -1081,17 +1224,16 @@ out vec4 out_FragColor;
 #else
 		CommandQueueEntry* commandBuffer= renderGroup->commandQueue;
 #endif
-		DEBUG_OVERLAY_PUSH_SLIDER("pos", &casterPos, -30, 30);
-		DEBUG_OVERLAY_PUSH_SLIDER("dir", &casterDir, -1, 1);
-		casterDir = Normalize(casterDir);
-		//casterPos = Normalize(casterPos);
-		m4x4 lightProjection = OrthogonalRH(-10.0f, 10.0f, -10.0f, 10.0f,
-											0.1f, 50.0f);
+		v3 casterDir = renderGroup->dirLight.target - renderGroup->dirLight.from;
+		v3 casterPos = renderGroup->dirLight.from;
+						
+			m4x4 lightProjection =
+			OrthogonalRH(-10, 10, -10, 10, 0.1f, 50);
 		
 		m4x4 lookat = LookAtRH(renderGroup->dirLight.from,
 							   renderGroup->dirLight.target, V3(0, 1, 0));
 		m4x4 lightSpace = MulM4M4(lightProjection, lookat);
-
+		//m4x4 lightSpace = renderGroup->dirLightMatrix;
 		//ShadowPass(renderer, renderGroup, assetManager, commandBuffer, &lightSpace);
 		MainPass(renderer, renderGroup, assetManager, commandBuffer, &lightSpace);
 		EnableDepthTest(renderer->pipeline, false);

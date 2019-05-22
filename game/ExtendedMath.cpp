@@ -67,33 +67,6 @@ namespace AB
 		
 		return result;
 	}
-
-	void GenFrustumVertices(const m3x3* camRot, v3 camPos, f32 n, f32 f,
-							f32 fovDeg, f32 aspectRatio, FrustumVertices* out)
-	{
-		v3 axisX = V3(camRot->_11, camRot->_12, camRot->_13);
-		v3 axisY = V3(camRot->_21, camRot->_22, camRot->_23);
-		v3 axisZ = V3(camRot->_31, camRot->_32, camRot->_33);
-
-		v3 nCenter = -axisZ * n;
-		v3 fCenter = -axisZ * f;
-
-		f32 e = Tan(ToRadians(fovDeg) * 0.5f);
-		f32 nExtY = e * n;
-		f32 nExtX = nExtY * aspectRatio;
-		f32 fExtY = e * f;
-		f32 fExtX = fExtY * aspectRatio;
-
-		out->nearLeftBottom = nCenter - axisX * nExtX - axisY * nExtY + camPos;
-		out->nearLeftTop = nCenter - axisX * nExtX + axisY * nExtY + camPos;
-		out->nearRightTop = nCenter + axisX * nExtX + axisY * nExtY + camPos;
-		out->nearRightBottom = nCenter + axisX * nExtX - axisY * nExtY + camPos;
-		out->farLeftBottom = fCenter - axisX * fExtX - axisY * fExtY + camPos;
-		out->farLeftTop = fCenter - axisX * fExtX + axisY * fExtY + camPos;
-		out->farRightTop = fCenter + axisX * fExtX + axisY * fExtY + camPos;
-		out->farRightBottom = fCenter + axisX * fExtX - axisY * fExtY + camPos;
-	}
-	
 		
 	b32 GenFrustumVertices(const Frustum* f, FrustumVertices* v)
 	{

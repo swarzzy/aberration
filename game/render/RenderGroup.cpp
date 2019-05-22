@@ -71,8 +71,8 @@ namespace AB
 		AB_CORE_ASSERT(size + padding < group->renderBufferFree,
 					   "Not enough space in render buffer.");
 
-		group->renderBufferAt += size + padding + 1;
-		group->renderBufferFree -= size + padding + 1;
+		group->renderBufferAt += size + padding ;
+		group->renderBufferFree -= size + padding;
 		byte* nextAt = currentAt + padding;
 
 		CopyBytes(size, nextAt, data);
@@ -82,11 +82,15 @@ namespace AB
 		return (void*)nextAt;
 	}
 
-
-#define PUSH_COMMAND_QUEUE_ENTRY(rendr, cmd)											\
-	CommandQueueEntry* _renderBucketDest = rendr->commandQueue + rendr->commandQueueAt;	\
-	CopyScalar(CommandQueueEntry, _renderBucketDest, &cmd);								\
-	rendr->commandQueueAt++
+	static inline CommandQueueEntry*
+	PushCommandQueueEntry(RenderGroup* renderGroup, CommandQueueEntry* cmd)
+	{
+		CommandQueueEntry* renderBucketDest = 
+			renderGroup->commandQueue + renderGroup->commandQueueAt;	
+		CopyScalar(CommandQueueEntry, renderBucketDest, cmd);	   	
+		renderGroup->commandQueueAt++;
+		return renderBucketDest;
+	}
 	
 #define RENDER_KEY_INSERT_KIND(key, type)		 	key |= (u64)type << 63
 #define RENDER_KEY_INSERT_BLEND_TYPE(key, type) 	key |= (u64)type << 62
@@ -195,9 +199,13 @@ namespace AB
 								RenderCommandType type,
 								void* data)
 	{
+		AB_ASSERT(!(!((type == RENDER_COMMAND_PUSH_DEBUG_CUBE_INSTANCE) ||
+					  (type == RENDER_COMMAND_END_DEBUG_CUBE_INSTANCING)) &&
+					group->pendingInstancingArray));
+				  
 		void* renderDataPtr = nullptr;
 		CommandQueueEntry command = {};
-		
+
 		switch (type)
 		{
 		case RENDER_COMMAND_DRAW_MESH:
@@ -221,12 +229,13 @@ namespace AB
 
 			uptr offset = (uptr)renderDataPtr - (uptr)group->renderBuffer;
 			command.rbOffset = SafeCastUptrU32(offset);
-			PUSH_COMMAND_QUEUE_ENTRY(group, command);	
+			PushCommandQueueEntry(group, &command);	
 		}
 		break;
 		case RENDER_COMMAND_DRAW_MESH_WIREFRAME:
 		{
-			RenderCommandDrawMeshWireframe* renderData = (RenderCommandDrawMeshWireframe*)data;
+			RenderCommandDrawMeshWireframe* renderData =
+				(RenderCommandDrawMeshWireframe*)data;
 
 			u64 sortKey =  _MakeKeyMesh(assetManager,
 										renderData->blendMode,
@@ -238,64 +247,128 @@ namespace AB
 				command.sortKey = sortKey;
 				command.commandType = RENDER_COMMAND_DRAW_MESH_WIREFRAME;
 
-				renderDataPtr = _PushRenderData(group,
-												sizeof(RenderCommandDrawMeshWireframe),
-												alignof(RenderCommandDrawMeshWireframe),
-												data);
+				renderDataPtr =
+					_PushRenderData(group,
+									sizeof(RenderCommandDrawMeshWireframe),
+									alignof(RenderCommandDrawMeshWireframe),
+									data);
 				
 				uptr offset = (uptr)renderDataPtr - (uptr)group->renderBuffer;
 				command.rbOffset = SafeCastUptrU32(offset);
-				PUSH_COMMAND_QUEUE_ENTRY(group, command);	
-			}
-			break;
-		    case RENDER_COMMAND_DRAW_DEBUG_CUBE:
-			{
-				RenderCommandDrawDebugCube* renderData
-					= (RenderCommandDrawDebugCube*)data;
+				PushCommandQueueEntry(group, &command);	
+		}
+		break;
+		case RENDER_COMMAND_DRAW_DEBUG_CUBE:
+		{
+			RenderCommandDrawDebugCube* renderData
+				= (RenderCommandDrawDebugCube*)data;
 
-				renderData->_meshHandle = ASSET_DEFAULT_CUBE_MESH_HANDLE;
+			renderData->_meshHandle = ASSET_DEFAULT_CUBE_MESH_HANDLE;
 
-				v3 cubeOrigin = GetPosition(&renderData->transform.worldMatrix);
-				f32 distanceToCamSq = DistanceSq(cubeOrigin,
-												 group->camera.position);
+			v3 cubeOrigin = GetPosition(&renderData->transform.worldMatrix);
+			f32 distanceToCamSq = DistanceSq(cubeOrigin,
+											 group->camera.position);
 
-				u64 sortKey = 0;
+			u64 sortKey = 0;
 			
-				RENDER_KEY_INSERT_KIND(sortKey, KIND_BIT_DRAW_CALL);
-				RENDER_KEY_INSERT_BLEND_TYPE(sortKey, BLEND_MODE_OPAQUE);
-				RENDER_KEY_INSERT_DEPTH(sortKey, distanceToCamSq);
+			RENDER_KEY_INSERT_KIND(sortKey, KIND_BIT_DRAW_CALL);
+			RENDER_KEY_INSERT_BLEND_TYPE(sortKey, BLEND_MODE_OPAQUE);
+			RENDER_KEY_INSERT_DEPTH(sortKey, distanceToCamSq);
 
-				command.sortKey = sortKey;
-				command.commandType = RENDER_COMMAND_DRAW_DEBUG_CUBE;
+			command.sortKey = sortKey;
+			command.commandType = RENDER_COMMAND_DRAW_DEBUG_CUBE;
 
-				renderDataPtr = _PushRenderData(group,
-												sizeof(RenderCommandDrawDebugCube),
-												alignof(RenderCommandDrawDebugCube),
-												data);
+			renderDataPtr = _PushRenderData(group,
+											sizeof(RenderCommandDrawDebugCube),
+											alignof(RenderCommandDrawDebugCube),
+											data);
 				
-				uptr offset = (uptr)renderDataPtr - (uptr)group->renderBuffer;
-				command.rbOffset = SafeCastUptrU32(offset);
-				PUSH_COMMAND_QUEUE_ENTRY(group, command);	
-			} break;
-			case RENDER_COMMAND_SET_DIR_LIGHT:
+			uptr offset = (uptr)renderDataPtr - (uptr)group->renderBuffer;
+			command.rbOffset = SafeCastUptrU32(offset);
+			PushCommandQueueEntry(group, &command);	
+		} break;
+		case RENDER_COMMAND_SET_DIR_LIGHT:
+		{
+			RenderCommandSetDirLight* renderData = (RenderCommandSetDirLight*)data;
+			group->dirLightEnabled = true;
+			group->dirLight = renderData->light;
+		} break;
+		case RENDER_COMMAND_SET_POINT_LIGHT:
+		{
+			if (group->pointLightsAt <= group->pointLightsNum)
 			{
-				RenderCommandSetDirLight* renderData = (RenderCommandSetDirLight*)data;
-				group->dirLightEnabled = true;
-				group->dirLight = renderData->light;
-			} break;
-			case RENDER_COMMAND_SET_POINT_LIGHT:
-			{
-				if (group->pointLightsAt <= group->pointLightsNum)
-				{
-					RenderCommandSetPointLight* renderData = (RenderCommandSetPointLight*)data;
-					CopyScalar(PointLight,
-							   &group->pointLights[group->pointLightsAt],
-							   &renderData->light);
-					group->pointLightsAt++;
-				}
-			} break;
-	
-			default: { AB_CORE_FATAL("Invalid render command type."); } break;
+				RenderCommandSetPointLight* renderData =
+					(RenderCommandSetPointLight*)data;
+				CopyScalar(PointLight,
+						   &group->pointLights[group->pointLightsAt],
+						   &renderData->light);
+				group->pointLightsAt++;
+			}
+		} break;
+		case RENDER_COMMAND_BEGIN_DEBUG_CUBE_INSTANCING:
+		{
+			RenderCommandBeginDebugCubeInctancing* renderData
+				= (RenderCommandBeginDebugCubeInctancing*)data;
+			renderData->_meshHandle = ASSET_DEFAULT_CUBE_MESH_HANDLE;
+
+			u64 sortKey = 0;
+
+			// TODO: Sorting for instanced batches
+			// For now they always rendered last in the opaque queue
+			RENDER_KEY_INSERT_KIND(sortKey, KIND_BIT_DRAW_CALL);
+			RENDER_KEY_INSERT_BLEND_TYPE(sortKey, BLEND_MODE_OPAQUE);
+			RENDER_KEY_INSERT_DEPTH(sortKey, FLT_MAX);
+
+			command.sortKey = sortKey;
+			command.commandType = RENDER_COMMAND_BEGIN_DEBUG_CUBE_INSTANCING;
+
+			renderDataPtr =
+				_PushRenderData(group,
+								sizeof(RenderCommandBeginDebugCubeInctancing),
+								1,
+								data);
+				
+			uptr offset = (uptr)renderDataPtr - (uptr)group->renderBuffer;
+			command.rbOffset = SafeCastUptrU32(offset);
+			CommandQueueEntry* entry = PushCommandQueueEntry(group, &command);
+			
+			group->pendingInstancingArray = true;
+			group->instancingArrayCount = 0;
+			group->pendingInstancingCommandHeader = entry;
+
+		} break;
+		
+		case RENDER_COMMAND_PUSH_DEBUG_CUBE_INSTANCE:
+		{
+			RenderCommandPushDebugCubeInstance* renderData
+				= (RenderCommandPushDebugCubeInstance*)data;
+
+			RCPushDebugCubeInstancePacked packedData = {};
+			CopyArray(f32, 16, &packedData.worldMatrix,
+					  renderData->worldMatrix.data);
+			packedData.r = renderData->color.r;
+			packedData.g = renderData->color.g;
+			packedData.b = renderData->color.b;
+			
+			u64 sortKey = 0;
+			
+			renderDataPtr =
+				_PushRenderData(group,
+								sizeof(RCPushDebugCubeInstancePacked),
+								1,
+								&packedData);
+			group->instancingArrayCount++;
+		} break;
+
+		case RENDER_COMMAND_END_DEBUG_CUBE_INSTANCING:
+		{
+			group->pendingInstancingArray = false;
+			group->pendingInstancingCommandHeader->instanceCount =
+				group->instancingArrayCount;
+			group->instancingArrayCount = 0;
+		} break;
+
+		INVALID_DEFAULT_CASE
 		}
 	}
 
@@ -372,5 +445,43 @@ namespace AB
 		}
 		return targetBuffer;
 	}
+
+	//NOTE: Debug stuff
+	void DrawDebugCube(RenderGroup* renderGroup,
+					   AssetManager* assetManager,
+					   v3 position, f32 scale, v3 color)
+	{
+		RenderCommandDrawDebugCube cubeCommand = {};
+		m4x4 world = Identity4();
+		world = Translate(world, position);
+		world = Scale(world, V3(scale));
+		cubeCommand.transform.worldMatrix = world;
+		cubeCommand.color = color;
+
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_DRAW_DEBUG_CUBE,
+							   (void*)(&cubeCommand));
+
+	}
+
+	void DrawDebugCubeInstanced(RenderGroup* renderGroup,
+								AssetManager* assetManager,
+								v3 position, f32 scale, v3 color)
+	{
+		RenderCommandPushDebugCubeInstance cubeCommand = {};
+		m4x4 world = Identity4();
+		world = Translate(world, position);
+		world = Scale(world, V3(scale));
+		cubeCommand.worldMatrix = world;
+		cubeCommand.color = color;
+
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_DEBUG_CUBE_INSTANCE,
+							   (void*)(&cubeCommand));
+
+	}
+
 
 }
