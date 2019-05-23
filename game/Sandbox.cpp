@@ -57,7 +57,12 @@ namespace AB
 		sandbox->camera.targetWorldPos.offset.y = 1.0f;
 		sandbox->camera.cullPosAdjust = 1.5f;
 
-	
+
+		sandbox->entity.pos.tileX = 30;
+		sandbox->entity.pos.tileY = 30;
+		sandbox->entity.pos.offset = V2(0.0f);
+		sandbox->entity.accelerationAmount = 20.0f;
+		
 		//SubscribeKeyboardEvents(&sandbox->camera, inputManager,
 		//						&sandbox->inputState);
 
@@ -124,6 +129,31 @@ namespace AB
 	
 
 	}
+
+	void DrawEntity(Tilemap* tilemap,
+					RenderGroup* renderGroup,
+					AssetManager* assetManager,
+					TilemapPosition entityPos,
+					TilemapPosition origin)
+	{
+		i32 relTileOffsetX = entityPos.tileX - origin.tileX;
+		f32 relOffsetX = entityPos.offset.x - origin.offset.x;
+		i32 relTileOffsetY = entityPos.tileY - origin.tileY;
+		f32 relOffsetY = entityPos.offset.y - origin.offset.y;
+		
+		f32 pX = relTileOffsetX * tilemap->tileSizeInUnits + relOffsetX;
+		f32 pY = relTileOffsetY * tilemap->tileSizeInUnits + relOffsetY;
+
+		pX *= tilemap->unitsToRaw;
+		pY *= -tilemap->unitsToRaw;
+		//pY = (tilemap->chunkSizeInTiles * tilemap->tileSizeRaw) - pY;
+			
+		DrawDebugCube(renderGroup,
+					  assetManager,
+					  V3(pX, 3.0f, pY),
+					  tilemap->tileSizeRaw * 0.5f, V3(1.0f, 0.0f, 0.0f));
+
+	}
 		
 	void Render(Sandbox* sandbox,
 				AssetManager* assetManager,
@@ -131,19 +161,92 @@ namespace AB
 	{
 		DEBUG_OVERLAY_SLIDER(g_Platform->gameSpeed, 0.0f, 10.0f);
 		Tilemap* tilemap = &sandbox->world->tilemap;
+		Camera* camera = &sandbox->camera;
+		Entity* entity = &sandbox->entity;
+
+		v3 _frontDir = V3(camera->front.x, 0.0f, camera->front.z);
+		v3 _rightDir = Cross(_frontDir, V3(0.0f, 1.0f, 0.0f));
+		_rightDir = Normalize(_rightDir);
+
+		v2 frontDir = V2(_frontDir.x, -_frontDir.z);
+		v2 rightDir = V2(_rightDir.x, -_rightDir.z);
+
+		v2 acceleration = {};
+		if (GlobalInput.keys[KEY_UP].pressedNow)
+		{
+			acceleration += frontDir;
+		}
+		if (GlobalInput.keys[KEY_DOWN].pressedNow)
+		{
+			acceleration -= frontDir;
+		}
+		if (GlobalInput.keys[KEY_LEFT].pressedNow)
+		{
+			acceleration -= rightDir;
+		}
+		if (GlobalInput.keys[KEY_RIGHT].pressedNow)
+		{
+			acceleration += rightDir;
+		}
+		
+		acceleration = Normalize(acceleration);
+		f32 speed = entity->accelerationAmount;
+		acceleration *= speed;
+
+		f32 friction = 3.0f;
+		acceleration = acceleration - entity->velocity * friction;
+
+		v2 movementDelta;
+		movementDelta = 0.5f * acceleration *
+			Square(GlobalGameDeltaTime) + 
+			entity->velocity *
+			GlobalGameDeltaTime;
+
+		TilemapPosition newPos = {};
+		v2 newVelocity = {};
+		
+		DoMovement(tilemap,
+				   entity->pos,
+				   entity->velocity,
+				   movementDelta,
+				   &newPos,
+				   &newVelocity);
+
+		newVelocity = newVelocity +
+			acceleration * GlobalGameDeltaTime;
+
+		entity->pos = newPos;
+		entity->velocity = newVelocity;
 		
 		MoveCameraTarget(&sandbox->camera, tilemap);
+
+		UpdateCamera(&sandbox->camera,
+					 sandbox->renderGroup, tilemap);
+
+		DEBUG_OVERLAY_TRACE_VAR(camera->pos);
+		DEBUG_OVERLAY_TRACE_VAR(camera->front);
+		DrawWorldInstancedMinMax(tilemap, sandbox->renderGroup, assetManager,
+								 sandbox->camera.targetWorldPos,
+								 sandbox->camera.frustumGroundAABB,
+								 &sandbox->camera.frustumGroundPoints);
+
+		ChunkPosition chunkPos =
+			GetChunkPosition(tilemap,
+							 entity->pos.tileX,
+							 entity->pos.tileY);
+
+		DrawEntity(tilemap, sandbox->renderGroup, assetManager,
+				   entity->pos, camera->targetWorldPos);
+		//sandbox->camera.target = V3(pX, 0, pY);
+		//sandbox->dirLight.target = V3(pX, 0, pY);
+		
+
+#if defined(DRAW_CAM_TARGET)
 		ChunkPosition chunkPos =
 			GetChunkPosition(tilemap,
 							 sandbox->camera.targetWorldPos.tileX,
 							 sandbox->camera.targetWorldPos.tileY);
 
-		UpdateCamera(&sandbox->camera,
-					 sandbox->renderGroup, tilemap);
-		DrawWorldInstancedMinMax(tilemap, sandbox->renderGroup, assetManager,
-								 sandbox->camera.targetWorldPos,
-								 sandbox->camera.frustumGroundAABB,
-								 &sandbox->camera.frustumGroundPoints);
 
 		f32 pX = (chunkPos.tileInChunkX * tilemap->tileSizeInUnits +
 				  sandbox->camera.targetWorldPos.offset.x) * tilemap->unitsToRaw;
@@ -160,18 +263,20 @@ namespace AB
 
 		//sandbox->camera.target = V3(pX, 0, pY);
 		//sandbox->dirLight.target = V3(pX, 0, pY);
-
+		
 		DEBUG_OVERLAY_TRACE_VAR(pX);
 		DEBUG_OVERLAY_TRACE_VAR(pY);
 		DEBUG_OVERLAY_TRACE_VAR(chunkPos.tileInChunkX);
 		DEBUG_OVERLAY_TRACE_VAR(chunkPos.tileInChunkY);
-		
+
+#endif
+#if 0
 		DEBUG_OVERLAY_PUSH_SLIDER("Gamma", &sandbox->gamma, 0.0f, 3.0f);
 		DEBUG_OVERLAY_PUSH_VAR("Gamma", sandbox->gamma);
 
 		DEBUG_OVERLAY_PUSH_SLIDER("Exposure", &sandbox->exposure, 0.0f, 3.0f);
 		DEBUG_OVERLAY_PUSH_VAR("Exposure", sandbox->exposure);
-
+#endif
 		renderer->cc.gamma = sandbox->gamma;
 		renderer->cc.exposure = sandbox->exposure;
 		
@@ -182,7 +287,7 @@ namespace AB
 
 		f32 ka = sandbox->dirLight.ambient.r;
 		f32 kd = sandbox->dirLight.diffuse.r;
-	
+#if 0
 		DEBUG_OVERLAY_PUSH_SLIDER("Ka", &ka, 0.0f, 1.0f);
 		DEBUG_OVERLAY_PUSH_VAR("Ka", ka);
 
@@ -193,7 +298,7 @@ namespace AB
 		DEBUG_OVERLAY_TRACE_VAR(sandbox->dirLight.target);
 		DEBUG_OVERLAY_TRACE_VAR(sandbox->dirLightOffset);
 		DEBUG_OVERLAY_PUSH_SLIDER("offset", &sandbox->dirLightOffset, -50, 50);
-
+#endif
 		sandbox->dirLight.from = AddV3V3(sandbox->dirLight.target,
 										 sandbox->dirLightOffset);
 		sandbox->dirLight.ambient = V3(ka);

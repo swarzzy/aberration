@@ -585,7 +585,7 @@ namespace AB
 											 AddV3V3(cullingPos, camera->front),
 											 V3(0.0f, 1.0f, 0.0f));
 
-			camera->cullingProjection = PerspectiveRH(camera->fov,
+			camera->cullingProjection = PerspectiveOpenGLRH(camera->fov,
 													  camera->aspectRatio,
 													  camera->nearPlane,
 													  camera->farPlane);
@@ -610,7 +610,7 @@ namespace AB
 
 
 			renderGroup->projectionMatrix =
-				PerspectiveRH(camera->fov,
+				PerspectiveOpenGLRH(camera->fov,
 							  camera->aspectRatio,
 							  camera->nearPlane * tilemap->unitsToRaw,
 							  camera->farPlane * tilemap->unitsToRaw);

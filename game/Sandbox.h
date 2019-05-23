@@ -9,6 +9,13 @@ namespace AB
 		Tilemap tilemap;
 	};
 
+	struct Entity
+	{
+		TilemapPosition pos;
+		v2 velocity;
+		f32 accelerationAmount;
+	};
+
 	struct Sandbox
 	{
 		RenderGroup* renderGroup;
@@ -24,9 +31,8 @@ namespace AB
 		World* world;
 		v3 dirLightOffset;
 		//FrustumVertices camFrustum;
+		Entity entity;
 	};
-	
-
 
 	void Init(MemoryArena* arena,
 			  MemoryArena* tempArena,

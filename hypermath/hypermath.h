@@ -901,9 +901,61 @@ namespace hpm
 
 		result._11 = 1.0f / (aspectRatio * tanHalfFov);
 		result._22 = 1.0f / tanHalfFov;
+#if 0
 		result._33 = - (f + n) / (f - n);
-		result._43 = -1.0f;
 		result._34 = (-2.0f * n * f) / (f - n);
+#endif
+		result._33 = f / (n - f);
+		result._43 = -1.0f;
+		result._34 = (n * f) / (n - f);
+
+		return result;
+	}
+
+	inline Matrix4 HPM_CALL PerspectiveOpenGLRH(f32 fovDeg, f32 aspectRatio,
+												f32 n, f32 f)
+	{
+		Matrix4 result = {};
+
+		f32 tanHalfFov = Tan(ToRadians(fovDeg / 2.0f));
+
+		result._11 = 1.0f / (aspectRatio * tanHalfFov);
+		result._22 = 1.0f / tanHalfFov;
+		result._33 = -(f + n) / (f - n);
+		result._43 = -1.0f;
+		result._34 = (-2 * n * f) / (f - n);
+
+		return result;
+	}
+
+	inline Matrix4 HPM_CALL PerspectiveOpenGLLH(f32 fovDeg, f32 aspectRatio,
+			f32 n, f32 f)
+	{
+		Matrix4 result = {};
+
+		f32 tanHalfFov = Tan(ToRadians(fovDeg / 2.0f));
+
+		result._11 = 1.0f / (aspectRatio * tanHalfFov);
+		result._22 = 1.0f / tanHalfFov;
+		result._33 = -(f + n) / (f - n);
+		result._43 = 1.0f;
+		result._34 = (2 * n * f) / (f - n);
+
+		return result;
+	}
+
+
+	inline Matrix4 HPM_CALL PerspectiveLH(f32 fovDeg, f32 aspectRatio, f32 n, f32 f)
+	{
+		Matrix4 result = {};
+
+		f32 tanHalfFov = Tan(ToRadians(fovDeg / 2.0f));
+
+		result._11 = 1.0f / (aspectRatio * tanHalfFov);
+		result._22 = 1.0f / tanHalfFov;
+		result._33 = f / (f - n);
+		result._43 = 1.0f;
+		result._34 = (-n * f) / (f - n);
 
 		return result;
 	}
@@ -1182,14 +1234,15 @@ namespace hpm
 #endif
 
 	Matrix4 HPM_CALL LookAtRH(Vector3 from, Vector3 at, Vector3 up);
+	Matrix4 HPM_CALL LookAtLH(Vector3 from, Vector3 at, Vector3 up);
 	Matrix4 HPM_CALL LookAtDirRH(Vector3 position, Vector3 dir, Vector3 up);
 #if defined(HYPERMATH_IMPL) 
 	
 	Matrix4 HPM_CALL LookAtRH(Vector3 from, Vector3 at, Vector3 up)
 	{
-		Vector3 zAxis = Normalize(SubV3V3(at, from));
-		Vector3 xAxis = Normalize(Cross(zAxis, up));
-		Vector3 yAxis = Cross(xAxis, zAxis);
+		Vector3 zAxis = Normalize(SubV3V3(from, at));
+		Vector3 xAxis = Normalize(Cross(up, zAxis)); 
+		Vector3 yAxis = Cross(zAxis, xAxis);
 
 		Matrix4 result;
 		result._11 = xAxis.x;
@@ -1202,10 +1255,10 @@ namespace hpm
 		result._23 = yAxis.z;
 		result._24 = -Dot(yAxis, from);
 
-		result._31 = -zAxis.x;
-		result._32 = -zAxis.y;
-		result._33 = -zAxis.z;
-		result._34 = Dot(zAxis, from);
+		result._31 = zAxis.x;
+		result._32 = zAxis.y;
+		result._33 = zAxis.z;
+		result._34 = -Dot(zAxis, from);
 
 		result._41 = 0.0f;
 		result._42 = 0.0f;
@@ -1214,6 +1267,38 @@ namespace hpm
 
 		return result;
 	}
+
+	
+	Matrix4 HPM_CALL LookAtLH(Vector3 from, Vector3 at, Vector3 up)
+	{
+		Vector3 zAxis = Normalize(SubV3V3(at, from));
+		Vector3 xAxis = Normalize(Cross(up, zAxis)); 
+		Vector3 yAxis = Cross(zAxis, xAxis);
+
+		Matrix4 result;
+		result._11 = xAxis.x;
+		result._12 = xAxis.y;
+		result._13 = xAxis.z;
+		result._14 = -Dot(xAxis, from);
+
+		result._21 = yAxis.x;
+		result._22 = yAxis.y;
+		result._23 = yAxis.z;
+		result._24 = -Dot(yAxis, from);
+
+		result._31 = zAxis.x;
+		result._32 = zAxis.y;
+		result._33 = zAxis.z;
+		result._34 = -Dot(zAxis, from);
+
+		result._41 = 0.0f;
+		result._42 = 0.0f;
+		result._43 = 0.0f;
+		result._44 = 1.0f;
+
+		return result;
+	}
+
 
 	Matrix4 HPM_CALL LookAtDirRH(Vector3 position, Vector3 dir, Vector3 up)
 	{
