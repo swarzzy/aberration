@@ -40,6 +40,9 @@ namespace AB
 		RENDER_COMMAND_DRAW_MESH_WIREFRAME,
 		RENDER_COMMAND_SET_DIR_LIGHT,
 		RENDER_COMMAND_SET_POINT_LIGHT,
+		RENDER_COMMAND_DRAW_LINE_BEGIN,
+		RENDER_COMMAND_PUSH_LINE_VERTEX,
+		RENDER_COMMAND_DRAW_LINE_END,
 		RENDER_COMMAND_DRAW_DEBUG_CUBE,
 		RENDER_COMMAND_BEGIN_DEBUG_CUBE_INSTANCING,
 		RENDER_COMMAND_PUSH_DEBUG_CUBE_INSTANCE,
@@ -49,8 +52,8 @@ namespace AB
 	enum RenderSortCriteria : byte
 	{
 		RENDER_SORT_CRITERIA_MESH_ORIGIN = 0,
-		RENDER_SORT_CRITERIA_NEAREST_VERTEX = 1
-	};
+			RENDER_SORT_CRITERIA_NEAREST_VERTEX = 1
+			};
 
 	struct RenderCommandDrawMesh
 	{
@@ -86,6 +89,24 @@ namespace AB
 		PointLight light;		
 	};
 
+	enum RenderLineType
+	{
+		RENDER_LINE_TYPE_SEGMENTS,
+		RENDER_LINE_TYPE_STRIP
+	};
+
+ 	struct RenderCommandDrawLineBegin
+	{
+		RenderLineType type;
+		v3 color;
+		f32 width;
+	};
+
+	struct RenderCommandPushLineVertex
+	{
+		v3 vertex;
+	};
+
 	struct RenderCommandBeginDebugCubeInctancing
 	{
 		BlendMode blendMode;
@@ -104,14 +125,14 @@ namespace AB
 	enum RenderKeyKindBit : u64
 	{
 		KIND_BIT_PIPELINE_CONF = 0,
-		KIND_BIT_DRAW_CALL = 1
-	};
+			KIND_BIT_DRAW_CALL = 1
+			};
 
 	enum RenderKeyBlendTypeBit : u64
 	{
 		BLEND_TYPE_BIT_OPAQUE = 0,
-		BLEND_TYPE_BIT_TRANSPARENT = 1
-	};
+			BLEND_TYPE_BIT_TRANSPARENT = 1
+			};
 	
 	struct CommandQueueEntry
 	{
@@ -162,6 +183,10 @@ namespace AB
 		u16 instancingArrayCount;
 		CommandQueueEntry* pendingInstancingCommandHeader;
 
+		b32 pendingLineBatch;
+		u16 lineBatchCount;
+		CommandQueueEntry* pendingLineBatchCommandHeader;
+
 		CommandQueueEntry* commandQueue;
 		CommandQueueEntry* tmpCommandQueue;
 		u32 commandQueueCapacity;
@@ -171,13 +196,13 @@ namespace AB
 	};
 	
 	RenderGroup* AllocateRenderGroup(MemoryArena* mem,
-											u32 rbSize,
-											u32 queueCapacity,
-											u32 lightBufCapacity);
+									 u32 rbSize,
+									 u32 queueCapacity,
+									 u32 lightBufCapacity);
 
 	void RenderGroupPushCommand(RenderGroup* group,
-									   RenderCommandType type,
-									   void* command);
+								RenderCommandType type,
+								void* command);
 	void RenderGroupResetQueue(RenderGroup* group);
 	
 	void RenderGroupSetCamera(RenderGroup* group, v3 front, v3 position,
@@ -192,10 +217,12 @@ namespace AB
 
 	// NOTE: Debug stuff
 	void DrawDebugCube(RenderGroup* renderGroup, AssetManager* assetManager,
-					   v3 position, f32 scale, v3 color);
+					   v3 position, v3 scale, v3 color);
 
 	void DrawDebugCubeInstanced(RenderGroup* renderGroup,
 								AssetManager* assetManager,
 								v3 position, f32 scale, v3 color);
+
+	void DrawAlignedBoxOutline(v3 min, v3 max, v3 color, f32 lineWidth);
 
 }

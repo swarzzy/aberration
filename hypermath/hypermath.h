@@ -714,6 +714,14 @@ namespace hpm
 		return result;
 	}
 
+	inline Vector2 Lerp(Vector2 a, Vector2 b, f32 t)
+	{
+		Vector2 result;
+		result.x = Lerp(a.x, b.x ,t);
+		result.y = Lerp(a.y, b.y ,t);
+		return result;
+	}
+
 	inline Vector3 Lerp(Vector3 a, Vector3 b, f32 t)
 	{
 		Vector3 result;

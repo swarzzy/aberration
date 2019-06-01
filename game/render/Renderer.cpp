@@ -3,7 +3,7 @@
 #include "../ImageLoader.h"
 #include "Memory.h"
 #include "../AssetManager.h"
-#include "../GraphicsPipeline.h"
+//#include "../GraphicsPipeline.h"
 
 namespace AB
 {
@@ -112,6 +112,8 @@ out_FragColor = v4(pow(mappedColor, 1.0f / v3(u_Gamma)), 1.0f);
 		i32 shadowPassShaderHandle;
 		i32 debugInstancingShaderHandle;
 		u32 debugInstancingVBHandle;
+		i32 lineShaderHandle;
+		u32 lineVBHandle;
 	};
 	// NOTE: Does not setting temp arena point and does not flushes at the end.
 	// TODO: Implement memory stack propperly
@@ -412,7 +414,6 @@ out vec4 out_FragColor;
 												 alignof(Renderer));
 		AB_CORE_ASSERT(renderer, "Failed to allocate renderer");
 		AB_CORE_ASSERT(renderer->impl, "Failed to allocate renderer");
-		renderer->pipeline = AllocatePipeline(memory);
 
 		CopyScalar(RendererConfig, &renderer->config, &config);
 
@@ -518,9 +519,31 @@ out vec4 out_FragColor;
 			RendererCreateProgram(tempArena, (const char*)dbgInstVertSrc,
 								  (const char*)dbgInstFragSrc);
 
+		u32 lineVertSz =
+			DebugGetFileSize("../assets/shaders/LineVert.glsl");
+		u32 lineFragSz =
+			DebugGetFileSize("../assets/shaders/LineFrag.glsl");
+		void* lineVertSrc = PushSize(tempArena, lineVertSz + 1, 0);
+		void* lineFragSrc = PushSize(tempArena, lineFragSz + 1, 0);
+		u32 lineVRd = DebugReadTextFile(lineVertSrc, lineVertSz + 1,
+									  "../assets/shaders/LineVert.glsl");
+		u32 lineFRd = DebugReadTextFile(lineFragSrc, lineFragSz + 1,
+									  "../assets/shaders/LineFrag.glsl");
+		AB_CORE_ASSERT(lineVRd == lineVertSz + 1);
+		AB_CORE_ASSERT(lineFRd == lineFragSz + 1);
+
+		renderer->impl->lineShaderHandle =
+			RendererCreateProgram(tempArena, (const char*)lineVertSrc,
+								  (const char*)lineFragSrc);
+		
 		u32 dbgInsVBO = 0;
 		GLCall(glGenBuffers(1, &dbgInsVBO));
 		renderer->impl->debugInstancingVBHandle = dbgInsVBO;
+
+		u32 lineVBO = 0;
+		GLCall(glGenBuffers(1, &lineVBO));
+		renderer->impl->lineVBHandle = lineVBO;
+
 
 		EndTemporaryMemory(tempArena);
 		return renderer;
@@ -556,7 +579,8 @@ out vec4 out_FragColor;
 		}
 		CopyScalar(RendererConfig, &renderer->config, newConfig);		
 	}
-	
+
+	// NOTE: Requires no depth testing and depth writing
 	static void DrawSkybox(Renderer* renderer, RenderGroup* renderGroup)
 	{
 		// TODO: IMPORTANT: Zero isn't actually null handle
@@ -564,9 +588,8 @@ out vec4 out_FragColor;
 		// It's better to use 0 as invalid handle in asset manager
 		if (renderGroup->skyboxHandle)
 		{
-			PipelineCommitState(renderer->pipeline);
-			EnableDepthTest(renderer->pipeline, false);
-			WriteDepth(renderer->pipeline, false);
+			//GLCall(glDisable(GL_DEPTH_TEST));
+			//GLCall(glDepthMask(GL_FALSE));
 			
 			GLCall(glUseProgram(renderer->impl->skyboxProgramHandle));
 			GLCall(glActiveTexture(GL_TEXTURE0));
@@ -591,7 +614,6 @@ out vec4 out_FragColor;
 			//BindSystemUniformBuffer(renderer, renderer->impl->skyboxProgramHandle);
 			GLCall(glDrawArrays(GL_TRIANGLES, 0, 6));
 			GLCall(glUseProgram(0));
-			PipelineResetState(renderer->pipeline);
 		}
 	}
 
@@ -723,9 +745,9 @@ out vec4 out_FragColor;
 			result.transform = &renderData->transform;
 			result.blendMode = renderData->blendMode;
 			result.meshHandle = renderData->meshHandle;
-			SetPolygonFillMode(renderer->pipeline,
-							   POLYGON_FILL_MODE_FILL);
-			EnableFaceCulling(renderer->pipeline, true);
+			//SetPolygonFillMode(renderer->pipeline,
+			//POLYGON_FILL_MODE_FILL);
+		//EnableFaceCulling(renderer->pipeline, true);
 								
 		} break;
 		case RENDER_COMMAND_DRAW_MESH_WIREFRAME:
@@ -736,10 +758,9 @@ out vec4 out_FragColor;
 			result.transform = &renderData->transform;
 			result.blendMode = renderData->blendMode;
 			result.meshHandle = renderData->meshHandle;
-			SetPolygonFillMode(renderer->pipeline,
-							   POLYGON_FILL_MODE_LINE);
+			GLCall(glPolygonMode(GL_FRONT_AND_BACK, GL_LINE));
+			GLCall(glDisable(GL_CULL_FACE));
 			GLCall(glLineWidth(renderData->lineWidth));
-			EnableFaceCulling(renderer->pipeline, false);
 		} break;
 		case RENDER_COMMAND_DRAW_DEBUG_CUBE:
 		{
@@ -751,14 +772,14 @@ out vec4 out_FragColor;
 			result.meshHandle = renderData->_meshHandle;
 			result.debugColor = renderData->color;
 			result.useDebugColor = true;
-			SetPolygonFillMode(renderer->pipeline,
-							   POLYGON_FILL_MODE_FILL);
-			EnableFaceCulling(renderer->pipeline, true);
+			//SetPolygonFillMode(renderer->pipeline,
+			//POLYGON_FILL_MODE_FILL);
+		//EnableFaceCulling(renderer->pipeline, true);
 					
 		} break;
 		
 		INVALID_DEFAULT_CASE
-			}
+		}
 			
 		if (result.blendMode == BLEND_MODE_OPAQUE)
 		{
@@ -774,7 +795,7 @@ out vec4 out_FragColor;
 		} else
 		{
 			INVALID_CODE_PATH
-				}
+		}
 
 		return result;
 	}
@@ -954,182 +975,257 @@ out vec4 out_FragColor;
 		FillPointLightUnformBuffer(renderer, renderGroup);
 		BindPointLightUniformBuffer(renderer);
 
-		PipelineResetBackend(renderer->pipeline);
-		EnableDepthTest(renderer->pipeline, true);
-		WriteDepth(renderer->pipeline, true);
-		SetDepthFunc(renderer->pipeline, DEPTH_FUNC_LESS);
-		EnableBlending(renderer->pipeline, false);
-		EnableFaceCulling(renderer->pipeline, true);
-		SetFaceCullingMode(renderer->pipeline,
-						   FACE_CULL_MODE_BACK);
-		SetDrawOrder(renderer->pipeline, DRAW_ORDER_CCW);
-		
-		PipelineCommitState(renderer->pipeline);
+		GLCall(glDepthFunc(GL_GREATER));
+		GLCall(glDisable(GL_BLEND));
+		GLCall(glCullFace(GL_FRONT));
+		GLCall(glFrontFace(GL_CCW));
 
 		BindFramebuffer(renderer->impl->multisampledFBOHandle, FB_TARGET_DRAW);
 		GLCall(glViewport(0, 0, renderer->config.renderResolutionW,
 						  renderer->config.renderResolutionH));
+		GLCall(glClearDepth(0.0f));
 		ClearCurrentFramebuffer(CLEAR_COLOR | CLEAR_DEPTH);
+
+		GLCall(glDisable(GL_DEPTH_TEST));
+		GLCall(glDepthMask(GL_FALSE));
+
 		DrawSkybox(renderer, renderGroup);
+
+		GLCall(glEnable(GL_DEPTH_TEST));
+		GLCall(glDepthMask(GL_TRUE));
+
 		GLCall(glUseProgram(renderer->impl->programHandle));
 		
 		for (u32 at = 0; at < renderGroup->commandQueueAt; at++)
 		{
-			PipelineResetState(renderer->pipeline);
+			GLCall(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
+			GLCall(glEnable(GL_CULL_FACE));
+
+			//PipelineResetState(renderer->pipeline);
+			
 			CommandQueueEntry* command = commandBuffer + at;
-			// NOTE: All instancing here is for now
-			if (command->commandType == RENDER_COMMAND_BEGIN_DEBUG_CUBE_INSTANCING)
+			if (command->commandType == RENDER_COMMAND_DRAW_LINE_BEGIN)
 			{
+
 				auto* renderData =
-					(RenderCommandBeginDebugCubeInctancing*)
+					(RenderCommandDrawLineBegin*)
 					(renderGroup->renderBuffer + command->rbOffset);
+
+				v3 color = renderData->color;
+				f32 width = renderData->width;
+				RenderLineType type = renderData->type;
 				
-				BlendMode blendMode = renderData->blendMode;
-				i32 meshHandle = renderData->_meshHandle;
-				u16 instanceCount = command->instanceCount;
-				SetPolygonFillMode(renderer->pipeline,
-								   POLYGON_FILL_MODE_FILL);
-				EnableFaceCulling(renderer->pipeline, true);
+				u16 vertexCount = command->instanceCount;
 
-				if (blendMode == BLEND_MODE_OPAQUE)
-				{
-					GLCall(glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE));
-					GLCall(glDisable(GL_SAMPLE_COVERAGE));
+				GLCall(glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE));
+				GLCall(glDisable(GL_SAMPLE_COVERAGE));
 
-				}
-				else if (blendMode == BLEND_MODE_TRANSPARENT)
-				{
-					GLCall(glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE));
-					GLCall(glEnable(GL_SAMPLE_COVERAGE));
-
-				} else
-				{
-					INVALID_CODE_PATH
-						}
-
-				Mesh* mesh = AB::AssetGetMeshData(assetManager, meshHandle);
-
-				
-				VertexBufferToDraw(mesh);
-				//SetPerMeshUniformsAndTextures(renderer, assetManager,
-				//							  mesh, dcData);
-				GLCall(glUseProgram(renderer->impl->debugInstancingShaderHandle));
+				GLCall(glUseProgram(renderer->impl->lineShaderHandle));
 
 				m4x4 viewProj = MulM4M4(renderGroup->projectionMatrix,
 										renderGroup->camera.lookAt);
 				v3* viewPos = &renderGroup->camera.position;
 		
 				GLuint viewProjLoc;
-				GLuint viewPosLoc;
-				GLuint lightSpaceLoc;
-				GLuint shadowMapLoc;
-				GLCall(viewProjLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
-														  "viewProjMatrix"));
-				GLCall(viewPosLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
-														 "u_ViewPos"));
-				GLCall(lightSpaceLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
-															"lightSpaceMatrix"));
-				GLCall(shadowMapLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
-														   "shadowMap"));
+				GLCall(viewProjLoc =
+					   glGetUniformLocation(renderer->impl->lineShaderHandle,
+											"u_ViewProjMatrix"));
+
+				GLuint colorLoc;
+				GLCall(colorLoc =
+					   glGetUniformLocation(renderer->impl->lineShaderHandle,
+											"u_Color"));
 
 
 				GLCall(glUniformMatrix4fv(viewProjLoc, 1, GL_FALSE,
 										  viewProj.data));
 
-				GLCall(glUniform3fv(viewPosLoc, 1, viewPos->data));
+				GLCall(glUniform3fv(colorLoc, 1, color.data));
 
-				GLCall(glUniformMatrix4fv(lightSpaceLoc, 1, GL_FALSE,
-										  lightSpaceMtx->data));
-				GLCall(glUniform1i(shadowMapLoc, SHADOW_MAP_TEXTURE_SLOT_NUMBER));
-
-				GLCall(glActiveTexture(SHADOW_MAP_TEXTURE_SLOT));
-				GLCall(glBindTexture(GL_TEXTURE_2D, renderer->impl->shadowMapHandle));
-
-				FillLightUniforms(renderer, renderGroup, renderer->impl->debugInstancingShaderHandle);
-				// TODO: Point lights
-				//FillPointLightUnformBuffer(renderer, renderGroup);
-				//BindPointLightUniformBuffer(renderer);
-
-				
-				u32 instancingVBO = renderer->impl->debugInstancingVBHandle;
-				GLCall(glBindBuffer(GL_ARRAY_BUFFER, instancingVBO));
+				u32 VBO = renderer->impl->lineVBHandle;
+				GLCall(glBindBuffer(GL_ARRAY_BUFFER, VBO));
 				u32 bufferSize =
-					instanceCount * sizeof(RenderCommandPushDebugCubeInstance);
-				byte* instanceData = (byte*)renderData +
-					sizeof(RenderCommandBeginDebugCubeInctancing);
+					vertexCount * sizeof(RenderCommandPushLineVertex);
+				byte* instanceData = (byte*)(renderData)
+					+ sizeof(RenderCommandDrawLineBegin);
 				GLCall(glBufferData(GL_ARRAY_BUFFER, bufferSize,
 									instanceData, GL_STATIC_DRAW));
-				GLCall(glEnableVertexAttribArray(3));
-				GLCall(glEnableVertexAttribArray(4));
-				GLCall(glEnableVertexAttribArray(5));
-				GLCall(glEnableVertexAttribArray(6));
-				u32 stride = sizeof(m4x4) + sizeof(v3);
-				GLCall(glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, stride,
+				GLCall(glEnableVertexAttribArray(0));
+				//GLCall(glEnableVertexAttribArray(1));
+				GLsizei stride = sizeof(v3);
+				GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride,
 											 nullptr));
-				GLCall(glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, stride,
-											 (void*)(sizeof(v4))));
-				GLCall(glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, stride,
-											 (void*)(sizeof(v4) * 2)));
-				GLCall(glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, stride,
-											 (void*)(sizeof(v4) * 3)));
-
-				GLCall(glEnableVertexAttribArray(7));
-				GLCall(glVertexAttribPointer(7, 3, GL_FLOAT, GL_FALSE, stride,
-											 (void*)(sizeof(v4) * 4)));
-
-				GLCall(glVertexAttribDivisor(3, 1));
-				GLCall(glVertexAttribDivisor(4, 1));
-				GLCall(glVertexAttribDivisor(5, 1));
-				GLCall(glVertexAttribDivisor(6, 1));
-				GLCall(glVertexAttribDivisor(7, 1));
-
-				VertexBufferToDraw(mesh);
-				
-				if (mesh->api_ib_handle != 0)
+				//GLCall(glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride,
+				//							 (void*)sizeof(v3)));
+				GLCall(glLineWidth(width));
+				GLuint glLineType = 0;
+				if (type == RENDER_LINE_TYPE_SEGMENTS)
 				{
-					GLCall(glDrawElementsInstanced(GL_TRIANGLES,
-												   (GLsizei)mesh->num_indices,
-												   GL_UNSIGNED_INT,
-												   0, instanceCount));
+					glLineType = GL_LINES;
+				}
+				else if (type == RENDER_LINE_TYPE_STRIP)
+				{
+					glLineType = GL_LINE_STRIP;
 				}
 				else
 				{
-					GLCall(glDrawArraysInstanced(GL_TRIANGLES,
-												 0, mesh->num_vertices,
-												 instanceCount));
+					INVALID_CODE_PATH
 				}
-
+				GLCall(glDrawArrays(glLineType, 0, vertexCount));
 			}
 			else
 			{
-				if (!(command->commandType == RENDER_COMMAND_SET_DIR_LIGHT ||
-					  command->commandType == RENDER_COMMAND_SET_POINT_LIGHT))
+				// NOTE: All instancing here is for now
+				if (command->commandType == RENDER_COMMAND_BEGIN_DEBUG_CUBE_INSTANCING)
 				{
-					DrawCallData dcData = {};			
-					dcData = FetchDrawCallDataAndSetState(renderer,
-														  renderGroup, command);
+					auto* renderData =
+						(RenderCommandBeginDebugCubeInctancing*)
+						(renderGroup->renderBuffer + command->rbOffset);
+				
+					BlendMode blendMode = renderData->blendMode;
+					i32 meshHandle = renderData->_meshHandle;
+					u16 instanceCount = command->instanceCount;
+					//SetPolygonFillMode(renderer->pipeline,
+					//POLYGON_FILL_MODE_FILL);
+					//EnableFaceCulling(renderer->pipeline, true);
 
-					Mesh* mesh = AB::AssetGetMeshData(assetManager, dcData.meshHandle);
+					if (blendMode == BLEND_MODE_OPAQUE)
+					{
+						GLCall(glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE));
+						GLCall(glDisable(GL_SAMPLE_COVERAGE));
+					}
+					else if (blendMode == BLEND_MODE_TRANSPARENT)
+					{
+						GLCall(glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE));
+						GLCall(glEnable(GL_SAMPLE_COVERAGE));
+
+					} else
+					{
+						INVALID_CODE_PATH
+							}
+
+					Mesh* mesh = AB::AssetGetMeshData(assetManager, meshHandle);
 
 					VertexBufferToDraw(mesh);
-					GLCall(glUseProgram(renderer->impl->programHandle));
-					SetPerMeshUniformsAndTextures(renderer, assetManager,
-												  mesh, dcData);
+					//SetPerMeshUniformsAndTextures(renderer, assetManager,
+					//							  mesh, dcData);
+					GLCall(glUseProgram(renderer->impl->debugInstancingShaderHandle));
+
+					m4x4 viewProj = MulM4M4(renderGroup->projectionMatrix,
+											renderGroup->camera.lookAt);
+					v3* viewPos = &renderGroup->camera.position;
+		
+					GLuint viewProjLoc;
+					GLuint viewPosLoc;
+					GLuint lightSpaceLoc;
+					GLuint shadowMapLoc;
+					GLCall(viewProjLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
+															  "viewProjMatrix"));
+					GLCall(viewPosLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
+															 "u_ViewPos"));
+					GLCall(lightSpaceLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
+																"lightSpaceMatrix"));
+					GLCall(shadowMapLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
+															   "shadowMap"));
+
+
+					GLCall(glUniformMatrix4fv(viewProjLoc, 1, GL_FALSE,
+											  viewProj.data));
+
+					GLCall(glUniform3fv(viewPosLoc, 1, viewPos->data));
+
+					GLCall(glUniformMatrix4fv(lightSpaceLoc, 1, GL_FALSE,
+											  lightSpaceMtx->data));
+					GLCall(glUniform1i(shadowMapLoc, SHADOW_MAP_TEXTURE_SLOT_NUMBER));
+
+					GLCall(glActiveTexture(SHADOW_MAP_TEXTURE_SLOT));
+					GLCall(glBindTexture(GL_TEXTURE_2D, renderer->impl->shadowMapHandle));
+
+					FillLightUniforms(renderer, renderGroup, renderer->impl->debugInstancingShaderHandle);
+					// TODO: Point lights
+					//FillPointLightUnformBuffer(renderer, renderGroup);
+					//BindPointLightUniformBuffer(renderer);
+
+				
+					u32 instancingVBO = renderer->impl->debugInstancingVBHandle;
+					GLCall(glBindBuffer(GL_ARRAY_BUFFER, instancingVBO));
+					u32 bufferSize =
+						instanceCount * sizeof(RenderCommandPushDebugCubeInstance);
+					byte* instanceData = (byte*)renderData +
+						sizeof(RenderCommandBeginDebugCubeInctancing);
+					GLCall(glBufferData(GL_ARRAY_BUFFER, bufferSize,
+										instanceData, GL_STATIC_DRAW));
+					GLCall(glEnableVertexAttribArray(3));
+					GLCall(glEnableVertexAttribArray(4));
+					GLCall(glEnableVertexAttribArray(5));
+					GLCall(glEnableVertexAttribArray(6));
+					u32 stride = sizeof(m4x4) + sizeof(v3);
+					GLCall(glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, stride,
+												 nullptr));
+					GLCall(glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, stride,
+												 (void*)(sizeof(v4))));
+					GLCall(glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, stride,
+												 (void*)(sizeof(v4) * 2)));
+					GLCall(glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, stride,
+												 (void*)(sizeof(v4) * 3)));
+
+					GLCall(glEnableVertexAttribArray(7));
+					GLCall(glVertexAttribPointer(7, 3, GL_FLOAT, GL_FALSE, stride,
+												 (void*)(sizeof(v4) * 4)));
+
+					GLCall(glVertexAttribDivisor(3, 1));
+					GLCall(glVertexAttribDivisor(4, 1));
+					GLCall(glVertexAttribDivisor(5, 1));
+					GLCall(glVertexAttribDivisor(6, 1));
+					GLCall(glVertexAttribDivisor(7, 1));
+
+					VertexBufferToDraw(mesh);
 
 					if (mesh->api_ib_handle != 0)
 					{
-						GLCall(glDrawElements(GL_TRIANGLES, (GLsizei)mesh->num_indices,
-											  GL_UNSIGNED_INT, 0));
+						GLCall(glDrawElementsInstanced(GL_TRIANGLES,
+													   (GLsizei)mesh->num_indices,
+													   GL_UNSIGNED_INT,
+													   0, instanceCount));
 					}
 					else
 					{
-						GLCall(glDrawArrays(GL_TRIANGLES, 0, mesh->num_vertices));
+						GLCall(glDrawArraysInstanced(GL_TRIANGLES,
+													 0, mesh->num_vertices,
+													 instanceCount));
 					}
+				}
+				else
+				{
+					if (!(command->commandType == RENDER_COMMAND_SET_DIR_LIGHT ||
+						  command->commandType == RENDER_COMMAND_SET_POINT_LIGHT))
+					{
+						DrawCallData dcData = {};			
+						dcData = FetchDrawCallDataAndSetState(renderer,
+															  renderGroup, command);
+
+						Mesh* mesh = AB::AssetGetMeshData(assetManager, dcData.meshHandle);
+
+						VertexBufferToDraw(mesh);
+						GLCall(glUseProgram(renderer->impl->programHandle));
+						SetPerMeshUniformsAndTextures(renderer, assetManager,
+													  mesh, dcData);
+
+						if (mesh->api_ib_handle != 0)
+						{
+							GLCall(glDrawElements(GL_TRIANGLES, (GLsizei)mesh->num_indices,
+												  GL_UNSIGNED_INT, 0));
+						}
+						else
+						{
+							GLCall(glDrawArrays(GL_TRIANGLES, 0, mesh->num_vertices));
+						}
 			
+					}
 				}
 			}
 		}
-		PipelineResetState(renderer->pipeline);
+		//PipelineResetState(renderer->pipeline);
 		BindFramebuffer(0, FB_TARGET_DRAW);
 		
 	}
@@ -1148,7 +1244,7 @@ out vec4 out_FragColor;
 
 		GLCall(glUniformMatrix4fv(viewProjLoc, 1, GL_FALSE,
 								  lightSpaceMtx->data));
-
+#if 0
 		PipelineResetBackend(renderer->pipeline);
 		EnableDepthTest(renderer->pipeline, true);
 		glEnable(GL_DEPTH_TEST);
@@ -1161,15 +1257,26 @@ out vec4 out_FragColor;
 		SetDrawOrder(renderer->pipeline, DRAW_ORDER_CCW);
 		
 		PipelineCommitState(renderer->pipeline);
+#endif
+
+		GLCall(glEnable(GL_DEPTH_TEST));
+		GLCall(glDepthMask(GL_TRUE));
+		GLCall(glDepthFunc(GL_GREATER));
+		GLCall(glDisable(GL_BLEND));
+		GLCall(glEnable(GL_CULL_FACE));
+		GLCall(glCullFace(GL_FRONT));
+		GLCall(glFrontFace(GL_CCW));
 
 		BindFramebuffer(renderer->impl->shadowPassFBHandle, FB_TARGET_DRAW);
 		GLCall(glViewport(0, 0, renderer->config.shadowMapRes,
 						  renderer->config.shadowMapRes));
+		GLCall(glClearDepth(0.0f));
 		ClearCurrentFramebuffer(CLEAR_DEPTH);
 		
 		for (u32 at = 0; at < renderGroup->commandQueueAt; at++)
 		{
-			PipelineResetState(renderer->pipeline);
+			//PipelineResetState(renderer->pipeline);
+		
 			CommandQueueEntry* command = commandBuffer + at;
 			
 			if (!(command->commandType == RENDER_COMMAND_SET_DIR_LIGHT ||
@@ -1196,7 +1303,7 @@ out vec4 out_FragColor;
 			
 			}
 		}
-		PipelineResetState(renderer->pipeline);
+		//PipelineResetState(renderer->pipeline);
 		BindFramebuffer(0, FB_TARGET_DRAW);
 	}
 
@@ -1227,7 +1334,7 @@ out vec4 out_FragColor;
 		v3 casterDir = renderGroup->dirLight.target - renderGroup->dirLight.from;
 		v3 casterPos = renderGroup->dirLight.from;
 						
-			m4x4 lightProjection =
+		m4x4 lightProjection =
 			OrthogonalRH(-10, 10, -10, 10, 0.1f, 50);
 		
 		m4x4 lookat = LookAtRH(renderGroup->dirLight.from,
@@ -1236,8 +1343,17 @@ out vec4 out_FragColor;
 		//m4x4 lightSpace = renderGroup->dirLightMatrix;
 		//ShadowPass(renderer, renderGroup, assetManager, commandBuffer, &lightSpace);
 		MainPass(renderer, renderGroup, assetManager, commandBuffer, &lightSpace);
-		EnableDepthTest(renderer->pipeline, false);
-		
+		//EnableDepthTest(renderer->pipeline, false);
+
+		//GLCall(glDepthFunc(GL_GREATER));
+		GLCall(glDisable(GL_BLEND));
+		GLCall(glDisable(GL_CULL_FACE));
+		//GLCall(glCullFace(GL_FRONT));
+		//GLCall(glFrontFace(GL_CCW));
+		GLCall(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
+		GLCall(glDisable(GL_DEPTH_TEST));
+		GLCall(glDepthMask(GL_TRUE));
+
 		GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
 		BindFramebuffer(renderer->impl->multisampledFBOHandle, FB_TARGET_READ);
 		BindFramebuffer(renderer->impl->postfxFBOHandle, FB_TARGET_DRAW);

@@ -199,10 +199,19 @@ namespace AB
 								RenderCommandType type,
 								void* data)
 	{
+		// NOTE: Makes shure there is no pending instancing
+		// array before execute other commands
 		AB_ASSERT(!(!((type == RENDER_COMMAND_PUSH_DEBUG_CUBE_INSTANCE) ||
 					  (type == RENDER_COMMAND_END_DEBUG_CUBE_INSTANCING)) &&
 					group->pendingInstancingArray));
+
+		// NOTE: Makes shure there is no pending line batch
+		// before execute other commands
+		AB_ASSERT(!(!((type == RENDER_COMMAND_PUSH_LINE_VERTEX) ||
+					  (type == RENDER_COMMAND_DRAW_LINE_END)) &&
+					group->pendingLineBatch));
 				  
+		
 		void* renderDataPtr = nullptr;
 		CommandQueueEntry command = {};
 
@@ -350,8 +359,6 @@ namespace AB
 			packedData.g = renderData->color.g;
 			packedData.b = renderData->color.b;
 			
-			u64 sortKey = 0;
-			
 			renderDataPtr =
 				_PushRenderData(group,
 								sizeof(RCPushDebugCubeInstancePacked),
@@ -367,7 +374,60 @@ namespace AB
 				group->instancingArrayCount;
 			group->instancingArrayCount = 0;
 		} break;
+ 
+		case RENDER_COMMAND_DRAW_LINE_BEGIN:
+		{
+			RenderCommandDrawLineBegin* renderData
+				= (RenderCommandDrawLineBegin*)data;
 
+			u64 sortKey = 0;
+
+			// TODO: Sorting for lines
+			// For now they always rendered last in the opaque queue
+			RENDER_KEY_INSERT_KIND(sortKey, KIND_BIT_DRAW_CALL);
+			RENDER_KEY_INSERT_BLEND_TYPE(sortKey, BLEND_MODE_OPAQUE);
+			RENDER_KEY_INSERT_DEPTH(sortKey, FLT_MAX);
+
+			command.sortKey = sortKey;
+			command.commandType = RENDER_COMMAND_DRAW_LINE_BEGIN;
+
+			renderDataPtr =
+				_PushRenderData(group,
+								sizeof(RenderCommandDrawLineBegin),
+								1,
+								data);
+				
+			uptr offset = (uptr)renderDataPtr - (uptr)group->renderBuffer;
+			command.rbOffset = SafeCastUptrU32(offset);
+			CommandQueueEntry* entry = PushCommandQueueEntry(group, &command);
+			
+			group->pendingLineBatch = true;
+			group->lineBatchCount = 0;
+			group->pendingLineBatchCommandHeader = entry;
+
+		} break;
+
+		case RENDER_COMMAND_PUSH_LINE_VERTEX:
+		{
+			RenderCommandPushLineVertex* renderData
+				= (RenderCommandPushLineVertex*)data;
+
+			renderDataPtr =
+				_PushRenderData(group,
+								sizeof(RenderCommandPushLineVertex),
+								1,
+								(void*)renderData);
+			group->lineBatchCount++;
+		} break;
+
+		case RENDER_COMMAND_DRAW_LINE_END:
+		{
+			group->pendingLineBatch = false;
+			group->pendingLineBatchCommandHeader->instanceCount =
+				group->lineBatchCount;
+			group->lineBatchCount = 0;
+		} break;
+ 
 		INVALID_DEFAULT_CASE
 		}
 	}
@@ -449,12 +509,12 @@ namespace AB
 	//NOTE: Debug stuff
 	void DrawDebugCube(RenderGroup* renderGroup,
 					   AssetManager* assetManager,
-					   v3 position, f32 scale, v3 color)
+					   v3 position, v3 scale, v3 color)
 	{
 		RenderCommandDrawDebugCube cubeCommand = {};
 		m4x4 world = Identity4();
 		world = Translate(world, position);
-		world = Scale(world, V3(scale));
+		world = Scale(world, scale);
 		cubeCommand.transform.worldMatrix = world;
 		cubeCommand.color = color;
 
@@ -480,6 +540,158 @@ namespace AB
 							   assetManager,
 							   RENDER_COMMAND_PUSH_DEBUG_CUBE_INSTANCE,
 							   (void*)(&cubeCommand));
+
+	}
+
+	void
+	DrawAlignedBoxOutline(RenderGroup* renderGroup, AssetManager* assetManager,
+						  v3 min, v3 max, v3 color, f32 lineWidth)
+	{
+		
+		RenderCommandDrawLineBegin beginCommand = {};
+		beginCommand.color = color;
+		beginCommand.width = lineWidth;
+		beginCommand.type = RENDER_LINE_TYPE_SEGMENTS;
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_DRAW_LINE_BEGIN,
+							   (void*)(&beginCommand));
+
+		RenderCommandPushLineVertex v0Command = {};
+		v0Command.vertex = min;
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v0Command));
+
+		RenderCommandPushLineVertex v1Command = {};
+		v1Command.vertex = V3(max.x, min.y, min.z);
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v1Command));
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v1Command));
+
+
+		RenderCommandPushLineVertex v2Command = {};
+		v2Command.vertex = V3(max.x, min.y, max.z);
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v2Command));
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v2Command));
+
+
+		RenderCommandPushLineVertex v3Command = {};
+		v3Command.vertex = V3(min.x, min.y, max.z);
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v3Command));
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v3Command));
+
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v0Command));
+
+		//
+		RenderCommandPushLineVertex v4Command = {};
+		v4Command.vertex =V3(min.x, max.y, min.z);
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v4Command));
+
+		RenderCommandPushLineVertex v5Command = {};
+		v5Command.vertex = V3(max.x, max.y, min.z);
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v5Command));
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v5Command));
+
+
+		RenderCommandPushLineVertex v6Command = {};
+		v6Command.vertex = V3(max.x, max.y, max.z);
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v6Command));
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v6Command));
+
+
+		RenderCommandPushLineVertex v7Command = {};
+		v7Command.vertex = V3(min.x, max.y, max.z);
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v7Command));
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v7Command));
+
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v4Command));
+
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v0Command));		
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v4Command));
+
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v1Command));
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v5Command));
+
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v2Command));
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v6Command));
+
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v3Command));
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v7Command));
+
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_DRAW_LINE_END,
+							   (void*)(0));
 
 	}
 

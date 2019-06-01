@@ -24,7 +24,7 @@ namespace AB
 		AssetManager* assetManager;
 		Renderer* renderer;
 		RenderGroup* renderGroup;
-		Sandbox* gameVars;
+		GameState* gameVars;
 	};
 
 	static PlatformState* g_Platform;
@@ -120,6 +120,7 @@ namespace AB
 #define glVertexAttribDivisor GL_FUNCTION(glVertexAttribDivisor)
 #define glDrawElementsInstanced GL_FUNCTION(glDrawElementsInstanced)
 #define glDrawArraysInstanced GL_FUNCTION(glDrawArraysInstanced)
+#define glClearDepth GL_FUNCTION(glClearDepth)
 		
 		static constexpr u32 OPENGL_LOG_BUFFER_SIZE = 256;
 	static char g_OpenGLLogBuffer[OPENGL_LOG_BUFFER_SIZE];
@@ -234,10 +235,10 @@ void GameInit(AB::MemoryArena* arena,
 
 	g_StaticStorage->debugRenderer = Renderer2DInitialize(arena,
 														  g_StaticStorage->tempArena,
-														  1280, 720);
+														  1366, 768);
 	DebugOverlay* debugOverlay = CreateDebugOverlay(arena,
 													g_StaticStorage->debugRenderer,
-													V2(1280, 720));
+													V2(1366, 768));
 	DebugOverlayEnableMainPane(debugOverlay, true);
 	g_StaticStorage->assetManager = AssetManagerInitialize(arena,
 														   g_StaticStorage->tempArena);
@@ -255,8 +256,8 @@ void GameInit(AB::MemoryArena* arena,
   
 	AB_CORE_WARN("INIT!");
 
-	g_StaticStorage->gameVars = (Sandbox*)PushSize(arena, sizeof(Sandbox),
-												   alignof(Sandbox));
+	g_StaticStorage->gameVars = (GameState*)PushSize(arena, sizeof(GameState),
+												   alignof(GameState));
 	AB_CORE_ASSERT(g_StaticStorage->gameVars);
 	
 	Init(arena, g_StaticStorage->tempArena,
@@ -299,7 +300,7 @@ void GameRender(AB::MemoryArena* arena, AB::PlatformState* platform)
 #include "DebugTools.cpp"
 #include "GraphicsAPI.cpp"
 #include "AssetManager.cpp"
-#include "GraphicsPipeline.cpp"
+//#include "GraphicsPipeline.cpp"
 #include "render/RenderGroup.cpp"
 #include "render/Renderer.cpp"
 #include "Sandbox.cpp"

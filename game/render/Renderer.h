@@ -3,7 +3,7 @@
 #include <hypermath.h>
 #include "../ExtendedMath.h"
 #include "RenderGroup.h"
-#include "../GraphicsPipeline.h"
+//#include "../GraphicsPipeline.h"
 
 namespace AB::API
 {
@@ -18,7 +18,7 @@ namespace AB {
 		f32 exposure;
 	};
 
-	struct AB_API RendererConfig
+	struct  RendererConfig
 	{
 		u32 numSamples;
 		u16 renderResolutionW;
@@ -26,13 +26,11 @@ namespace AB {
 		u32 shadowMapRes;
 	};
 
-
 	struct Renderer
 	{
 		RenderCC cc;
 		RendererConfig config;
 		struct RendererImpl* impl;
-		GraphicsPipeline* pipeline;
 	};
 
 	Renderer* AllocateRenderer(MemoryArena* memory, MemoryArena* tempArena,

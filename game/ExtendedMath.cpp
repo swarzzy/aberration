@@ -67,34 +67,4 @@ namespace AB
 		
 		return result;
 	}
-		
-	b32 GenFrustumVertices(const Frustum* f, FrustumVertices* v)
-	{
-		b32 nlb = IntersectPlanes3(f->leftPlane, f->nearPlane,
-								   f->bottomPlane, &v->nearLeftBottom);
-		
-		b32 nlt = IntersectPlanes3(f->leftPlane, f->nearPlane,
-								   f->topPlane, &v->nearLeftTop);
-
-		b32 nrb = IntersectPlanes3(f->rightPlane, f->nearPlane,
-								   f->bottomPlane, &v->nearRightBottom);
-
-		b32 nrt = IntersectPlanes3(f->rightPlane, f->nearPlane,
-								   f->topPlane, &v->nearRightTop);
-
-		b32 flb = IntersectPlanes3(f->leftPlane, f->farPlane,
-								   f->bottomPlane, &v->farLeftBottom);
-
-		b32 flt = IntersectPlanes3(f->leftPlane, f->farPlane,
-								   f->topPlane, &v->farLeftTop);
-
-		b32 frb = IntersectPlanes3(f->rightPlane, f->farPlane,
-								   f->bottomPlane, &v->farRightBottom);
-
-		b32 frt = IntersectPlanes3(f->rightPlane, f->farPlane,
-								   f->topPlane, &v->farRightTop);
-
-		return nlb && nlt && nrb && nrt && flb && flt && frb && frt;
-	}
-
 }

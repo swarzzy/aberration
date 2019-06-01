@@ -8,77 +8,161 @@
 
 namespace AB
 {
+
+	u32 AddEntity(GameState* gameState, EntityType type)
+	{
+		AB_ASSERT(gameState->entityCount <= MAX_ENTITIES);
+		gameState->entityCount++;
+		auto index = gameState->entityCount;
+		gameState->entityResidence[index] =	ENTITY_RESIDENCE_DORMANT;
+		gameState->dormantEntities[index] = {};
+		gameState->dormantEntities[index].type = type;
+		gameState->lowEntities[index] = {};
+		gameState->highEntities[index] = {};
+
+		return index;
+	}
+
+	u32 AddWallEntity(GameState* gameState, u32 tileX, u32 tileY)
+	{
+		AB_ASSERT(gameState->entityCount <= MAX_ENTITIES);
+		gameState->entityCount++;
+		auto index = gameState->entityCount;
+		gameState->entityResidence[index] =	ENTITY_RESIDENCE_DORMANT;
+		gameState->dormantEntities[index] = {
+			ENTITY_TYPE_WALL,
+			CenteredTilePoint(tileX, tileY),
+			0.0f,
+			V2(1.0f),
+			V3(1.0f, 0.0f, 1.0f)
+		};
+		gameState->lowEntities[index] = {};
+		gameState->highEntities[index] = {};
+
+		return index;
+	}
+
+
+	static void
+	ChangeEntityResidence(GameState* gameState, u32 index,
+						  EntityResidence residence)
+	{
+		if (residence == ENTITY_RESIDENCE_HIGH)
+		{
+			if (gameState->entityResidence[index] != ENTITY_RESIDENCE_HIGH)
+			{
+				HighEntity* high = &gameState->highEntities[index];
+				DormantEntity* dormant = &gameState->dormantEntities[index];
+
+				high->pos = TilemapPosDiff(&gameState->world->tilemap,
+										   &dormant->tilemapPos,
+										   &gameState->camera.targetWorldPos);
+				high->velocity = V2(0.0f);
+			}
+		}
+		else if (residence == ENTITY_RESIDENCE_DORMANT)
+		{
+			if (gameState->entityResidence[index] == ENTITY_RESIDENCE_HIGH)
+			{
+				if (gameState->entityResidence[index] != ENTITY_RESIDENCE_HIGH)
+				{
+					HighEntity* high = &gameState->highEntities[index];
+					DormantEntity* dormant = &gameState->dormantEntities[index];
+
+					dormant->tilemapPos =
+						MapToTileSpace(&gameState->world->tilemap,
+									   gameState->camera.targetWorldPos,
+									   high->pos);
+
+				}
+			}
+		}
+		gameState->entityResidence[index] = residence;		
+	}
+	
+	inline Entity
+	GetEntity(GameState* gameState, u32 index, EntityResidence residence)
+	{
+		Entity entity = {};
+
+		if (index > 0 && index <= gameState->entityCount)
+		{
+			ChangeEntityResidence(gameState, index, residence);
+			entity.residence = residence;
+			entity.low = &gameState->lowEntities[index];
+			entity.high = &gameState->highEntities[index];
+			entity.dormant = &gameState->dormantEntities[index];
+		}
+
+		return entity;
+	}
+	
 	void Init(MemoryArena* arena,
 			  MemoryArena* tempArena,
-			  Sandbox* sandbox,
+			  GameState* gameState,
 			  AssetManager* assetManager)
 	{
-		sandbox->renderGroup = AllocateRenderGroup(arena, MEGABYTES(300),
-												   128000, 32);
+		gameState->renderGroup = AllocateRenderGroup(arena, MEGABYTES(300),
+													 128000, 32);
 #if 0
-		sandbox->renderGroup->projectionMatrix = PerspectiveRH(45.0f,
-															   16.0f / 9.0f,
-															   0.1f,
-															   300.0f);
+		gameState->renderGroup->projectionMatrix = PerspectiveRH(45.0f,
+																 16.0f / 9.0f,
+																 0.1f,
+																 300.0f);
 #endif
-		sandbox->dirLight.ambient = V3(0.05f);
-		sandbox->dirLight.diffuse = V3(1.1f);
-		sandbox->dirLightOffset = V3(-10, 38, 17);
+		gameState->dirLight.ambient = V3(0.05f);
+		gameState->dirLight.diffuse = V3(1.1f);
+		gameState->dirLightOffset = V3(-10, 38, 17);
 		
 		BeginTemporaryMemory(tempArena);
 #if 0
-		sandbox->mansionMeshHandle =
+		gameState->mansionMeshHandle =
 			AssetCreateMeshAAB(assetManager,
 							   arena,
 							   tempArena,
 							   "../assets/mansion/mansion.aab");
-		sandbox->planeMeshHandle =
+		gameState->planeMeshHandle =
 			AssetCreateMeshAAB(assetManager,
 							   arena, tempArena,
 							   "../assets/Plane.aab");
 #endif
 		
-		//AB_CORE_ASSERT(sandbox->mansionMeshHandle != ASSET_INVALID_HANDLE);
+		//AB_CORE_ASSERT(gameState->mansionMeshHandle != ASSET_INVALID_HANDLE);
 		EndTemporaryMemory(tempArena);
 
-		sandbox->camera = {};
-		sandbox->camera.longSmoothness = 0.3f;
-		sandbox->camera.latSmoothness = 0.3f;
-		sandbox->camera.distSmoothness = 0.3f;
-		sandbox->camera.pos = V3(0.0f, 0.0f, -1.0f);
-		sandbox->camera.front = V3(0.0, 0.0f, 1.0f);
-		sandbox->camera.fov = 45.0f;
-		sandbox->camera.aspectRatio = 16.0f / 9.0f;
-		sandbox->camera.nearPlane = 0.1f;
-		sandbox->camera.farPlane = 150.0f;
-		sandbox->camera.targetWorldPos.tileX = 16 * 2 + 3; // 
-		sandbox->camera.targetWorldPos.tileY = 16 * 2 + 3;
-		sandbox->camera.targetWorldPos.offset.x = 1.0f;
-		sandbox->camera.targetWorldPos.offset.y = 1.0f;
-		sandbox->camera.cullPosAdjust = 1.5f;
-
-
-		sandbox->entity.pos.tileX = 30;
-		sandbox->entity.pos.tileY = 30;
-		sandbox->entity.pos.offset = V2(0.0f);
-		sandbox->entity.accelerationAmount = 20.0f;
+		gameState->camera = {};
+		gameState->camera.longSmoothness = 0.3f;
+		gameState->camera.latSmoothness = 0.3f;
+		gameState->camera.distSmoothness = 0.3f;
+		gameState->camera.pos = V3(0.0f, 0.0f, 1.0f);
+		gameState->camera.front = V3(0.0, 0.0f, -1.0f);
+		gameState->camera.fov = 45.0f;
+		gameState->camera.aspectRatio = 16.0f / 9.0f;
+		gameState->camera.nearPlane = 0.1f;
+		gameState->camera.farPlane = 200.0f;
 		
-		//SubscribeKeyboardEvents(&sandbox->camera, inputManager,
-		//						&sandbox->inputState);
+		gameState->camera.targetWorldPos.tileX = 16 * 2 + 3; // 
+		gameState->camera.targetWorldPos.tileY = 16 * 2 + 3;
+		gameState->camera.targetWorldPos.offset.x = 1.0f;
+		gameState->camera.targetWorldPos.offset.y = 1.0f;
 
-		sandbox->gamma = 2.2f;
-		sandbox->exposure = 1.0f;
 
-		sandbox->world = (World*)PushSize(arena, sizeof(World), alignof(World));
-		AB_ASSERT(sandbox->world);
+		//SubscribeKeyboardEvents(&gameState->camera, inputManager,
+		//						&gameState->inputState);
 
-		Tilemap* tilemap = &(sandbox->world->tilemap);
+		gameState->gamma = 2.2f;
+		gameState->exposure = 1.0f;
+
+		gameState->world = (World*)PushSize(arena, sizeof(World), alignof(World));
+		AB_ASSERT(gameState->world);
+
+		Tilemap* tilemap = &(gameState->world->tilemap);
 
 		tilemap->chunkShift = 4;
 		tilemap->chunkMask = (1 << tilemap->chunkShift) - 1;
 		tilemap->chunkSizeInTiles = (1 << tilemap->chunkShift);
-		tilemap->tilemapChunkCountX = 17;
-		tilemap->tilemapChunkCountY = 17;
+		tilemap->tilemapChunkCountX = 8;
+		tilemap->tilemapChunkCountY = 8;
 		tilemap->tileSizeRaw = 3.0f;
 		tilemap->tileSizeInUnits = 1.0f;
 		tilemap->tileRadiusInUnits = 0.5f;
@@ -96,9 +180,9 @@ namespace AB
 		f32 g = 0.2f;
 		f32 b = 0.2f;
 		
-		for (u32 y = 1; y < tilemap->tilemapChunkCountX; y++)
+		for (u32 y = 1; y < tilemap->tilemapChunkCountY; y++)
 		{
-			for (u32 x = 1; x < tilemap->tilemapChunkCountY; x++)
+			for (u32 x = 1; x < tilemap->tilemapChunkCountX; x++)
 			{
 				r = rand() % 11 / 10.0f;
 				g = rand() % 11 / 10.0f;
@@ -108,10 +192,19 @@ namespace AB
 				{
 					for (u32 tileX = 0; tileX < tilemap->chunkSizeInTiles; tileX++)
 					{
-						if (tileX == 0 && tileY == 0)
+						if ((x == 1 && tileX == 0) ||
+							(x == tilemap->tilemapChunkCountX - 1 &&
+							 tileX == tilemap->chunkSizeInTiles - 1) ||
+							(y == 1 && tileY == 0) ||
+							(y == tilemap->tilemapChunkCountY - 1 &&
+							 tileY == tilemap->chunkSizeInTiles - 1))
 						{
 							SetTileValueInChunk(arena, tilemap, chunk,
 												tileX, tileY, 3);
+							auto wallTilePos = GetTilemapPosition(tilemap, x, y,
+																  tileX, tileY);
+							AddWallEntity(gameState, wallTilePos.tileX,
+										  wallTilePos.tileY);
 								
 						}
 						else
@@ -126,167 +219,434 @@ namespace AB
 				}
 			}
 		}
+
+		gameState->entity = AddEntity(gameState, ENTITY_TYPE_BODY);
+		Entity e = GetEntity(gameState, gameState->entity, ENTITY_RESIDENCE_DORMANT);
+		e.dormant->tilemapPos.tileX = 20;
+		e.dormant->tilemapPos.tileY = 40;
+		e.dormant->accelerationAmount = 20.0f;
+		e.dormant->size = V2(1.5f, 3.0f);
+		e.dormant->color = V3(1.0f, 0.0f, 0.0f);
+		e.dormant->friction = 0.0f;
+		
+		gameState->entity1 = AddEntity(gameState, ENTITY_TYPE_BODY);
+		Entity e1 = GetEntity(gameState, gameState->entity1, ENTITY_RESIDENCE_DORMANT);
+		e1.dormant->tilemapPos.tileX = 35;
+		e1.dormant->tilemapPos.tileY = 40;
+		e1.dormant->accelerationAmount = 30.0f;
+		e1.dormant->size = V2(1.2f, 0.5f);
+		e1.dormant->color = V3(0.0f, 1.0f, 0.0f);
+		e1.dormant->friction = 0.0f;
+		e1.dormant->type = ENTITY_TYPE_BODY;
+
 	
-
-	}
-
-	void DrawEntity(Tilemap* tilemap,
-					RenderGroup* renderGroup,
-					AssetManager* assetManager,
-					TilemapPosition entityPos,
-					TilemapPosition origin)
-	{
-		i32 relTileOffsetX = entityPos.tileX - origin.tileX;
-		f32 relOffsetX = entityPos.offset.x - origin.offset.x;
-		i32 relTileOffsetY = entityPos.tileY - origin.tileY;
-		f32 relOffsetY = entityPos.offset.y - origin.offset.y;
-		
-		f32 pX = relTileOffsetX * tilemap->tileSizeInUnits + relOffsetX;
-		f32 pY = relTileOffsetY * tilemap->tileSizeInUnits + relOffsetY;
-
-		pX *= tilemap->unitsToRaw;
-		pY *= -tilemap->unitsToRaw;
-		//pY = (tilemap->chunkSizeInTiles * tilemap->tileSizeRaw) - pY;
+		for (u32 i = 0; i < 128; i++)
+		{
+			u32 id = AddEntity(gameState, ENTITY_TYPE_BODY);
+			gameState->movingEntities[i] = id; 
+			Entity e = GetEntity(gameState, id, ENTITY_RESIDENCE_DORMANT);
+			if (i < 32)
+			{
+				e.dormant->tilemapPos.tileX = i + 18 + i * 2;
+				e.dormant->tilemapPos.tileY = i + 18 + i * 2;
+			}
+			else if (i < 64)
+			{
+				e.dormant->tilemapPos.tileX = ((i - 32) + 18 + (i - 32) * 2) + 4;
+				e.dormant->tilemapPos.tileY = (i - 32) + 18 + (i - 32) * 2;
+			}
+			else if (i < 96)
+			{
+				e.dormant->tilemapPos.tileX = ((i - 64) + 18 + (i - 64) * 2) - 4;
+				e.dormant->tilemapPos.tileY = (i - 64) + 18 + (i - 64) * 2;
+			}
+			else
+			{
+				e.dormant->tilemapPos.tileX = ((i - 96) + 18 + (i - 96) * 2) - 7;
+				e.dormant->tilemapPos.tileY = (i - 96) + 18 + (i - 96) * 2;				
+			}
 			
-		DrawDebugCube(renderGroup,
-					  assetManager,
-					  V3(pX, 3.0f, pY),
-					  tilemap->tileSizeRaw * 0.5f, V3(1.0f, 0.0f, 0.0f));
+			e.dormant->accelerationAmount = 30.0f;
+
+			f32 w = (f32)(rand() % 22 / 10.0f);
+			f32 h = (f32)(rand() % 22 / 10.0f);
+
+			e.dormant->size = V2(w, h);
+
+			r = rand() % 11 / 10.0f;
+			g = rand() % 11 / 10.0f;
+			b = rand() % 11 / 10.0f;
+			
+			e.dormant->color = V3(r, g, b);
+			e.dormant->friction = 0.0f;
+
+			f32 x = (f32)(rand() % 30 * 5);
+			f32 y = (f32)(rand() % 30 * 5);
+			e = GetEntity(gameState, id, ENTITY_RESIDENCE_HIGH);
+			e.high->velocity = V2(x, y);
+			
+			
+		}
 
 	}
-		
-	void Render(Sandbox* sandbox,
-				AssetManager* assetManager,
-				Renderer* renderer)
+	
+	void
+	DrawEntity(Tilemap* tilemap, RenderGroup* renderGroup,
+			   AssetManager* assetManager, Entity entity)
 	{
-		DEBUG_OVERLAY_SLIDER(g_Platform->gameSpeed, 0.0f, 10.0f);
-		Tilemap* tilemap = &sandbox->world->tilemap;
-		Camera* camera = &sandbox->camera;
-		Entity* entity = &sandbox->entity;
+		v3 pos = V3(0.0f);
+		pos.x = entity.high->pos.x * tilemap->unitsToRaw;
+		pos.z = entity.high->pos.y * tilemap->unitsToRaw;
+		pos.y = tilemap->tileSizeRaw;
 
-		v3 _frontDir = V3(camera->front.x, 0.0f, camera->front.z);
-		v3 _rightDir = Cross(_frontDir, V3(0.0f, 1.0f, 0.0f));
-		_rightDir = Normalize(_rightDir);
+		v3 scale = V3(0.0f);
+		scale.x = tilemap->unitsToRaw * 0.5f * entity.dormant->size.x;
+		scale.z = tilemap->unitsToRaw * 0.5f * entity.dormant->size.y;
+		scale.y = tilemap->unitsToRaw * 0.5f;
 
-		v2 frontDir = V2(_frontDir.x, -_frontDir.z);
-		v2 rightDir = V2(_rightDir.x, -_rightDir.z);
-
-		v2 acceleration = {};
-		if (GlobalInput.keys[KEY_UP].pressedNow)
-		{
-			acceleration += frontDir;
-		}
-		if (GlobalInput.keys[KEY_DOWN].pressedNow)
-		{
-			acceleration -= frontDir;
-		}
-		if (GlobalInput.keys[KEY_LEFT].pressedNow)
-		{
-			acceleration -= rightDir;
-		}
-		if (GlobalInput.keys[KEY_RIGHT].pressedNow)
-		{
-			acceleration += rightDir;
-		}
+		v3 color = entity.dormant->color;
 		
-		acceleration = Normalize(acceleration);
-		f32 speed = entity->accelerationAmount;
+		DrawDebugCube(renderGroup, assetManager, pos, scale, color);
+	}
+
+	void
+	EntityApplyMovement(GameState* gameState, Entity entity, v2 delta)
+	{
+		Tilemap* tilemap = &gameState->world->tilemap;
+		v2 colliderSize = entity.dormant->size;
+
+		for (u32 pass = 0; pass < 4; pass++)
+		{
+			v2 wallNormal = V2(0.0f);
+			f32 tMin = 1.0f;
+			u32 hitEntityIndex = 0;
+			v2 targetPosition = entity.high->pos + delta;
+
+			for (u32 testEntityIndex = 1;
+				 testEntityIndex <= gameState->entityCount;
+				 testEntityIndex++)
+			{
+#if 1
+				Entity testEntity = GetEntity(gameState, testEntityIndex,
+											  ENTITY_RESIDENCE_HIGH);
+				
+				if (entity.high != testEntity.high)
+				{
+					v2 minCorner = -0.5f * testEntity.dormant->size;
+					v2 maxCorner = 0.5f * testEntity.dormant->size;
+					// NOTE: Minkowski sum
+					minCorner += colliderSize * -0.5f;
+					maxCorner += colliderSize * 0.5f;
+					v2 relOldPos = entity.high->pos
+						- testEntity.high->pos;
+
+					if (TestWall(minCorner.x, relOldPos.x,
+								 relOldPos.y, delta.x,
+								 delta.y,
+								 minCorner.y, maxCorner.y, &tMin))
+					{
+						wallNormal = V2(1.0f, 0.0f);
+						hitEntityIndex = testEntityIndex;
+					}
+						
+					if(TestWall(maxCorner.x, relOldPos.x,
+								relOldPos.y, delta.x,
+								delta.y,
+								minCorner.y, maxCorner.y, &tMin))
+					{
+						wallNormal = V2(-1.0f, 0.0f);
+						hitEntityIndex = testEntityIndex;
+					}
+					if(TestWall(minCorner.y, relOldPos.y,
+								relOldPos.x, delta.y,
+								delta.x,
+								minCorner.x, maxCorner.x, &tMin))
+					{
+						wallNormal = V2(0.0f, 1.0f);
+						hitEntityIndex = testEntityIndex;
+					}
+					if(TestWall(maxCorner.y, relOldPos.y,
+								relOldPos.x, delta.y,
+								delta.x,
+								minCorner.x, maxCorner.x, &tMin))
+					{
+						wallNormal = V2(0.0f, -1.0f);
+						hitEntityIndex = testEntityIndex;
+					}
+				
+				}
+#endif
+			}
+			entity.high->pos += delta * tMin;
+
+			if (hitEntityIndex)
+			{
+				//tRemaining -= tMin * tRemaining;
+				delta = targetPosition - entity.high->pos;
+				entity.high->velocity -=
+					2.0f * Dot(entity.high->velocity, wallNormal) * wallNormal;
+				delta *= 1.0f - tMin;
+				delta -= Dot(delta, wallNormal) * wallNormal;				
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+
+	
+	void
+	MoveEntity(GameState* gameState, Entity entity, v2 acceleration)
+	{
+		f32 speed = entity.dormant->accelerationAmount;
 		acceleration *= speed;
 
-		f32 friction = 3.0f;
-		acceleration = acceleration - entity->velocity * friction;
+		f32 friction = entity.dormant->friction;
+		acceleration = acceleration - entity.high->velocity * friction;
 
 		v2 movementDelta;
 		movementDelta = 0.5f * acceleration *
 			Square(GlobalGameDeltaTime) + 
-			entity->velocity *
+			entity.high->velocity *
 			GlobalGameDeltaTime;
 
-		TilemapPosition newPos = {};
-		v2 newVelocity = {};
+		EntityApplyMovement(gameState, entity, movementDelta);
+
+		entity.high->velocity += acceleration * GlobalGameDeltaTime;
+		entity.dormant->tilemapPos =
+			MapToTileSpace(&gameState->world->tilemap,
+						   gameState->camera.targetWorldPos,
+						   entity.high->pos);
 		
-		DoMovement(tilemap,
-				   entity->pos,
-				   entity->velocity,
-				   movementDelta,
-				   &newPos,
-				   &newVelocity);
+	}
 
-		newVelocity = newVelocity +
-			acceleration * GlobalGameDeltaTime;
+	inline u32
+	SafeAddU32I32(u32 a, i32 b);
+	
 
-		entity->pos = newPos;
-		entity->velocity = newVelocity;
+	inline u32
+	SafeSubU32I32(u32 a, i32 b)
+	{
+		u32 result = 0;
+		if (b < 0)
+		{
+			result = SafeAddU32I32(a, -b);
+		}
+		else
+		{
+			result = a - b;
+			if (result > a)
+			{
+				result = 0;
+			}
+		}
 		
-		MoveCameraTarget(&sandbox->camera, tilemap);
+		return result;
+	}
 
-		UpdateCamera(&sandbox->camera,
-					 sandbox->renderGroup, tilemap);
+	inline u32
+	SafeAddU32I32(u32 a, i32 b)
+	{
+		u32 result;
+		if (b < 0)
+		{
+			result = SafeSubU32I32(a, -b);
+		}
+		else
+		{
+			result = a + b;
+			if (result < a)
+			{
+				result = 0xffffffff;
+			}
+		}
 
-		DEBUG_OVERLAY_TRACE_VAR(camera->pos);
-		DEBUG_OVERLAY_TRACE_VAR(camera->front);
-		DrawWorldInstancedMinMax(tilemap, sandbox->renderGroup, assetManager,
-								 sandbox->camera.targetWorldPos,
-								 sandbox->camera.frustumGroundAABB,
-								 &sandbox->camera.frustumGroundPoints);
+		return result;
+	}
 
-		ChunkPosition chunkPos =
-			GetChunkPosition(tilemap,
-							 entity->pos.tileX,
-							 entity->pos.tileY);
+	void MoveCamera(GameState* gameState, Camera* camera, Tilemap* tilemap, AssetManager* assetManager)
+	{
+		v2 entityFrameOffset = -MoveCameraTarget(&gameState->camera, tilemap);
+		UpdateCamera(camera, gameState->renderGroup, tilemap);
 
-		DrawEntity(tilemap, sandbox->renderGroup, assetManager,
-				   entity->pos, camera->targetWorldPos);
-		//sandbox->camera.target = V3(pX, 0, pY);
-		//sandbox->dirLight.target = V3(pX, 0, pY);
-		
+		i32 cameraTileSpanX = 220;
+		i32 cameraTileSpanY = 220;
 
-#if defined(DRAW_CAM_TARGET)
-		ChunkPosition chunkPos =
-			GetChunkPosition(tilemap,
-							 sandbox->camera.targetWorldPos.tileX,
-							 sandbox->camera.targetWorldPos.tileY);
+		v2 min = V2(-cameraTileSpanX / 2 * tilemap->tileSizeInUnits,
+					-cameraTileSpanY / 2 * tilemap->tileSizeInUnits);
+		v2 max = V2(cameraTileSpanX / 2 * tilemap->tileSizeInUnits,
+					cameraTileSpanY / 2 * tilemap->tileSizeInUnits);
 
+		v2 minLine = min * tilemap->unitsToRaw;
+		v2 maxLine = max * tilemap->unitsToRaw;
 
-		f32 pX = (chunkPos.tileInChunkX * tilemap->tileSizeInUnits +
-				  sandbox->camera.targetWorldPos.offset.x) * tilemap->unitsToRaw;
-		f32 pY = (chunkPos.tileInChunkY * tilemap->tileSizeInUnits +
-				  sandbox->camera.targetWorldPos.offset.y) * tilemap->unitsToRaw;
+		Rectangle highArea = {min, max};
 
-		pY = (tilemap->chunkSizeInTiles * tilemap->tileSizeRaw) - pY;
+		DrawAlignedBoxOutline(gameState->renderGroup, assetManager,
+							  V3(minLine.x, 3.0f, minLine.y),
+							  V3(maxLine.x, 10.0f, maxLine.y),
+							  V3(0.8, 0.0, 0.0), 2.0f);
 			
-		DrawDebugCube(sandbox->renderGroup,
-					  assetManager,
-					  V3(0.0f, 3.0f, 0.0f),
-					  //V3(pX, 3.0f, pY),
-					  tilemap->tileSizeRaw * 0.5f, V3(1.0f, 0.0f, 0.0f));
+		u32 minHighAreaX =
+			SafeSubU32I32(camera->targetWorldPos.tileX, cameraTileSpanX / 2);
+		u32 minHighAreaY = 
+			SafeSubU32I32(camera->targetWorldPos.tileY, cameraTileSpanY / 2);
+		u32 maxHighAreaX =
+			SafeAddU32I32(camera->targetWorldPos.tileX, cameraTileSpanX / 2);
+		u32 maxHighAreaY = 
+			SafeAddU32I32(camera->targetWorldPos.tileY, cameraTileSpanY / 2);
 
-		//sandbox->camera.target = V3(pX, 0, pY);
-		//sandbox->dirLight.target = V3(pX, 0, pY);
+		for (u32 i = 1; i <= gameState->entityCount; i++)
+		{
+			if (gameState->entityResidence[i] == ENTITY_RESIDENCE_HIGH)
+			{
+				Entity entity = GetEntity(gameState, i, ENTITY_RESIDENCE_HIGH);
+				entity.high->pos += entityFrameOffset;
+
+				if (!Contains(highArea, entity.high->pos))
+				{
+					ChangeEntityResidence(gameState, i,
+										  ENTITY_RESIDENCE_DORMANT);
+				}
+			} 
+			else if (gameState->entityResidence[i] == ENTITY_RESIDENCE_DORMANT)
+			{
+				Entity entity = GetEntity(gameState, i,
+										  ENTITY_RESIDENCE_DORMANT);
+				if ((entity.dormant->tilemapPos.tileX >= minHighAreaX) &&
+					(entity.dormant->tilemapPos.tileX <= maxHighAreaX) &&
+					(entity.dormant->tilemapPos.tileY >= minHighAreaY) &&
+					(entity.dormant->tilemapPos.tileY <= maxHighAreaY))
+				{
+					ChangeEntityResidence(gameState, i,
+										  ENTITY_RESIDENCE_HIGH);	
+				}
+			}
+		}		
+	}
+
+	void Render(GameState* gameState,
+				AssetManager* assetManager,
+				Renderer* renderer)
+	{
+		DEBUG_OVERLAY_SLIDER(g_Platform->gameSpeed, 0.0f, 10.0f);
+		Tilemap* tilemap = &gameState->world->tilemap;
+		Camera* camera = &gameState->camera;
+
+		{
+
+			MoveCamera(gameState, camera, tilemap, assetManager);
+			
+			for (u32 i = 1; i <= gameState->entityCount; i++)
+			{
+				if (gameState->entityResidence[i] == ENTITY_RESIDENCE_HIGH)
+				{
+					Entity entity = GetEntity(gameState, i, ENTITY_RESIDENCE_HIGH);
+
+					if (entity.dormant->type == ENTITY_TYPE_BODY)
+					{
+						MoveEntity(gameState, entity, V2(0.0f));
+					}
+				
+					DrawEntity(tilemap, gameState->renderGroup,
+							   assetManager, entity);
+				} 
+			}
+		}
+
+		Entity entity = GetEntity(gameState, gameState->entity,
+								  ENTITY_RESIDENCE_HIGH);
 		
-		DEBUG_OVERLAY_TRACE_VAR(pX);
-		DEBUG_OVERLAY_TRACE_VAR(pY);
-		DEBUG_OVERLAY_TRACE_VAR(chunkPos.tileInChunkX);
-		DEBUG_OVERLAY_TRACE_VAR(chunkPos.tileInChunkY);
+		Entity entity1 = GetEntity(gameState, gameState->entity1,
+								   ENTITY_RESIDENCE_HIGH);
 
-#endif
+		
+		{ // Enitity 0 movement code
+			v3 _frontDir = V3(camera->front.x, 0.0f, camera->front.z);
+			v3 _rightDir = Cross(V3(0.0f, 1.0f, 0.0f), _frontDir);
+			_rightDir = Normalize(_rightDir);
+
+			v2 frontDir = V2(_frontDir.x, _frontDir.z);
+			v2 rightDir = V2(_rightDir.x, _rightDir.z);
+
+			v2 acceleration = {};
+			if (GlobalInput.keys[KEY_UP].pressedNow)
+			{
+				acceleration += frontDir;
+			}
+			if (GlobalInput.keys[KEY_DOWN].pressedNow)
+			{
+				acceleration -= frontDir;
+			}
+			if (GlobalInput.keys[KEY_LEFT].pressedNow)
+			{
+				acceleration -= rightDir;
+			}
+			if (GlobalInput.keys[KEY_RIGHT].pressedNow)
+			{
+				acceleration += rightDir;
+			}
+		
+			acceleration = Normalize(acceleration);
+
+			MoveEntity(gameState, entity, acceleration);
+		}
+
+		{ // Enitity 1 movement code
+			v3 _frontDir = V3(camera->front.x, 0.0f, camera->front.z);
+			v3 _rightDir = Cross(V3(0.0f, 1.0f, 0.0f), _frontDir);
+			_rightDir = Normalize(_rightDir);
+
+			v2 frontDir = V2(_frontDir.x, _frontDir.z);
+			v2 rightDir = V2(_rightDir.x, _rightDir.z);
+
+			v2 acceleration = {};
+			if (GlobalInput.keys[KEY_NUMPAD8].pressedNow)
+			{
+				acceleration += frontDir;
+			}
+			if (GlobalInput.keys[KEY_NUMPAD5].pressedNow)
+			{
+				acceleration -= frontDir;
+			}
+			if (GlobalInput.keys[KEY_NUMPAD4].pressedNow)
+			{
+				acceleration -= rightDir;
+			}
+			if (GlobalInput.keys[KEY_NUMPAD6].pressedNow)
+			{
+				acceleration += rightDir;
+			}
+		
+			acceleration = Normalize(acceleration);
+			MoveEntity(gameState, entity1, acceleration);			
+		}
+		
+		DrawWorldWholeInstanced(tilemap, gameState->renderGroup, assetManager,
+								 gameState->camera.targetWorldPos);
+
+		//gameState->camera.target = V3(pX, 0, pY);
+		//gameState->dirLight.target = V3(pX, 0, pY);
+		
+
 #if 0
-		DEBUG_OVERLAY_PUSH_SLIDER("Gamma", &sandbox->gamma, 0.0f, 3.0f);
-		DEBUG_OVERLAY_PUSH_VAR("Gamma", sandbox->gamma);
+		DEBUG_OVERLAY_PUSH_SLIDER("Gamma", &gameState->gamma, 0.0f, 3.0f);
+		DEBUG_OVERLAY_PUSH_VAR("Gamma", gameState->gamma);
 
-		DEBUG_OVERLAY_PUSH_SLIDER("Exposure", &sandbox->exposure, 0.0f, 3.0f);
-		DEBUG_OVERLAY_PUSH_VAR("Exposure", sandbox->exposure);
+		DEBUG_OVERLAY_PUSH_SLIDER("Exposure", &gameState->exposure, 0.0f, 3.0f);
+		DEBUG_OVERLAY_PUSH_VAR("Exposure", gameState->exposure);
 #endif
-		renderer->cc.gamma = sandbox->gamma;
-		renderer->cc.exposure = sandbox->exposure;
+		renderer->cc.gamma = gameState->gamma;
+		renderer->cc.exposure = gameState->exposure;
 		
 		RenderCommandDrawMesh planeCommand = {};
-		planeCommand.meshHandle = sandbox->mansionMeshHandle;
+		planeCommand.meshHandle = gameState->mansionMeshHandle;
 		planeCommand.transform.worldMatrix = Identity4();
 		planeCommand.blendMode = BLEND_MODE_OPAQUE;
 
-		f32 ka = sandbox->dirLight.ambient.r;
-		f32 kd = sandbox->dirLight.diffuse.r;
+		f32 ka = gameState->dirLight.ambient.r;
+		f32 kd = gameState->dirLight.diffuse.r;
 #if 0
 		DEBUG_OVERLAY_PUSH_SLIDER("Ka", &ka, 0.0f, 1.0f);
 		DEBUG_OVERLAY_PUSH_VAR("Ka", ka);
@@ -294,27 +654,27 @@ namespace AB
 		DEBUG_OVERLAY_PUSH_SLIDER("Kd", &kd, 0.0f, 10.0f);
 		DEBUG_OVERLAY_PUSH_VAR("Kd", kd);
 
-		DEBUG_OVERLAY_TRACE_VAR(sandbox->dirLight.from);
-		DEBUG_OVERLAY_TRACE_VAR(sandbox->dirLight.target);
-		DEBUG_OVERLAY_TRACE_VAR(sandbox->dirLightOffset);
-		DEBUG_OVERLAY_PUSH_SLIDER("offset", &sandbox->dirLightOffset, -50, 50);
+		DEBUG_OVERLAY_TRACE_VAR(gameState->dirLight.from);
+		DEBUG_OVERLAY_TRACE_VAR(gameState->dirLight.target);
+		DEBUG_OVERLAY_TRACE_VAR(gameState->dirLightOffset);
+		DEBUG_OVERLAY_PUSH_SLIDER("offset", &gameState->dirLightOffset, -50, 50);
 #endif
-		sandbox->dirLight.from = AddV3V3(sandbox->dirLight.target,
-										 sandbox->dirLightOffset);
-		sandbox->dirLight.ambient = V3(ka);
-		sandbox->dirLight.diffuse = V3(kd);
+		gameState->dirLight.from = AddV3V3(gameState->dirLight.target,
+										 gameState->dirLightOffset);
+		gameState->dirLight.ambient = V3(ka);
+		gameState->dirLight.diffuse = V3(kd);
 		
 
 		RenderCommandSetDirLight dirLightCommand = {};
-		dirLightCommand.light = sandbox->dirLight;
+		dirLightCommand.light = gameState->dirLight;
 
-		RenderGroupPushCommand(sandbox->renderGroup,
+		RenderGroupPushCommand(gameState->renderGroup,
 							   assetManager,
 							   RENDER_COMMAND_SET_DIR_LIGHT,
 							   (void*)(&dirLightCommand));
 
-		RendererRender(renderer, assetManager, sandbox->renderGroup);
-		RenderGroupResetQueue(sandbox->renderGroup);
+		RendererRender(renderer, assetManager, gameState->renderGroup);
+		RenderGroupResetQueue(gameState->renderGroup);
 	}
 
 }
@@ -389,7 +749,7 @@ void DrawWorld(Tilemap* tilemap, RenderGroup* renderGroup,
 					
 						f32 zOffset = row *	(f32)tilemap->tileSizeRaw -
 							(tilemap->tileRadiusInUnits * tilemap->unitsToRaw);
-
+j
 						f32 xOffset = col * (f32)tilemap->tileSizeRaw -
 							(tilemap->tileRadiusInUnits * tilemap->unitsToRaw);
 
@@ -612,8 +972,8 @@ void DrawWorld(const Tilemap* tilemap, RenderGroup* renderGroup,
 
 // NOTE: Frustum stuff
 		FrustumVertices camFV = {};
-		m3x3 camRot = M3x3(sandbox->renderGroup->camera.lookAt);
-		GenFrustumVertices(&camRot, sandbox->camera.pos, 0.1f, 200.0f, 45.0f,
+		m3x3 camRot = M3x3(gameState->renderGroup->camera.lookAt);
+		GenFrustumVertices(&camRot, gameState->camera.pos, 0.1f, 200.0f, 45.0f,
 						   16.0f / 9.0f, &camFV);
 
 		// NOTE: Vectors from frustum
@@ -657,7 +1017,7 @@ void DrawWorld(const Tilemap* tilemap, RenderGroup* renderGroup,
 		
 #if defined(RAYCAST_TEST)
 
-		v3 relCamPos = sandbox->camera.pos - sandbox->camera.target;
+		v3 relCamPos = gameState->camera.pos - gameState->camera.target;
 		
 		i32 ltTileX = 0;
 		i32 ltTileY = 0;
@@ -1024,5 +1384,36 @@ void DrawWorld(Tilemap* tilemap, RenderGroup* renderGroup,
 							   RENDER_COMMAND_END_DEBUG_CUBE_INSTANCING,
 							   nullptr);
 	}
+
+	void DrawEntity(Tilemap* tilemap,
+					RenderGroup* renderGroup,
+					AssetManager* assetManager,
+					TilemapPosition entityPos,
+					TilemapPosition origin,
+					v3 color,
+					f32 scale)
+	{
+		i32 relTileOffsetX = entityPos.tileX - origin.tileX;
+		f32 relOffsetX = entityPos.offset.x - origin.offset.x;
+			//+ tilemap->tileRadiusInUnits;
+		i32 relTileOffsetY = entityPos.tileY - origin.tileY;
+		f32 relOffsetY = entityPos.offset.y - origin.offset.y;
+			//+ tilemap->tileRadiusInUnits;
+		
+		f32 pX = relTileOffsetX * tilemap->tileSizeInUnits + relOffsetX;
+		f32 pY = relTileOffsetY * tilemap->tileSizeInUnits + relOffsetY;
+
+		pX *= tilemap->unitsToRaw;
+		pY *= tilemap->unitsToRaw;
+		//pY = (tilemap->chunkSizeInTiles * tilemap->tileSizeRaw) - pY;
+			
+		DrawDebugCube(renderGroup,
+					  assetManager,
+					  V3(pX, 3.0f, pY),
+					  V3(tilemap->tileSizeRaw * 0.5f * scale),
+					  color);
+
+	}
+
 	
 #endif

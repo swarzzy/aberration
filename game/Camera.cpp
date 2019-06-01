@@ -3,141 +3,63 @@
 namespace AB
 {
 
-	static inline u32 SafeAdd(u32 a, i32 b);
-
-	static inline u32 SafeSub(u32 a, i32 b)
-	{
-		u32 result;
-		if (b < 0)
-		{
-			result = SafeAdd(a, -b);
-		}
-		else
-		{
-			if ((u32)b > a)
-			{
-				result = 0;
-			}
-			else
-			{
-				result = a - b;
-			}
-		}
-		
-		return result;
-	}
-
-	static inline u32 SafeAdd(u32 a, i32 b)
-	{
-		u32 result;
-		if (b < 0)
-		{
-			result = SafeSub(a, -b);
-		}
-		else
-		{
-			if (a + b < a)
-			{
-				result = 0xffffffff;
-			}
-			else
-			{
-				result = a + b;
-			}
-		}
-		return result;
-	}
-			
-	b32 IsTileInsideFrustumProj(v2 relTilePos, FrustumGroundProjection* fr)
-	{
-		// https://math.stackexchange.com/questions/274712/calculate-on-which-side-of-a-straight-line-is-a-given-point-located
-		b32 result = false;
-		// TODO: Inverse frustum Z OR maybe just inverse world Z
-		//relTilePos.y *= -1.0f;
-		b32 d1 = ((relTilePos.x - fr->lb.x) * (fr->lt.y - fr->lb.y) -
-				  (relTilePos.y - fr->lb.y) * (fr->lt.x - fr->lb.x)) < 0 ? 0 : 1;
-
-		b32 d2 = ((relTilePos.x - fr->lt.x) * (fr->rt.y - fr->lt.y) -
-				  (relTilePos.y - fr->lt.y) * (fr->rt.x - fr->lt.x)) < 0 ? 0 : 1;
-
-		b32 d3 = ((relTilePos.x - fr->rt.x) * (fr->rb.y - fr->rt.y) -
-				  (relTilePos.y - fr->rt.y) * (fr->rb.x - fr->rt.x)) < 0 ? 0 : 1;
-
-		b32 d4 = ((relTilePos.x - fr->rb.x) * (fr->lb.y - fr->rb.y) -
-				  (relTilePos.y - fr->rb.y) * (fr->lb.x - fr->rb.x)) < 0 ? 0 : 1;
-
-		result = d1 && d2 && d3 && d4;
-		
-		return result;
-	}
-
+	
 	void DrawTileInstanced(Tilemap* tilemap, RenderGroup* renderGroup,
 						   AssetManager* assetManager, TilemapPosition origin,
-						   TilemapPosition tile, FrustumGroundProjection* frustum)
+						   TilemapPosition tilePos)
 	{
-		ChunkPosition chunkOrigin = GetChunkPosition(tilemap, origin.tileX,
-													 origin.tileY);
-		ChunkPosition chunkTile = GetChunkPosition(tilemap, tile.tileX,
-												   tile.tileY);
-
-		u32 tileValue = GetTileValue(tilemap, tile.tileX, tile.tileY);
+		u32 tileValue = GetTileValue(tilemap, tilePos.tileX, tilePos.tileY);
 		if (tileValue)
 		{
-			i32 chunkDx = chunkTile.chunkX - chunkOrigin.chunkX;
-			i32 chunkDy = chunkTile.chunkY - chunkOrigin.chunkY;
-			i32 tileDx = chunkTile.tileInChunkX - chunkOrigin.tileInChunkX;
-			i32 tileDy = chunkTile.tileInChunkY - chunkOrigin.tileInChunkY;
-			i32 tileOffsetX = chunkDx * (i32)tilemap->chunkSizeInTiles + tileDx;
-			i32 tileOffsetY = chunkDy * (i32)tilemap->chunkSizeInTiles + tileDy;
+			i32 relTileOffsetX = tilePos.tileX - origin.tileX;
+			f32 relOffsetX = tilePos.offset.x - origin.offset.x;
+			i32 relTileOffsetY = tilePos.tileY - origin.tileY;
+			f32 relOffsetY = tilePos.offset.y - origin.offset.y;
+		
+			f32 pX = relTileOffsetX * tilemap->tileSizeInUnits + relOffsetX;
+			f32 pZ = relTileOffsetY * tilemap->tileSizeInUnits + relOffsetY;
 
-			f32 x = tileOffsetX * tilemap->tileSizeInUnits
-				- origin.offset.x - tilemap->tileRadiusInUnits;
-			f32 y = (tileOffsetY * tilemap->tileSizeInUnits
-				- origin.offset.y - tilemap->tileRadiusInUnits);
+			pX *= tilemap->unitsToRaw;
+			pZ *= tilemap->unitsToRaw;
 
-			// TODO: This is temporary
 			v3 color;
-			f32 yOffset = 0.0f;
-			if (tileValue == 3)
+			f32 pY = 0.0f;
+			// TODO: Temporary code
 			{
-				yOffset = 2.0f;
-			}
-			else
-			{
-				yOffset = 0.0f;
-			}
-			
-			Chunk* chunk = GetChunk(tilemap, chunkTile.chunkX, chunkTile.chunkY);
-			color = GetTileColor(tilemap,  chunk, chunkTile.tileInChunkX,
-								 chunkTile.tileInChunkY);
-			
-			if (IsTileInsideFrustumProj(V2(x, y), frustum))
-			{
+				if (tileValue == 3)
+				{
+					pY = 0.0f;
+				}
+				else
+				{
+					pY = 0.0f;
+				}
+				ChunkPosition chunkTile = GetChunkPosition(tilemap, tilePos.tileX,
+														   tilePos.tileY);
 
-				v3 renderPos = V3(x * tilemap->unitsToRaw,
-								  yOffset,
-								  -y * tilemap->unitsToRaw);
-				
-				DrawDebugCubeInstanced(renderGroup,
-									   assetManager,
-									   renderPos,
-									   tilemap->tileSizeRaw * 0.5f,
-									   color);
+				Chunk* chunk = GetChunk(tilemap, chunkTile.chunkX,
+										chunkTile.chunkY);
+				color = GetTileColor(tilemap,  chunk, chunkTile.tileInChunkX,
+									 chunkTile.tileInChunkY);
 			}
+
+			DrawDebugCubeInstanced(renderGroup,
+								   assetManager,
+								   V3(pX, pY, pZ),
+								   tilemap->tileSizeRaw * 0.5f,
+								   color);
 		}
 	}
-
-	void DrawWorldInstancedMinMax(Tilemap* tilemap, RenderGroup* renderGroup,
-								  AssetManager* assetManager,
-								  TilemapPosition origin,
-								  FrustumGroundAABB bbox,
-								  FrustumGroundProjection* frustumProj)
+	
+	void DrawWorldWholeInstanced(Tilemap* tilemap, RenderGroup* renderGroup,
+								 AssetManager* assetManager,
+								 TilemapPosition origin)
 	{
-		u32 beginX = SafeAdd(origin.tileX, bbox.minX);// - offsetX;
-		u32 beginY = SafeAdd(origin.tileY, bbox.minY);// - offsetY;
+		u32 beginX = 0;
+		u32 beginY = 0;
 
-		u32 endX = SafeAdd(origin.tileX, bbox.maxX);// - offsetX;
-		u32 endY = SafeAdd(origin.tileY, bbox.maxY);// - offsetY;
+		u32 endX = tilemap->tilemapChunkCountX * tilemap->chunkSizeInTiles;
+		u32 endY = tilemap->tilemapChunkCountY * tilemap->chunkSizeInTiles;
 
 		RenderCommandBeginDebugCubeInctancing begCommand = {};
 		begCommand.blendMode = BLEND_MODE_OPAQUE;
@@ -153,7 +75,7 @@ namespace AB
 			{
 				DrawTileInstanced(tilemap, renderGroup,
 								  assetManager, origin,
-								  TilemapPosition{x, y}, frustumProj);
+								  TilemapPosition{x, y});
 					
 			}
 		}
@@ -162,156 +84,6 @@ namespace AB
 							   assetManager,
 							   RENDER_COMMAND_END_DEBUG_CUBE_INSTANCING,
 							   nullptr);
-	}
-
-	// TODO: Merge with projection mtx generation
-	void GenFrustumVertices(Tilemap* tilemap, Camera* camera, FrustumVertices* out)
-	{
-		v3 camPos = camera->pos;// * tilemap->unitsToRaw;
-
-		m3x3 rot = M3x3(camera->cullingLookAt);
-		v3 axisX = V3(rot._11, rot._12, rot._13);
-		v3 axisY = V3(rot._21, rot._22, rot._23);
-		v3 axisZ = V3(rot._31, rot._32, rot._33);
-
-		v3 nCenter = -axisZ * camera->nearPlane;
-		v3 fCenter = -axisZ * camera->farPlane;
-
-		f32 e = Tan(ToRadians(camera->fov) * 0.5f);
-		f32 nExtY = e * camera->nearPlane;
-		f32 nExtX = nExtY * camera->aspectRatio;
-		f32 fExtY = e * camera->farPlane;
-		f32 fExtX = fExtY * camera->aspectRatio;
-
-		out->nearLeftBottom =
-			(nCenter - axisX * nExtX - axisY * nExtY + camPos);
-		out->nearLeftTop =
-			(nCenter - axisX * nExtX + axisY * nExtY + camPos);
-		out->nearRightTop =
-			(nCenter + axisX * nExtX + axisY * nExtY + camPos);
-		out->nearRightBottom =
-			(nCenter + axisX * nExtX - axisY * nExtY + camPos);
-		out->farLeftBottom =
-			(fCenter - axisX * fExtX - axisY * fExtY + camPos);
-		out->farLeftTop =
-			(fCenter - axisX * fExtX + axisY * fExtY + camPos);
-		out->farRightTop =
-			(fCenter + axisX * fExtX + axisY * fExtY + camPos);
-		out->farRightBottom =
-			(fCenter + axisX * fExtX - axisY * fExtY + camPos);
-	}
-
-	
-	b32 RaycastToGround(const Tilemap* tilemap, v3 from, v3 dir, Plane* farPlane, 
-						i32* hitTileOffsetX, i32* hitTileOffsetY)
-	{
-		AB_ASSERT(Length(dir) >= FLOAT_EPS);
-		// NOTE: Returns offset relative to from
-		b32 result = false;
-		f32 t = 0.0f;
-
-		// NOTE: Raycasting against far plane
-		f32 tToFarPlane = (-farPlane->a * from.x - farPlane->b
-						   * from.y - farPlane->c * from.z - farPlane->d)
-			/ (farPlane->a * dir.x + farPlane->b * dir.y
-			   + farPlane->c * dir.z);
-
-		if (dir.y < 0.0f)
-		{
-			// NOTE: Raycasting to ground plane
-			f32 tToGround =  -from.y / dir.y;
-
-			if (tToGround < tToFarPlane)
-			{
-				t = tToGround;
-				result = true;
-			}
-			else
-			{
-				t = tToFarPlane;
-				result = true;
-			}
-		}
-		else
-		{
-			t = tToFarPlane;
-			result = true;
-		}
-		
-		f32 x = from.x + dir.x * t;
-		f32 z = from.z + dir.z * t;
-		v3 intersectionCoord = V3(x, 0.0f, z);
-		i32 tileOffsetX = TruncF32I32(intersectionCoord.x /
-									  tilemap->tileSizeInUnits);
-		i32 tileOffsetY = -TruncF32I32(intersectionCoord.z /
-									   tilemap->tileSizeInUnits);
-		*hitTileOffsetX = tileOffsetX;
-		*hitTileOffsetY = tileOffsetY;
-
-		return result;
-	}
-
-
-	void GenFrustumCullingData(Camera* camera, Tilemap* tilemap,
-							   FrustumGroundAABB* bbox,
-							   FrustumGroundProjection* proj)
-	{		
-		FrustumVertices camFV = {};
-		GenFrustumVertices(tilemap, camera, &camFV);
-
-		// NOTE: Vectors from frustum
-		v3 lt = camFV.farLeftTop - camFV.nearLeftTop;
-		v3 lb = camFV.farLeftBottom - camFV.nearLeftBottom;
-		v3 rb = camFV.farRightBottom - camFV.nearRightBottom;
-		v3 rt = camFV.farRightTop - camFV.nearRightTop;
-
-		Plane farPlane = {};
-
-		m4x4 pMtx = MulM4M4(camera->cullingProjection, camera->cullingLookAt);
-		farPlane.a = pMtx._41 - pMtx._31;
-		farPlane.b = pMtx._42 - pMtx._32;
-		farPlane.c = pMtx._43 - pMtx._33;
-		farPlane.d = pMtx._44 - pMtx._34;
-		farPlane = Normalize(farPlane);
-
-		v3 cullPos = camera->pos * camera->cullPosAdjust;
-		
-		i32 ltTileX = 0;
-		i32 ltTileY = 0;
-		RaycastToGround(tilemap, cullPos,
-						lt, &farPlane, &ltTileX, &ltTileY);
-
-		i32 lbTileX = 0;
-		i32 lbTileY = 0;
-		RaycastToGround(tilemap, cullPos,
-						lb, &farPlane, &lbTileX, &lbTileY);
-
-		i32 rtTileX = 0;
-		i32 rtTileY = 0;
-		RaycastToGround(tilemap, cullPos,
-						rt, &farPlane, &rtTileX, &rtTileY);
-
-		i32 rbTileX = 0;
-		i32 rbTileY = 0;
-		RaycastToGround(tilemap, cullPos,
-						rb, &farPlane, &rbTileX, &rbTileY);
-		
-		bbox->minX = MINIMUM(MINIMUM(ltTileX, lbTileX), MINIMUM(rtTileX, rbTileX));
-		bbox->minY = MINIMUM(MINIMUM(ltTileY, lbTileY), MINIMUM(rtTileY, rbTileY));
-		bbox->maxX = MAXIMUM(MAXIMUM(ltTileX, lbTileX), MAXIMUM(rtTileX, rbTileX));
-		bbox->maxY = MAXIMUM(MAXIMUM(ltTileY, lbTileY), MAXIMUM(rtTileY, rbTileY));
-
-		// Traverse all prefetched chunks and check for frustum - box intersection
-		//auto camP = -camera->pos;
-		proj->lt.x = ltTileX * tilemap->tileSizeInUnits;
-		proj->lt.y = ltTileY * tilemap->tileSizeInUnits;
-		proj->lb.x = lbTileX * tilemap->tileSizeInUnits;
-		proj->lb.y = lbTileY * tilemap->tileSizeInUnits;
-		proj->rt.x = rtTileX * tilemap->tileSizeInUnits;
-		proj->rt.y = rtTileY * tilemap->tileSizeInUnits;
-		proj->rb.x = rbTileX * tilemap->tileSizeInUnits;
-		proj->rb.y = rbTileY * tilemap->tileSizeInUnits;
-
 	}
 
 	b32 TestWall(f32 wallX, f32 relPlayerX, f32 relPlayerY,
@@ -453,18 +225,17 @@ namespace AB
 
 	}
 
-	void MoveCameraTarget(Camera* camera, Tilemap* tilemap)
+	v2 MoveCameraTarget(Camera* camera, Tilemap* tilemap)
 	{
+		v2 camFrameOffset = {};
+		
 		v3 _frontDir = V3(camera->front.x, 0.0f, camera->front.z);
-		v3 _rightDir = Cross(_frontDir, V3(0.0f, 1.0f, 0.0f));
+		v3 _rightDir = Cross(V3(0.0f, 1.0f, 0.0f), _frontDir);
 		// TODO: Is that normalization is neccessary?
 		_rightDir = Normalize(_rightDir);
 
-		// NOTE: Neagating Z because tilemap coords have Y axis pointing down-to-up
-		// while right handed actual world coords have it
-		// pointing opposite directhion.
-		v2 frontDir = V2(_frontDir.x, -_frontDir.z);
-		v2 rightDir = V2(_rightDir.x, -_rightDir.z);
+		v2 frontDir = V2(_frontDir.x, _frontDir.z);
+		v2 rightDir = V2(_rightDir.x, _rightDir.z);
 
 		v2 acceleration = {};
 		if (!camera->debugMode)
@@ -486,12 +257,12 @@ namespace AB
 				acceleration += rightDir;
 			}
 		}
-		
+
 		acceleration = Normalize(acceleration);
-		f32 speed = 20.0f;
+		f32 speed = 500.0f;
 		acceleration *= speed;
 
-		f32 friction = 3.0f;
+		f32 friction = 8.0f;
 		acceleration = acceleration - camera->targetWorldVelocity * friction;
 
 		v2 movementDelta;
@@ -512,10 +283,14 @@ namespace AB
 		newVelocity = newVelocity +
 			acceleration * GlobalGameDeltaTime;
 
+		camFrameOffset = TilemapPosDiff(tilemap, &newPos, &camera->targetWorldPos);
 		camera->targetWorldPos = newPos;
 		camera->targetWorldVelocity = newVelocity;
+
+		return camFrameOffset;
 	}
-	
+
+	// TODO: DeltaTime
 	void UpdateCamera(Camera* camera, RenderGroup* renderGroup, Tilemap* tilemap)
 	{
 		if (GlobalInput.keys[KEY_F1].pressedNow &&
@@ -531,7 +306,7 @@ namespace AB
  				v2 mousePos;
 				mousePos.x = GlobalInput.mouseFrameOffsetX;
 				mousePos.y = GlobalInput.mouseFrameOffsetY;
-				camera->lastMousePos.x -= mousePos.x;
+				camera->lastMousePos.x += mousePos.x;
 				camera->lastMousePos.y -= mousePos.y;
 			}
 
@@ -579,26 +354,10 @@ namespace AB
 		
 			camera->front = -Normalize(camera->pos);
 
-			v3 cullingPos = camera->pos * camera->cullPosAdjust;
-
-			camera->cullingLookAt = LookAtRH(cullingPos,
-											 AddV3V3(cullingPos, camera->front),
-											 V3(0.0f, 1.0f, 0.0f));
-
-			camera->cullingProjection = PerspectiveOpenGLRH(camera->fov,
-													  camera->aspectRatio,
-													  camera->nearPlane,
-													  camera->farPlane);
-
-			GenFrustumCullingData(camera, tilemap,
-								  &camera->frustumGroundAABB,
-								  &camera->frustumGroundPoints);
-
-		
 			v3 pos = camera->pos * tilemap->unitsToRaw;
 			v3 front = camera->front * tilemap->unitsToRaw;
 
-			m4x4 rawLookAt = LookAtRH(pos,
+			m4x4 rawLookAt = LookAtLH(pos,
 									  AddV3V3(pos, front),
 									  V3(0.0f, 1.0f, 0.0f));
 		
@@ -610,7 +369,7 @@ namespace AB
 
 
 			renderGroup->projectionMatrix =
-				PerspectiveOpenGLRH(camera->fov,
+				PerspectiveOpenGLLH(camera->fov,
 							  camera->aspectRatio,
 							  camera->nearPlane * tilemap->unitsToRaw,
 							  camera->farPlane * tilemap->unitsToRaw);

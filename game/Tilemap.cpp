@@ -39,6 +39,24 @@ namespace AB
 		}
 	}
 
+	inline TilemapPosition
+	MapToTileSpace(Tilemap* tilemap, TilemapPosition worldCenter, v2 relPos)
+	{
+		TilemapPosition result = worldCenter;
+		result.offset += relPos;
+		RecanonicalizeCoord(tilemap->tileSizeInUnits, &result.tileX,
+							&result.offset.x);
+		RecanonicalizeCoord(tilemap->tileSizeInUnits, &result.tileY,
+							&result.offset.y);
+
+		AB_ASSERT(result.offset.x >= -tilemap->tileRadiusInUnits);
+		AB_ASSERT(result.offset.y >= -tilemap->tileRadiusInUnits);
+		AB_ASSERT(result.offset.x <= tilemap->tileRadiusInUnits);
+		AB_ASSERT(result.offset.y <= tilemap->tileRadiusInUnits);
+
+		return result;
+	}
+
 	inline TilemapPosition RecanonicalizePosition(const Tilemap* tilemap,
 												  TilemapPosition pos)
 	{
@@ -75,6 +93,26 @@ namespace AB
 		result.tileInChunkY = absTileY & tilemap->chunkMask;
 
 		return result;
+	}
+
+	inline TilemapPosition
+	GetTilemapPosition(Tilemap* tilemap, u32 chunkX, u32 chunkY,
+					   u32 relTileX, u32 relTileY)
+	{
+		TilemapPosition result = {};
+		result.tileX = chunkX * tilemap->chunkSizeInTiles;
+		result.tileY = chunkY * tilemap->chunkSizeInTiles;
+		result.tileX += relTileX;
+		result.tileY += relTileY;
+
+		return result;		
+	}
+
+	inline TilemapPosition
+	GetTilemapPosition(Tilemap* tilemap, ChunkPosition chunkPos)
+	{
+		return GetTilemapPosition(tilemap, chunkPos.chunkX, chunkPos.chunkY,
+								  chunkPos.tileInChunkX, chunkPos.tileInChunkY);
 	}
 
 	
