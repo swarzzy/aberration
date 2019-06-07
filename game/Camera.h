@@ -21,7 +21,7 @@ namespace AB
 		v3 pos;
 		v3 front;
 		//v3 target;
-		TilemapPosition targetWorldPos;
+		WorldPosition targetWorldPos;
 		v2 targetWorldVelocity;
 		f32 distance;
 		v2 lastMousePos;
@@ -37,11 +37,11 @@ namespace AB
 				 f32 playerDeltaX, f32 playerDeltaY,
 				 f32 minCornerY, f32 maxCornerY, f32* tMin);
 
-	void DoMovement(Tilemap* tilemap, TilemapPosition begPos,
+	void DoMovement(World* world, WorldPosition begPos,
 					v2 begVelocity, v2 delta,
-					TilemapPosition* newPos, v2* newVelocity);
+					WorldPosition* newPos, v2* newVelocity);
 
-	v2 MoveCameraTarget(Camera* camera, Tilemap* tilemap);
+	v2 MoveCameraTarget(Camera* camera, World* world);
 
-	void UpdateCamera(Camera* camera, RenderGroup* renderGroup, Tilemap* tilemap);
+	void UpdateCamera(Camera* camera, RenderGroup* renderGroup, World* world);
 }

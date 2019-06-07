@@ -2,7 +2,7 @@
 // TODO: This is temporary for rand()
 #include <stdlib.h>
 
-#include "Tilemap.cpp"
+#include "World.cpp"
 #include "Camera.cpp"
 
 
@@ -107,8 +107,8 @@ namespace AB
 				HighEntity* high =
 					gameState->highEntities + gameState->highEntityCount;
 
-				high->pos = TilemapPosDiff(gameState->tilemap,
-										   &low->tilemapPos,
+				high->pos = WorldPosDiff(gameState->world,
+										   &low->worldPos,
 										   &gameState->camera.targetWorldPos);
 				high->velocity = V2(0.0f);
 				high->lowIndex = lowIndex;
@@ -133,8 +133,8 @@ namespace AB
 		u32 lastEntityIndex = gameState->highEntityCount;
 		u32 currentEntityIndex = low->highIndex;
 
-		low->tilemapPos =
-			MapToTileSpace(gameState->tilemap,
+		low->worldPos =
+			MapToTileSpace(gameState->world,
 						   gameState->camera.targetWorldPos,
 						   high->pos);
 		low->highIndex = 0;
@@ -204,51 +204,49 @@ namespace AB
 		gameState->gamma = 2.2f;
 		gameState->exposure = 1.0f;
 
-		gameState->tilemap = CreateTilemap(arena);
-		Tilemap* tilemap = gameState->tilemap;
+		gameState->world = CreateWorld(arena);
+		World* world = gameState->world;
 	   
 		f32 r = 0.2f;
 		f32 g = 0.2f;
 		f32 b = 0.2f;
 		
 		for (i32 y = -2;
-			 y < (i32)(tilemap->chunkCountY) - 2;
+			 y < (i32)(world->chunkCountY) - 2;
 			 y++)
 		{
 			for (i32 x = -2;
-				 x < (i32)(tilemap->chunkCountX) -2;
+				 x < (i32)(world->chunkCountX) -2;
 				 x++)
 			{
 				r = rand() % 11 / 10.0f;
 				g = rand() % 11 / 10.0f;
 				b = rand() % 11 / 10.0f;
-				Chunk* chunk = GetChunk(tilemap, x, y, arena);
-				for (u32 tileY = 0; tileY < tilemap->chunkSizeInTiles; tileY++)
+				Chunk* chunk = GetChunk(world, x, y, arena);
+				for (u32 tileY = 0; tileY < WORLD_CHUNK_DIM_TILES; tileY++)
 				{
-					for (u32 tileX = 0; tileX < tilemap->chunkSizeInTiles; tileX++)
+					for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 					{
 						if ((x == -2 && tileX == 0) ||
-							(x == tilemap->chunkCountX - 3 &&
-							 tileX == tilemap->chunkSizeInTiles - 1) ||
+							(x == world->chunkCountX - 3 &&
+							 tileX == WORLD_CHUNK_DIM_TILES - 1) ||
 							(y == -2 && tileY == 0) ||
-							(y == tilemap->chunkCountY - 3 &&
-							 tileY == tilemap->chunkSizeInTiles - 1))
+							(y == world->chunkCountY - 3 &&
+							 tileY == WORLD_CHUNK_DIM_TILES - 1))
 						{
-							SetTileValueInChunk(arena, tilemap, chunk,
-												tileX, tileY, 3);
-							auto wallTilePos = GetTilemapPosition(tilemap, x, y,
-																  tileX, tileY);
+							SetTerrainTile(chunk, tileX, tileY,
+										   TERRAIN_TYPE_CLIFF);
+							auto wallTilePos =
+								GetWorldPosition(x, y, tileX, tileY);
 							AddWallEntity(gameState, wallTilePos.tileX,
 										  wallTilePos.tileY);
 								
 						}
 						else
 						{
-							SetTileValueInChunk(arena, tilemap, chunk,
-												tileX, tileY, 1);
+							SetTerrainTile(chunk, tileX, tileY,
+										   TERRAIN_TYPE_GRASS);
 						}
-						SetTileColor(tilemap, chunk,
-									 tileX, tileY, V3(r, g ,b));
 
 					}
 				}
@@ -256,16 +254,12 @@ namespace AB
 		}
 
 		{
-			Chunk* chunk = GetChunk(tilemap, -3, -4, arena);
-			for (u32 tileY = 0; tileY < tilemap->chunkSizeInTiles; tileY++)
+			Chunk* chunk = GetChunk(world, -3, -4, arena);
+			for (u32 tileY = 0; tileY < WORLD_CHUNK_DIM_TILES; tileY++)
 			{
-				for (u32 tileX = 0; tileX < tilemap->chunkSizeInTiles; tileX++)
+				for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 				{
-					SetTileValueInChunk(arena, tilemap, chunk,
-											tileX, tileY, 1);
-					SetTileColor(tilemap, chunk,
-								 tileX, tileY, V3(r, g ,b));
-
+					SetTerrainTile(chunk, tileX, tileY, TERRAIN_TYPE_WATER);
 				}
 			}
 
@@ -273,8 +267,8 @@ namespace AB
 
 		gameState->entity = AddLowEntity(gameState, ENTITY_TYPE_BODY);
 		LowEntity* e = GetLowEntity(gameState, gameState->entity);
-		e->tilemapPos.tileX = 20;
-		e->tilemapPos.tileY = 40;
+		e->worldPos.tileX = 20;
+		e->worldPos.tileY = 40;
 		e->accelerationAmount = 20.0f;
 		e->size = V2(1.5f, 3.0f);
 		e->color = V3(1.0f, 0.0f, 0.0f);
@@ -282,8 +276,8 @@ namespace AB
 		
 		gameState->entity1 = AddLowEntity(gameState, ENTITY_TYPE_BODY);
 		LowEntity* e1 = GetLowEntity(gameState, gameState->entity1);
-		e1->tilemapPos.tileX = 35;
-		e1->tilemapPos.tileY = 40;
+		e1->worldPos.tileX = 35;
+		e1->worldPos.tileY = 40;
 		e1->accelerationAmount = 30.0f;
 		e1->size = V2(1.2f, 0.5f);
 		e1->color = V3(0.0f, 1.0f, 0.0f);
@@ -298,23 +292,23 @@ namespace AB
 			LowEntity* e = GetLowEntity(gameState, id);
 			if (i < 32)
 			{
-				e->tilemapPos.tileX = i + 18 + i * 2;
-				e->tilemapPos.tileY = i + 18 + i * 2;
+				e->worldPos.tileX = i + 18 + i * 2;
+				e->worldPos.tileY = i + 18 + i * 2;
 			}
 			else if (i < 64)
 			{
-				e->tilemapPos.tileX = ((i - 32) + 18 + (i - 32) * 2) + 4;
-				e->tilemapPos.tileY = (i - 32) + 18 + (i - 32) * 2;
+				e->worldPos.tileX = ((i - 32) + 18 + (i - 32) * 2) + 4;
+				e->worldPos.tileY = (i - 32) + 18 + (i - 32) * 2;
 			}
 			else if (i < 96)
 			{
-				e->tilemapPos.tileX = ((i - 64) + 18 + (i - 64) * 2) - 4;
-				e->tilemapPos.tileY = (i - 64) + 18 + (i - 64) * 2;
+				e->worldPos.tileX = ((i - 64) + 18 + (i - 64) * 2) - 4;
+				e->worldPos.tileY = (i - 64) + 18 + (i - 64) * 2;
 			}
 			else
 			{
-				e->tilemapPos.tileX = ((i - 96) + 18 + (i - 96) * 2) - 7;
-				e->tilemapPos.tileY = (i - 96) + 18 + (i - 96) * 2;				
+				e->worldPos.tileX = ((i - 96) + 18 + (i - 96) * 2) - 7;
+				e->worldPos.tileY = (i - 96) + 18 + (i - 96) * 2;				
 			}
 			
 			e->accelerationAmount = 30.0f;
@@ -343,18 +337,18 @@ namespace AB
 	}
 	
 	void
-	DrawEntity(Tilemap* tilemap, RenderGroup* renderGroup,
+	DrawEntity(World* world, RenderGroup* renderGroup,
 			   AssetManager* assetManager, Entity entity)
 	{
 		v3 pos = V3(0.0f);
-		pos.x = entity.high->pos.x * tilemap->unitsToRaw;
-		pos.z = entity.high->pos.y * tilemap->unitsToRaw;
-		pos.y = tilemap->tileSizeRaw;
+		pos.x = entity.high->pos.x * world->unitsToRaw;
+		pos.z = entity.high->pos.y * world->unitsToRaw;
+		pos.y = world->tileSizeRaw;
 
 		v3 scale = V3(0.0f);
-		scale.x = tilemap->unitsToRaw * 0.5f * entity.low->size.x;
-		scale.z = tilemap->unitsToRaw * 0.5f * entity.low->size.y;
-		scale.y = tilemap->unitsToRaw * 0.5f;
+		scale.x = world->unitsToRaw * 0.5f * entity.low->size.x;
+		scale.z = world->unitsToRaw * 0.5f * entity.low->size.y;
+		scale.y = world->unitsToRaw * 0.5f;
 
 		v3 color = entity.low->color;
 		
@@ -364,7 +358,7 @@ namespace AB
 	void
 	EntityApplyMovement(GameState* gameState, Entity entity, v2 delta)
 	{
-		Tilemap* tilemap = gameState->tilemap;
+		World* world = gameState->world;
 		v2 colliderSize = entity.low->size;
 
 		for (u32 pass = 0; pass < 4; pass++)
@@ -468,8 +462,8 @@ namespace AB
 		EntityApplyMovement(gameState, entity, movementDelta);
 
 		entity.high->velocity += acceleration * GlobalGameDeltaTime;
-		entity.low->tilemapPos =
-			MapToTileSpace(gameState->tilemap,
+		entity.low->worldPos =
+			MapToTileSpace(gameState->world,
 						   gameState->camera.targetWorldPos,
 						   entity.high->pos);
 		
@@ -520,22 +514,22 @@ namespace AB
 	}
 
 	void
-	MoveCamera(GameState* gameState, Camera* camera, Tilemap* tilemap,
+	MoveCamera(GameState* gameState, Camera* camera, World* world,
 			   AssetManager* assetManager)
 	{
-		v2 entityFrameOffset = -MoveCameraTarget(&gameState->camera, tilemap);
-		UpdateCamera(camera, gameState->renderGroup, tilemap);
+		v2 entityFrameOffset = -MoveCameraTarget(&gameState->camera, world);
+		UpdateCamera(camera, gameState->renderGroup, world);
 
 		i32 cameraTileSpanX = 50;
 		i32 cameraTileSpanY = 50;
 
-		v2 min = V2(-cameraTileSpanX / 2 * tilemap->tileSizeInUnits,
-					-cameraTileSpanY / 2 * tilemap->tileSizeInUnits);
-		v2 max = V2(cameraTileSpanX / 2 * tilemap->tileSizeInUnits,
-					cameraTileSpanY / 2 * tilemap->tileSizeInUnits);
+		v2 min = V2(-cameraTileSpanX / 2 * world->tileSizeInUnits,
+					-cameraTileSpanY / 2 * world->tileSizeInUnits);
+		v2 max = V2(cameraTileSpanX / 2 * world->tileSizeInUnits,
+					cameraTileSpanY / 2 * world->tileSizeInUnits);
 
-		v2 minLine = min * tilemap->unitsToRaw;
-		v2 maxLine = max * tilemap->unitsToRaw;
+		v2 minLine = min * world->unitsToRaw;
+		v2 maxLine = max * world->unitsToRaw;
 
 		Rectangle highArea = {min, max};
 
@@ -574,10 +568,10 @@ namespace AB
 		for (u32 index = 1; index <= gameState->lowEntityCount; index++)
 		{
 			LowEntity* entity = GetLowEntity(gameState, index);
-			if ((entity->tilemapPos.tileX > minHighAreaX) &&
-				(entity->tilemapPos.tileX < maxHighAreaX) &&
-				(entity->tilemapPos.tileY > minHighAreaY) &&
-				(entity->tilemapPos.tileY < maxHighAreaY))
+			if ((entity->worldPos.tileX > minHighAreaX) &&
+				(entity->worldPos.tileX < maxHighAreaX) &&
+				(entity->worldPos.tileY > minHighAreaY) &&
+				(entity->worldPos.tileY < maxHighAreaY))
 			{
 				SetEntityToHigh(gameState, index);	
 			}
@@ -591,12 +585,12 @@ namespace AB
 				Renderer* renderer)
 	{
 		DEBUG_OVERLAY_SLIDER(g_Platform->gameSpeed, 0.0f, 10.0f);
-		Tilemap* tilemap = gameState->tilemap;
+		World* world = gameState->world;
 		Camera* camera = &gameState->camera;
 
 		{
 
-			MoveCamera(gameState, camera, tilemap, assetManager);
+			MoveCamera(gameState, camera, world, assetManager);
 			
 			for (u32 index = 1; index <= gameState->highEntityCount; index++)
 			{
@@ -607,7 +601,7 @@ namespace AB
 					MoveEntity(gameState, entity, V2(0.0f));
 				}
 				
-				DrawEntity(tilemap, gameState->renderGroup,
+				DrawEntity(world, gameState->renderGroup,
 						   assetManager, entity);
 			}
 		}
@@ -681,8 +675,8 @@ namespace AB
 			MoveEntity(gameState, entity1, acceleration);			
 		}
 		
-		DrawWorldWholeInstanced(tilemap, gameState->renderGroup, assetManager,
-								 gameState->camera.targetWorldPos);
+		DrawWorldInstanced(world, gameState->renderGroup, assetManager,
+						   gameState->camera.targetWorldPos);
 
 		//gameState->camera.target = V3(pX, 0, pY);
 		//gameState->dirLight.target = V3(pX, 0, pY);
@@ -742,38 +736,38 @@ namespace AB
 #if 0
 #define TEST
 #if !defined(TEST)
-void DrawWorld(Tilemap* tilemap, RenderGroup* renderGroup,
-			   AssetManager* assetManager, TilemapPosition player)
+void DrawWorld(World* world, RenderGroup* renderGroup,
+			   AssetManager* assetManager, WorldPosition player)
 {
 	Chunk* chunks[9];
 	SetArray(Chunk*, 9, &chunks, 0);
-	ChunkPosition cPos = GetChunkPosition(tilemap, player.tileX, player.tileY);
-	chunks[0] = GetChunk(tilemap, cPos.chunkX - 1, cPos.chunkY + 1);
-	chunks[1] = GetChunk(tilemap, cPos.chunkX, cPos.chunkY + 1);
-	chunks[2] = GetChunk(tilemap, cPos.chunkX + 1, cPos.chunkY + 1);
-	chunks[3] = GetChunk(tilemap, cPos.chunkX - 1, cPos.chunkY);
-	chunks[4] = GetChunk(tilemap, cPos.chunkX, cPos.chunkY);
-	chunks[5] = GetChunk(tilemap, cPos.chunkX + 1, cPos.chunkY);
-	chunks[6] = GetChunk(tilemap, cPos.chunkX - 1, cPos.chunkY - 1);
-	chunks[7] = GetChunk(tilemap, cPos.chunkX, cPos.chunkY - 1);
-	chunks[8] = GetChunk(tilemap, cPos.chunkX + 1, cPos.chunkY - 1);
+	ChunkPosition cPos = GetChunkPosition(world, player.tileX, player.tileY);
+	chunks[0] = GetChunk(world, cPos.chunkX - 1, cPos.chunkY + 1);
+	chunks[1] = GetChunk(world, cPos.chunkX, cPos.chunkY + 1);
+	chunks[2] = GetChunk(world, cPos.chunkX + 1, cPos.chunkY + 1);
+	chunks[3] = GetChunk(world, cPos.chunkX - 1, cPos.chunkY);
+	chunks[4] = GetChunk(world, cPos.chunkX, cPos.chunkY);
+	chunks[5] = GetChunk(world, cPos.chunkX + 1, cPos.chunkY);
+	chunks[6] = GetChunk(world, cPos.chunkX - 1, cPos.chunkY - 1);
+	chunks[7] = GetChunk(world, cPos.chunkX, cPos.chunkY - 1);
+	chunks[8] = GetChunk(world, cPos.chunkX + 1, cPos.chunkY - 1);
 
 	for (u32 chunkY = 0; chunkY < 3; chunkY++)
 	{
 		for (u32 chunkX = 0; chunkX < 3; chunkX++)
 		{
-			for (u32 row = 0; row < tilemap->chunkSizeInTiles; row++)
+			for (u32 row = 0; row < world->chunkSizeInTiles; row++)
 			{
-				for (u32 col = 0; col < tilemap->chunkSizeInTiles; col++)
+				for (u32 col = 0; col < world->chunkSizeInTiles; col++)
 				{
-					u32 tileValue = GetTileValueInChunk(tilemap,
+					u32 tileValue = GetTileValueInChunk(world,
 														chunks[chunkY * 3 + chunkX],
 														col, row);
 					if (tileValue)
 					{
 						v3 color;
 						f32 yOffset = 0.0f;
-						if (GetTileValueInChunk(tilemap,
+						if (GetTileValueInChunk(world,
 												chunks[chunkY * 3 + chunkX],
 												col, row) == 3)
 						{
@@ -783,11 +777,11 @@ void DrawWorld(Tilemap* tilemap, RenderGroup* renderGroup,
 						{
 							yOffset = 0.0f;
 						}
-						color = GetTileColor(tilemap,
+						color = GetTileColor(world,
 											 chunks[chunkY * 3 + chunkX],
 											 col, row);
 						ChunkPosition playerCPos =
-							GetChunkPosition(tilemap,
+							GetChunkPosition(world,
 											 player.tileX, player.tileY);
 						if (row == playerCPos.tileInChunkY &&
 							col == playerCPos.tileInChunkX)// &&
@@ -798,21 +792,21 @@ void DrawWorld(Tilemap* tilemap, RenderGroup* renderGroup,
 						}
 			
 
-						f32	chunkOffsetX = chunkX * tilemap->chunkSizeInTiles *
-							tilemap->tileSizeRaw - tilemap->chunkSizeInTiles *
-							tilemap->tileSizeRaw;
-						f32 chunkOffsetY = chunkY * tilemap->chunkSizeInTiles *
-							tilemap->tileSizeRaw - tilemap->chunkSizeInTiles *
-							tilemap->tileSizeRaw;
+						f32	chunkOffsetX = chunkX * world->chunkSizeInTiles *
+							world->tileSizeRaw - world->chunkSizeInTiles *
+							world->tileSizeRaw;
+						f32 chunkOffsetY = chunkY * world->chunkSizeInTiles *
+							world->tileSizeRaw - world->chunkSizeInTiles *
+							world->tileSizeRaw;
 					
-						f32 zOffset = row *	(f32)tilemap->tileSizeRaw -
-							(tilemap->tileRadiusInUnits * tilemap->unitsToRaw);
+						f32 zOffset = row *	(f32)world->tileSizeRaw -
+							(world->tileRadiusInUnits * world->unitsToRaw);
 j
-						f32 xOffset = col * (f32)tilemap->tileSizeRaw -
-							(tilemap->tileRadiusInUnits * tilemap->unitsToRaw);
+						f32 xOffset = col * (f32)world->tileSizeRaw -
+							(world->tileRadiusInUnits * world->unitsToRaw);
 
-						f32 zInvBias = tilemap->chunkSizeInTiles *
-							(f32)tilemap->tileSizeRaw; 
+						f32 zInvBias = world->chunkSizeInTiles *
+							(f32)world->tileSizeRaw; 
 
 						v3 position = V3(xOffset + chunkOffsetX,
 										 yOffset,
@@ -820,7 +814,7 @@ j
 
 						DrawDebugCube(renderGroup,
 									  assetManager,
-									  position, tilemap->tileSizeRaw * 0.5f, color);
+									  position, world->tileSizeRaw * 0.5f, color);
 					}
 				}
 			}
@@ -828,26 +822,26 @@ j
 	}
 }
 #else
-void DrawWorld(const Tilemap* tilemap, RenderGroup* renderGroup,
-			   AssetManager* assetManager, TilemapPosition player,
+void DrawWorld(const World* world, RenderGroup* renderGroup,
+			   AssetManager* assetManager, WorldPosition player,
 			   u32 negChunkCountX, u32 negChunkCountY,
 			   u32 posChunkCountX, u32 posChunkCountY)
 {
-	ChunkPosition pChunkPos = GetChunkPosition(tilemap, player.tileX,
+	ChunkPosition pChunkPos = GetChunkPosition(world, player.tileX,
 											   player.tileY); 
 
 	u32 chunkCountX = negChunkCountX + posChunkCountX + 1;
 	u32 chunkCountY = negChunkCountY + posChunkCountY + 1;
 
 	v2 origin = V2(0.0f);
-	origin.x = -1.0f * negChunkCountX * tilemap->chunkSizeInTiles
-		* tilemap->tileSizeInUnits
-		- pChunkPos.tileInChunkX * tilemap->tileSizeInUnits
+	origin.x = -1.0f * negChunkCountX * world->chunkSizeInTiles
+		* world->tileSizeInUnits
+		- pChunkPos.tileInChunkX * world->tileSizeInUnits
 		- player.offset.x;
-	origin.y = -1.0f * negChunkCountY * tilemap->chunkSizeInTiles
-		* tilemap->tileSizeInUnits
-		+ (tilemap->chunkSizeInTiles - pChunkPos.tileInChunkY)
-		* tilemap->tileSizeInUnits - ( player.offset.y);
+	origin.y = -1.0f * negChunkCountY * world->chunkSizeInTiles
+		* world->tileSizeInUnits
+		+ (world->chunkSizeInTiles - pChunkPos.tileInChunkY)
+		* world->tileSizeInUnits - ( player.offset.y);
 
 	// NOTE: i32 is ok here. There is no way it will
 	// render more than 2 billion chunks
@@ -887,26 +881,26 @@ void DrawWorld(const Tilemap* tilemap, RenderGroup* renderGroup,
 			 chunkX < beginChunkX + chunkCountX;
 			 chunkX++)
 		{
-			Chunk* chunk = GetChunk(tilemap,
+			Chunk* chunk = GetChunk(world,
 									chunkX, chunkY);
 
 			f32 chunkOffsetX = origin.x + (chunkX - beginChunkX + biasX) *
-				tilemap->chunkSizeInTiles * tilemap->tileSizeInUnits;
+				world->chunkSizeInTiles * world->tileSizeInUnits;
 			f32 chunkOffsetY = origin.y + (chunkY - beginChunkY + biasY) *
-				tilemap->chunkSizeInTiles * tilemap->tileSizeInUnits;
+				world->chunkSizeInTiles * world->tileSizeInUnits;
 
-			for (u32 row = 0; row < tilemap->chunkSizeInTiles; row++)
+			for (u32 row = 0; row < world->chunkSizeInTiles; row++)
 			{
-				for (u32 col = 0; col < tilemap->chunkSizeInTiles; col++)
+				for (u32 col = 0; col < world->chunkSizeInTiles; col++)
 				{
-					u32 tileValue = GetTileValueInChunk(tilemap,
+					u32 tileValue = GetTileValueInChunk(world,
 														chunk,
 														col, row);
 					if (tileValue)
 					{
 						v3 color;
 						f32 yOffset = 0.0f;
-						if (GetTileValueInChunk(tilemap,
+						if (GetTileValueInChunk(world,
 												chunk,
 												col, row) == 3)
 						{
@@ -916,7 +910,7 @@ void DrawWorld(const Tilemap* tilemap, RenderGroup* renderGroup,
 						{
 							yOffset = 0.0f;
 						}
-						color = GetTileColor(tilemap,
+						color = GetTileColor(world,
 											 chunk,
 											 col, row);
 						if (row == pChunkPos.tileInChunkY &&
@@ -928,26 +922,26 @@ void DrawWorld(const Tilemap* tilemap, RenderGroup* renderGroup,
 						}
 	  
 						f32 zOffset = row *
-							(f32)tilemap->tileSizeInUnits -
-							tilemap->tileRadiusInUnits;
+							(f32)world->tileSizeInUnits -
+							world->tileRadiusInUnits;
 
 						f32 xOffset = col *
-							(f32)tilemap->tileSizeInUnits -
-							tilemap->tileRadiusInUnits;
+							(f32)world->tileSizeInUnits -
+							world->tileRadiusInUnits;
 
-						f32 zInvBias = tilemap->chunkSizeInTiles *
-							(f32)tilemap->tileSizeInUnits; 
+						f32 zInvBias = world->chunkSizeInTiles *
+							(f32)world->tileSizeInUnits; 
 
 						v3 position = V3(0.0f);
 						position.x = (xOffset + chunkOffsetX)
-							* tilemap->unitsToRaw;
+							* world->unitsToRaw;
 						position.y = yOffset;
 						position.z = (-zOffset + zInvBias - chunkOffsetY)
-							* tilemap->unitsToRaw;
+							* world->unitsToRaw;
 
 						DrawDebugCube(renderGroup,
 									  assetManager,
-									  position, tilemap->tileSizeRaw * 0.5f, color);
+									  position, world->tileSizeRaw * 0.5f, color);
 					}
 				}
 			}
@@ -959,19 +953,19 @@ void DrawWorld(const Tilemap* tilemap, RenderGroup* renderGroup,
 	{
 		for (u32 chunkX = minChunkX; chunkX <= maxChunkX; chunkX++)
 		{
-			for (u32 row = 0; row < tilemap->chunkSizeInTiles; row++)
+			for (u32 row = 0; row < world->chunkSizeInTiles; row++)
 			{
-				for (u32 col = 0; col < tilemap->chunkSizeInTiles; col++)
+				for (u32 col = 0; col < world->chunkSizeInTiles; col++)
 				{
-					Chunk* chunk = GetChunk(tilemap, chunkX, chunkY);
-					u32 tileValue = GetTileValueInChunk(tilemap,
+					Chunk* chunk = GetChunk(world, chunkX, chunkY);
+					u32 tileValue = GetTileValueInChunk(world,
 														chunk,
 														col, row);
 					if (tileValue)
 					{
 						v3 color;
 						f32 yOffset = 0.0f;
-						if (GetTileValueInChunk(tilemap,
+						if (GetTileValueInChunk(world,
 												chunk,
 												col, row) == 3)
 						{
@@ -981,11 +975,11 @@ void DrawWorld(const Tilemap* tilemap, RenderGroup* renderGroup,
 						{
 							yOffset = 0.0f;
 						}
-						color = GetTileColor(tilemap,
+						color = GetTileColor(world,
 											 chunk,
 											 col, row);
 						ChunkPosition playerCPos =
-							GetChunkPosition(tilemap,
+							GetChunkPosition(world,
 											 player.tileX, player.tileY);
 						if (row == playerCPos.tileInChunkY &&
 							col == playerCPos.tileInChunkX)// &&
@@ -1185,7 +1179,7 @@ void DrawWorld(const Tilemap* tilemap, RenderGroup* renderGroup,
 #endif
 
 
-	b32 RaycastToGround(const Tilemap* tilemap, v3 from, v3 dir, 
+	b32 RaycastToGround(const World* tilemap, v3 from, v3 dir, 
 						i32* hitTileOffsetX, i32* hitTileOffsetY)
 	{
 		// NOTE: Returns offset relative to from
@@ -1333,9 +1327,9 @@ void DrawWorld(const Tilemap* tilemap, RenderGroup* renderGroup,
 	}
 #endif
 #if 0 
-    void DrawTile(Tilemap* tilemap, RenderGroup* renderGroup,
-				  AssetManager* assetManager, TilemapPosition origin,
-				  TilemapPosition tile)
+    void DrawTile(World* tilemap, RenderGroup* renderGroup,
+				  AssetManager* assetManager, WorldPosition origin,
+				  WorldPosition tile)
 	{
 		ChunkPosition chunkOrigin = GetChunkPosition(tilemap, origin.tileX,
 													 origin.tileY);
@@ -1377,8 +1371,8 @@ void DrawWorld(const Tilemap* tilemap, RenderGroup* renderGroup,
 	}
 
 
-void DrawWorld(Tilemap* tilemap, RenderGroup* renderGroup,
-			   AssetManager* assetManager, TilemapPosition origin,
+void DrawWorld(World* tilemap, RenderGroup* renderGroup,
+			   AssetManager* assetManager, WorldPosition origin,
 			   u32 w, u32 h)
 {
 	u32 width = tilemap->chunkSizeInTiles * w;
@@ -1398,14 +1392,14 @@ void DrawWorld(Tilemap* tilemap, RenderGroup* renderGroup,
 		{
 			DrawTile(tilemap, renderGroup,
 					 assetManager, origin,
-					 TilemapPosition{x, y});
+					 WorldPosition{x, y});
 
 		}
 	}
 
 }
-	void DrawWorldInstanced(Tilemap* tilemap, RenderGroup* renderGroup,
-							AssetManager* assetManager, TilemapPosition origin,
+	void DrawWorldInstanced(World* tilemap, RenderGroup* renderGroup,
+							AssetManager* assetManager, WorldPosition origin,
 							u32 w, u32 h, i32 minX, i32 maxX, i32 minY, i32 maxY)
 	{
 		u32 width = w;
@@ -1432,7 +1426,7 @@ void DrawWorld(Tilemap* tilemap, RenderGroup* renderGroup,
 			{
 				DrawTileInstanced(tilemap, renderGroup,
 								  assetManager, origin,
-								  TilemapPosition{x, y}, nullptr);
+								  WorldPosition{x, y}, nullptr);
 
 			}
 		}
@@ -1443,11 +1437,11 @@ void DrawWorld(Tilemap* tilemap, RenderGroup* renderGroup,
 							   nullptr);
 	}
 
-	void DrawEntity(Tilemap* tilemap,
+	void DrawEntity(World* tilemap,
 					RenderGroup* renderGroup,
 					AssetManager* assetManager,
-					TilemapPosition entityPos,
-					TilemapPosition origin,
+					WorldPosition entityPos,
+					WorldPosition origin,
 					v3 color,
 					f32 scale)
 	{
@@ -1484,7 +1478,7 @@ void DrawWorld(Tilemap* tilemap, RenderGroup* renderGroup,
 				HighEntity* high = &gameState->highEntities[index];
 				LowEntity* low = &gameState->lowEntities[index];
 
-				high->pos = TilemapPosDiff(&gameState->world->tilemap,
+				high->pos = WorldPosDiff(&gameState->world->tilemap,
 										   &low->tilemapPos,
 										   &gameState->camera.targetWorldPos);
 				high->velocity = V2(0.0f);

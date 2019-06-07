@@ -1,5 +1,5 @@
 #pragma once
-#include "Tilemap.h"
+#include "World.h"
 #include "Camera.h"
 
 namespace AB
@@ -19,7 +19,7 @@ namespace AB
 	struct LowEntity
 	{
 		EntityType type;
-		TilemapPosition tilemapPos;
+		WorldPosition worldPos;
 		f32 accelerationAmount;
 		v2 size;
 		v3 color;
@@ -53,9 +53,9 @@ namespace AB
 		Camera camera;
 		//MouseInputState inputState;
 		DirectionalLight dirLight;
-		//TilemapPosition playerP;
+		//WorldPosition playerP;
 		//v2 playerSpeed;
-		Tilemap* tilemap;
+		World* world;
 		v3 dirLightOffset;
 		//FrustumVertices camFrustum;
 		u32 entity;
@@ -64,7 +64,7 @@ namespace AB
 		u32 movingEntities[MOVING_ENTITIES_COUNT];
 
 
-#define MAX_LOW_ENTITIES 1024
+#define MAX_LOW_ENTITIES 4096
 #define MAX_HIGH_ENTITIES 512
 		EntityResidence entityResidence[MAX_LOW_ENTITIES];
 		u32 lowEntityCount;

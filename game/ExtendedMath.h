@@ -55,6 +55,8 @@ namespace AB
 		};
 	};
 
+	
+
 	BBoxAligned RealignBBoxAligned(BBoxAligned aabb);
 	Frustum FrustumFromProjRH(const m4x4* perspMtx);
 
