@@ -192,8 +192,8 @@ namespace AB
 		gameState->camera.nearPlane = 0.1f;
 		gameState->camera.farPlane = 200.0f;
 		
-		gameState->camera.targetWorldPos.tileX = 16 * 2 + 3; // 
-		gameState->camera.targetWorldPos.tileY = 16 * 2 + 3;
+		gameState->camera.targetWorldPos.tileX = (AB_UINT32_MAX / 2) + 16 * 2 + 3; // 
+		gameState->camera.targetWorldPos.tileY = (AB_UINT32_MAX / 2) + 16 * 2 + 3;
 		gameState->camera.targetWorldPos.offset.x = 1.0f;
 		gameState->camera.targetWorldPos.offset.y = 1.0f;
 
@@ -224,9 +224,13 @@ namespace AB
 		f32 g = 0.2f;
 		f32 b = 0.2f;
 		
-		for (u32 y = 1; y < tilemap->chunkCountY; y++)
+		for (u32 y = (AB_UINT32_MAX / 2);
+			 y < (AB_UINT32_MAX / 2) + tilemap->chunkCountY;
+			 y++)
 		{
-			for (u32 x = 1; x < tilemap->chunkCountX; x++)
+			for (u32 x = (AB_UINT32_MAX / 2);
+				 x < (AB_UINT32_MAX / 2) + tilemap->chunkCountX;
+				 x++)
 			{
 				r = rand() % 11 / 10.0f;
 				g = rand() % 11 / 10.0f;
@@ -266,8 +270,8 @@ namespace AB
 
 		gameState->entity = AddLowEntity(gameState, ENTITY_TYPE_BODY);
 		LowEntity* e = GetLowEntity(gameState, gameState->entity);
-		e->tilemapPos.tileX = 20;
-		e->tilemapPos.tileY = 40;
+		e->tilemapPos.tileX = (AB_UINT32_MAX / 2) + 20;
+		e->tilemapPos.tileY = (AB_UINT32_MAX / 2) + 40;
 		e->accelerationAmount = 20.0f;
 		e->size = V2(1.5f, 3.0f);
 		e->color = V3(1.0f, 0.0f, 0.0f);
@@ -275,8 +279,8 @@ namespace AB
 		
 		gameState->entity1 = AddLowEntity(gameState, ENTITY_TYPE_BODY);
 		LowEntity* e1 = GetLowEntity(gameState, gameState->entity1);
-		e1->tilemapPos.tileX = 35;
-		e1->tilemapPos.tileY = 40;
+		e1->tilemapPos.tileX = (AB_UINT32_MAX / 2) + 35;
+		e1->tilemapPos.tileY = (AB_UINT32_MAX / 2) + 40;
 		e1->accelerationAmount = 30.0f;
 		e1->size = V2(1.2f, 0.5f);
 		e1->color = V3(0.0f, 1.0f, 0.0f);
@@ -324,11 +328,11 @@ namespace AB
 			e->color = V3(r, g, b);
 			e->friction = 0.0f;
 
-			f32 x = (f32)(rand() % 30 * 5);
-			f32 y = (f32)(rand() % 30 * 5);
-			u32 highIndex = SetEntityToHigh(gameState, id);
-			HighEntity* high = GetHighEntity(gameState, highIndex);
-			high->velocity = V2(x, y);
+			//f32 x = (f32)(rand() % 30 * 5);
+			//f32 y = (f32)(rand() % 30 * 5);
+			//u32 highIndex = SetEntityToHigh(gameState, id);
+			//HighEntity* high = GetHighEntity(gameState, highIndex);
+			//high->velocity = V2(x, y);
 			
 			
 		}
@@ -536,7 +540,10 @@ namespace AB
 							  V3(minLine.x, 3.0f, minLine.y),
 							  V3(maxLine.x, 10.0f, maxLine.y),
 							  V3(0.8, 0.0, 0.0), 2.0f);
-			
+
+		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.tileX);
+		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.tileY);
+		
 		u32 minHighAreaX =
 			SafeSubU32I32(camera->targetWorldPos.tileX, cameraTileSpanX / 2);
 		u32 minHighAreaY = 

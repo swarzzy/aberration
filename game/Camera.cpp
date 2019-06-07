@@ -60,11 +60,12 @@ namespace AB
 								 AssetManager* assetManager,
 								 TilemapPosition origin)
 	{
-		u32 beginX = 0;
-		u32 beginY = 0;
+		
+		u32 beginX = origin.tileX - 64;
+		u32 beginY = origin.tileY - 64;
 
-		u32 endX = tilemap->chunkCountX * tilemap->chunkSizeInTiles;
-		u32 endY = tilemap->chunkCountY * tilemap->chunkSizeInTiles;
+		u32 endX = origin.tileX + 64;
+		u32 endY = origin.tileY + 64;
 
 		RenderCommandBeginDebugCubeInctancing begCommand = {};
 		begCommand.blendMode = BLEND_MODE_OPAQUE;

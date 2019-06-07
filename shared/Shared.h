@@ -47,7 +47,7 @@ typedef byte				b8;
 
 #define AB_API
 
-#define AB_UINT_MAX ((u32)(0xffffffff))
+#define AB_UINT32_MAX  ((u32)(0xffffffff))
 
 #define restrict __restrict
 
