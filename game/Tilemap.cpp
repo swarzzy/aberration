@@ -2,41 +2,44 @@
 
 namespace AB
 {
+	Tilemap*
+	CreateTilemap(MemoryArena* arena)
+	{
+		Tilemap* tilemap = nullptr;
+		tilemap = (Tilemap*)PushSize(arena, sizeof(Tilemap), alignof(Tilemap));
+		SetZeroScalar(Tilemap, tilemap);
+		
+		tilemap->chunkShift = 4;
+		tilemap->chunkMask = (1 << tilemap->chunkShift) - 1;
+		tilemap->chunkSizeInTiles = (1 << tilemap->chunkShift);
+		tilemap->chunkCountX = 8;
+		tilemap->chunkCountY = 8;
+		tilemap->tileSizeRaw = 3.0f;
+		tilemap->tileSizeInUnits = 1.0f;
+		tilemap->tileRadiusInUnits = 0.5f;
+		tilemap->toUnits = tilemap->tileSizeInUnits / tilemap->tileSizeRaw;
+		tilemap->unitsToRaw = tilemap->tileSizeRaw / tilemap->tileSizeInUnits;
+
+		for (u32 i = 0; i < CHUNK_TABLE_SIZE; i++)
+		{
+			tilemap->chunkTable[i].coord.x = INVALID_CHUNK_COORD;
+			tilemap->chunkTable[i].coord.y = INVALID_CHUNK_COORD;
+		}
+
+		return tilemap;
+	}
+	
 	inline void RecanonicalizeCoord(f32 tileSizeUnits,
-									u32* restrict tileCoord,
+									i32* restrict tileCoord,
 									f32* restrict coord)
 	{
 		i32 tileOffset = RoundF32I32(*coord / tileSizeUnits);
-		// TODO: Made this function branchless.
-		if (tileOffset < 0)
-		{
-			if ((AbsI32(tileOffset) > *tileCoord))
-			{
-				*tileCoord = 0;
-				*coord = -0.5f * tileSizeUnits;
-			}
-			else
-			{
-				*tileCoord += tileOffset;
-				*coord -= (f32)tileOffset * tileSizeUnits;				
-			}
-		}
-		else 
-		{
-			// NOTE: If u32 has an owerflow, then sum of the coord would
-			// be less than the coord itsef. It will be wrong if
-			// an overflowed sum will be equal to the coord
-			if (tileOffset + *tileCoord < (u32)(*tileCoord))
-			{
-				*tileCoord = 0xffffffff;
-				*coord = 0.5f * tileSizeUnits;
-			}
-			else
-			{
-				*tileCoord += tileOffset;
-				*coord -= (f32)tileOffset * tileSizeUnits;				
-			}
-		}
+		
+		AB_ASSERT(AbsI32(tileOffset) <
+				  ((AB_INT32_MAX - AbsI32(*tileCoord)) - TILEMAP_SAFE_MARGIN));
+
+		*tileCoord += tileOffset;
+		*coord -= (f32)tileOffset * tileSizeUnits;				
 	}
 
 	inline TilemapPosition
@@ -72,18 +75,20 @@ namespace AB
 	}
 
 	inline Chunk*
-	GetChunk(Tilemap* tilemap, u32 chunkX, u32 chunkY,
+	GetChunk(Tilemap* tilemap, i32 chunkX, i32 chunkY,
 			 MemoryArena* arena = nullptr)
 	{
 		Chunk* result = nullptr;
 		// TODO: Check is chunk coord are valid
-		u32 chunkHash = (chunkX * 22 + chunkY * 12) % CHUNK_TABLE_SIZE;
+		// TODO: Better hash function !!111
+		u32 chunkHash = (AbsI32(chunkX) * 22 + AbsI32(chunkY) * 12)
+			% CHUNK_TABLE_SIZE;
 		AB_ASSERT(chunkHash < CHUNK_TABLE_SIZE);
 
 		Chunk* currentChunk = tilemap->chunkTable + chunkHash;
 		if (currentChunk->coord.x != INVALID_CHUNK_COORD)
 		{
-			if (currentChunk->coord.x = chunkX && currentChunk->coord.y)
+			if (currentChunk->coord.x == chunkX && currentChunk->coord.y == chunkY)
 			{
 				result = currentChunk;
 			}
@@ -92,9 +97,11 @@ namespace AB
 				while (currentChunk->nextChunk)
 				{
 					Chunk* nextChunk = currentChunk->nextChunk;
-					if (nextChunk->coord.x = chunkX && nextChunk->coord.y)
+					if (nextChunk->coord.x == chunkX &&
+						nextChunk->coord.y == chunkY)
 					{
 						result = nextChunk;
+						break;
 					}
 					else
 					{
@@ -135,8 +142,8 @@ namespace AB
 		return result;
 	}
 
-	inline ChunkPosition GetChunkPosition(const Tilemap* tilemap, u32 absTileX,
-										  u32 absTileY)
+	inline ChunkPosition GetChunkPosition(const Tilemap* tilemap, i32 absTileX,
+										  i32 absTileY)
 	{
 		ChunkPosition result;
 		result.chunkX = absTileX >> tilemap->chunkShift;
@@ -148,8 +155,8 @@ namespace AB
 	}
 
 	inline TilemapPosition
-	GetTilemapPosition(Tilemap* tilemap, u32 chunkX, u32 chunkY,
-					   u32 relTileX, u32 relTileY)
+	GetTilemapPosition(Tilemap* tilemap, i32 chunkX, i32 chunkY,
+					   i32 relTileX, i32 relTileY)
 	{
 		TilemapPosition result = {};
 		result.tileX = chunkX * tilemap->chunkSizeInTiles;
@@ -169,22 +176,23 @@ namespace AB
 
 	
 	inline u32 GetTileValueInChunk(const Tilemap* tilemap, const Chunk* chunk,
-							u32 tileX, u32 tileY)
+								   u32 tileInChunkX, u32 tileInChunkY)
 	{
 		u32 result = 0;
 		
-		AB_ASSERT(tileX < tilemap->chunkSizeInTiles);
-		AB_ASSERT(tileY < tilemap->chunkSizeInTiles);
+		AB_ASSERT(tileInChunkX < tilemap->chunkSizeInTiles);
+		AB_ASSERT(tileInChunkY < tilemap->chunkSizeInTiles);
 		
 		if (chunk && chunk->tiles)
 		{
-			result = chunk->tiles[tileY * tilemap->chunkSizeInTiles + tileX];
+			result = chunk->tiles[tileInChunkY * tilemap->chunkSizeInTiles
+								  + tileInChunkX];
 		}
 		
 		return result;
 	}
 
-	inline u32 GetTileValue(Tilemap* tilemap, u32 absTileX, u32 absTileY)
+	inline u32 GetTileValue(Tilemap* tilemap, i32 absTileX, i32 absTileY)
 	{
 		u32 result = 0;
 		ChunkPosition chunkPos = GetChunkPosition(tilemap, absTileX, absTileY);
@@ -225,7 +233,7 @@ namespace AB
 	}
 
 	inline void SetTileValue(MemoryArena* arena, Tilemap* tilemap,
-							 u32 absTileX, u32 absTileY, u32 value)
+							 i32 absTileX, i32 absTileY, u32 value)
 	{
 		ChunkPosition cPos = GetChunkPosition(tilemap, absTileX, absTileY);
 		Chunk* chunk = GetChunk(tilemap, cPos.chunkX, cPos.chunkY);
@@ -240,7 +248,7 @@ namespace AB
 		return tileValue == 1;
 	}
 
-	inline TilemapPosition CenteredTilePoint(u32 tileX, u32 tileY)
+	inline TilemapPosition CenteredTilePoint(i32 tileX, i32 tileY)
 	{
 		TilemapPosition result = {};
 		result.tileX = tileX;
@@ -248,7 +256,7 @@ namespace AB
 		return result;
 	}
 
-	v2 TilemapPosDiff(const Tilemap* tilemap, const TilemapPosition* a, const TilemapPosition* b)
+	v2 TilemapPosDiff(Tilemap* tilemap, TilemapPosition* a, TilemapPosition* b)
 	{
 		v2 result;
 		// NOTE: Potential integer overflow

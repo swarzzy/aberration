@@ -4,11 +4,6 @@
 
 namespace AB
 {
-	struct World
-	{
-		Tilemap tilemap;
-	};
-
 	enum EntityResidence
 	{
 		ENTITY_RESIDENCE_NOT_EXIST = 0,
@@ -60,7 +55,7 @@ namespace AB
 		DirectionalLight dirLight;
 		//TilemapPosition playerP;
 		//v2 playerSpeed;
-		World* world;
+		Tilemap* tilemap;
 		v3 dirLightOffset;
 		//FrustumVertices camFrustum;
 		u32 entity;

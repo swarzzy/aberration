@@ -5,16 +5,16 @@ namespace AB
 {	
 	struct TilemapPosition
 	{
-		u32 tileX;
-		u32 tileY;
+		i32 tileX;
+		i32 tileY;
 		// NOTE: Realtive to tile
 		v2 offset;
 	};
 
 	struct ChunkPosition
 	{
-		u32 chunkX;
-		u32 chunkY;
+		i32 chunkX;
+		i32 chunkY;
 		u32 tileInChunkX;
 		u32 tileInChunkY;
 	};
@@ -27,7 +27,9 @@ namespace AB
 		Chunk* nextChunk;
 	};
 
-	const u32 INVALID_CHUNK_COORD = 0;
+	const i32 TILEMAP_SAFE_MARGIN = 16 * 16;
+	// TODO: @Important !!!! Safe margin and stuff
+	const u32 INVALID_CHUNK_COORD = AB_INT32_MAX;
 	const u32 CHUNK_TABLE_SIZE = 4096;
 
 	struct Tilemap

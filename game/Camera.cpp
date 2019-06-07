@@ -61,11 +61,11 @@ namespace AB
 								 TilemapPosition origin)
 	{
 		
-		u32 beginX = origin.tileX - 64;
-		u32 beginY = origin.tileY - 64;
+		i32 beginX = origin.tileX - 64;
+		i32 beginY = origin.tileY - 64;
 
-		u32 endX = origin.tileX + 64;
-		u32 endY = origin.tileY + 64;
+		i32 endX = origin.tileX + 64;
+		i32 endY = origin.tileY + 64;
 
 		RenderCommandBeginDebugCubeInctancing begCommand = {};
 		begCommand.blendMode = BLEND_MODE_OPAQUE;
@@ -75,9 +75,9 @@ namespace AB
 							   RENDER_COMMAND_BEGIN_DEBUG_CUBE_INSTANCING,
 							   (void*)(&begCommand));
 
-		for (u32 y = beginY; y < endY; y++)
+		for (i32 y = beginY; y < endY; y++)
 		{
-			for (u32 x = beginX; x < endX; x++)
+			for (i32 x = beginX; x < endX; x++)
 			{
 				DrawTileInstanced(tilemap, renderGroup,
 								  assetManager, origin,
@@ -127,13 +127,13 @@ namespace AB
 		v2 colliderSize = V2(tilemap->tileSizeInUnits,
 							 tilemap->tileSizeInUnits);
 
-		u32 colliderTileWidth = Ceil(colliderSize.x / tilemap->tileSizeInUnits);
-		u32 colliderTileHeight = Ceil(colliderSize.y / tilemap->tileSizeInUnits);
+		i32 colliderTileWidth = Ceil(colliderSize.x / tilemap->tileSizeInUnits);
+		i32 colliderTileHeight = Ceil(colliderSize.y / tilemap->tileSizeInUnits);
 
-		u32 minTileY = MINIMUM(begPos.tileY, rawNewPos.tileY);
-		u32 maxTileY = MAXIMUM(begPos.tileY, rawNewPos.tileY);
-		u32 minTileX = MINIMUM(begPos.tileX, rawNewPos.tileX);
-		u32 maxTileX = MAXIMUM(begPos.tileX, rawNewPos.tileX);
+		i32 minTileY = MINIMUM(begPos.tileY, rawNewPos.tileY);
+		i32 maxTileY = MAXIMUM(begPos.tileY, rawNewPos.tileY);
+		i32 minTileX = MINIMUM(begPos.tileX, rawNewPos.tileX);
+		i32 maxTileX = MAXIMUM(begPos.tileX, rawNewPos.tileX);
 
 		if (minTileY >= colliderTileHeight)
 		{
@@ -157,9 +157,9 @@ namespace AB
 
 			v2 wallNormal = V2(0.0f);
 			f32 tMin = 1.0f;
-			for (u32 tileY = minTileY; tileY <= maxTileY; tileY++)
+			for (i32 tileY = minTileY; tileY <= maxTileY; tileY++)
 			{
-				for (u32 tileX = minTileX; tileX <= maxTileX; tileX++)
+				for (i32 tileX = minTileX; tileX <= maxTileX; tileX++)
 				{
 					u32 tileValue = GetTileValue(tilemap, tileX, tileY);
 					TilemapPosition testTilePos = CenteredTilePoint(tileX, tileY);

@@ -20,7 +20,7 @@ namespace AB
 		return index;
 	}
 
-	u32 AddWallEntity(GameState* gameState, u32 tileX, u32 tileY)
+	u32 AddWallEntity(GameState* gameState, i32 tileX, i32 tileY)
 	{
 		AB_ASSERT(gameState->lowEntityCount < MAX_LOW_ENTITIES);
 		gameState->lowEntityCount++;
@@ -107,7 +107,7 @@ namespace AB
 				HighEntity* high =
 					gameState->highEntities + gameState->highEntityCount;
 
-				high->pos = TilemapPosDiff(&gameState->world->tilemap,
+				high->pos = TilemapPosDiff(gameState->tilemap,
 										   &low->tilemapPos,
 										   &gameState->camera.targetWorldPos);
 				high->velocity = V2(0.0f);
@@ -134,7 +134,7 @@ namespace AB
 		u32 currentEntityIndex = low->highIndex;
 
 		low->tilemapPos =
-			MapToTileSpace(&gameState->world->tilemap,
+			MapToTileSpace(gameState->tilemap,
 						   gameState->camera.targetWorldPos,
 						   high->pos);
 		low->highIndex = 0;
@@ -192,8 +192,8 @@ namespace AB
 		gameState->camera.nearPlane = 0.1f;
 		gameState->camera.farPlane = 200.0f;
 		
-		gameState->camera.targetWorldPos.tileX = (AB_UINT32_MAX / 2) + 16 * 2 + 3; // 
-		gameState->camera.targetWorldPos.tileY = (AB_UINT32_MAX / 2) + 16 * 2 + 3;
+		gameState->camera.targetWorldPos.tileX = 16 * 2 + 3;
+		gameState->camera.targetWorldPos.tileY = 16 * 2 + 3;
 		gameState->camera.targetWorldPos.offset.x = 1.0f;
 		gameState->camera.targetWorldPos.offset.y = 1.0f;
 
@@ -204,32 +204,19 @@ namespace AB
 		gameState->gamma = 2.2f;
 		gameState->exposure = 1.0f;
 
-		gameState->world = (World*)PushSize(arena, sizeof(World), alignof(World));
-		AB_ASSERT(gameState->world);
-
-		Tilemap* tilemap = &(gameState->world->tilemap);
-
-		tilemap->chunkShift = 4;
-		tilemap->chunkMask = (1 << tilemap->chunkShift) - 1;
-		tilemap->chunkSizeInTiles = (1 << tilemap->chunkShift);
-		tilemap->chunkCountX = 8;
-		tilemap->chunkCountY = 8;
-		tilemap->tileSizeRaw = 3.0f;
-		tilemap->tileSizeInUnits = 1.0f;
-		tilemap->tileRadiusInUnits = 0.5f;
-		tilemap->toUnits = tilemap->tileSizeInUnits / tilemap->tileSizeRaw;
-		tilemap->unitsToRaw = tilemap->tileSizeRaw / tilemap->tileSizeInUnits;
-
+		gameState->tilemap = CreateTilemap(arena);
+		Tilemap* tilemap = gameState->tilemap;
+	   
 		f32 r = 0.2f;
 		f32 g = 0.2f;
 		f32 b = 0.2f;
 		
-		for (u32 y = (AB_UINT32_MAX / 2);
-			 y < (AB_UINT32_MAX / 2) + tilemap->chunkCountY;
+		for (i32 y = -2;
+			 y < (i32)(tilemap->chunkCountY) - 2;
 			 y++)
 		{
-			for (u32 x = (AB_UINT32_MAX / 2);
-				 x < (AB_UINT32_MAX / 2) + tilemap->chunkCountX;
+			for (i32 x = -2;
+				 x < (i32)(tilemap->chunkCountX) -2;
 				 x++)
 			{
 				r = rand() % 11 / 10.0f;
@@ -240,11 +227,11 @@ namespace AB
 				{
 					for (u32 tileX = 0; tileX < tilemap->chunkSizeInTiles; tileX++)
 					{
-						if ((x == 1 && tileX == 0) ||
-							(x == tilemap->chunkCountX - 1 &&
+						if ((x == -2 && tileX == 0) ||
+							(x == tilemap->chunkCountX - 3 &&
 							 tileX == tilemap->chunkSizeInTiles - 1) ||
-							(y == 1 && tileY == 0) ||
-							(y == tilemap->chunkCountY - 1 &&
+							(y == -2 && tileY == 0) ||
+							(y == tilemap->chunkCountY - 3 &&
 							 tileY == tilemap->chunkSizeInTiles - 1))
 						{
 							SetTileValueInChunk(arena, tilemap, chunk,
@@ -268,10 +255,26 @@ namespace AB
 			}
 		}
 
+		{
+			Chunk* chunk = GetChunk(tilemap, -3, -4, arena);
+			for (u32 tileY = 0; tileY < tilemap->chunkSizeInTiles; tileY++)
+			{
+				for (u32 tileX = 0; tileX < tilemap->chunkSizeInTiles; tileX++)
+				{
+					SetTileValueInChunk(arena, tilemap, chunk,
+											tileX, tileY, 1);
+					SetTileColor(tilemap, chunk,
+								 tileX, tileY, V3(r, g ,b));
+
+				}
+			}
+
+		}
+
 		gameState->entity = AddLowEntity(gameState, ENTITY_TYPE_BODY);
 		LowEntity* e = GetLowEntity(gameState, gameState->entity);
-		e->tilemapPos.tileX = (AB_UINT32_MAX / 2) + 20;
-		e->tilemapPos.tileY = (AB_UINT32_MAX / 2) + 40;
+		e->tilemapPos.tileX = 20;
+		e->tilemapPos.tileY = 40;
 		e->accelerationAmount = 20.0f;
 		e->size = V2(1.5f, 3.0f);
 		e->color = V3(1.0f, 0.0f, 0.0f);
@@ -279,8 +282,8 @@ namespace AB
 		
 		gameState->entity1 = AddLowEntity(gameState, ENTITY_TYPE_BODY);
 		LowEntity* e1 = GetLowEntity(gameState, gameState->entity1);
-		e1->tilemapPos.tileX = (AB_UINT32_MAX / 2) + 35;
-		e1->tilemapPos.tileY = (AB_UINT32_MAX / 2) + 40;
+		e1->tilemapPos.tileX = 35;
+		e1->tilemapPos.tileY = 40;
 		e1->accelerationAmount = 30.0f;
 		e1->size = V2(1.2f, 0.5f);
 		e1->color = V3(0.0f, 1.0f, 0.0f);
@@ -361,7 +364,7 @@ namespace AB
 	void
 	EntityApplyMovement(GameState* gameState, Entity entity, v2 delta)
 	{
-		Tilemap* tilemap = &gameState->world->tilemap;
+		Tilemap* tilemap = gameState->tilemap;
 		v2 colliderSize = entity.low->size;
 
 		for (u32 pass = 0; pass < 4; pass++)
@@ -466,50 +469,50 @@ namespace AB
 
 		entity.high->velocity += acceleration * GlobalGameDeltaTime;
 		entity.low->tilemapPos =
-			MapToTileSpace(&gameState->world->tilemap,
+			MapToTileSpace(gameState->tilemap,
 						   gameState->camera.targetWorldPos,
 						   entity.high->pos);
 		
 	}
 
-	inline u32
-	SafeAddU32I32(u32 a, i32 b);
+	inline i32
+	SafeAddI32I32(i32 a, i32 b);
 	
 
-	inline u32
-	SafeSubU32I32(u32 a, i32 b)
+	inline i32
+	SafeSubI32I32(i32 a, i32 b)
 	{
-		u32 result = 0;
+		i32 result = 0;
 		if (b < 0)
 		{
-			result = SafeAddU32I32(a, -b);
+			result = SafeAddI32I32(a, -b);
 		}
 		else
 		{
 			result = a - b;
 			if (result > a)
 			{
-				result = 0;
+				result = AB_INT32_MIN;
 			}
 		}
 		
 		return result;
 	}
 
-	inline u32
-	SafeAddU32I32(u32 a, i32 b)
+	inline i32
+	SafeAddI32I32(i32 a, i32 b)
 	{
-		u32 result;
+		i32 result;
 		if (b < 0)
 		{
-			result = SafeSubU32I32(a, -b);
+			result = SafeSubI32I32(a, -b);
 		}
 		else
 		{
 			result = a + b;
 			if (result < a)
 			{
-				result = 0xffffffff;
+				result = AB_INT32_MAX;
 			}
 		}
 
@@ -544,14 +547,14 @@ namespace AB
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.tileX);
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.tileY);
 		
-		u32 minHighAreaX =
-			SafeSubU32I32(camera->targetWorldPos.tileX, cameraTileSpanX / 2);
-		u32 minHighAreaY = 
-			SafeSubU32I32(camera->targetWorldPos.tileY, cameraTileSpanY / 2);
-		u32 maxHighAreaX =
-			SafeAddU32I32(camera->targetWorldPos.tileX, cameraTileSpanX / 2);
-		u32 maxHighAreaY = 
-			SafeAddU32I32(camera->targetWorldPos.tileY, cameraTileSpanY / 2);
+		i32 minHighAreaX =
+			SafeSubI32I32(camera->targetWorldPos.tileX, cameraTileSpanX / 2);
+		i32 minHighAreaY = 
+			SafeSubI32I32(camera->targetWorldPos.tileY, cameraTileSpanY / 2);
+		i32 maxHighAreaX =
+			SafeAddI32I32(camera->targetWorldPos.tileX, cameraTileSpanX / 2);
+		i32 maxHighAreaY = 
+			SafeAddI32I32(camera->targetWorldPos.tileY, cameraTileSpanY / 2);
 
 		for (u32 index = 1; index <= gameState->highEntityCount;)
 		{
@@ -588,7 +591,7 @@ namespace AB
 				Renderer* renderer)
 	{
 		DEBUG_OVERLAY_SLIDER(g_Platform->gameSpeed, 0.0f, 10.0f);
-		Tilemap* tilemap = &gameState->world->tilemap;
+		Tilemap* tilemap = gameState->tilemap;
 		Camera* camera = &gameState->camera;
 
 		{
