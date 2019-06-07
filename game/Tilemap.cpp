@@ -71,16 +71,68 @@ namespace AB
 		return pos;
 	}
 
-	inline Chunk* GetChunk(const Tilemap* tilemap, u32 chunkX, u32 chunkY)
+	inline Chunk*
+	GetChunk(Tilemap* tilemap, u32 chunkX, u32 chunkY,
+			 MemoryArena* arena = nullptr)
 	{
-		Chunk* chunk = nullptr;
-		if (chunkX < tilemap->tilemapChunkCountX &&
-			chunkY < tilemap->tilemapChunkCountY)
+		Chunk* result = nullptr;
+		// TODO: Check is chunk coord are valid
+		u32 chunkHash = (chunkX * 22 + chunkY * 12) % CHUNK_TABLE_SIZE;
+		AB_ASSERT(chunkHash < CHUNK_TABLE_SIZE);
+
+		Chunk* currentChunk = tilemap->chunkTable + chunkHash;
+		if (currentChunk->coord.x != INVALID_CHUNK_COORD)
 		{
-			chunk =  &tilemap->chunks[chunkY * tilemap->tilemapChunkCountX +
-									  chunkX];
+			if (currentChunk->coord.x = chunkX && currentChunk->coord.y)
+			{
+				result = currentChunk;
+			}
+			else
+			{
+				while (currentChunk->nextChunk)
+				{
+					Chunk* nextChunk = currentChunk->nextChunk;
+					if (nextChunk->coord.x = chunkX && nextChunk->coord.y)
+					{
+						result = nextChunk;
+					}
+					else
+					{
+						currentChunk = currentChunk->nextChunk;
+					}
+				}
+			}
 		}
-		return chunk;
+
+		if (!result && arena)
+		{
+			Chunk* newChunk;
+			if (currentChunk->coord.x == INVALID_CHUNK_COORD)
+			{
+				newChunk = currentChunk;
+			}
+			else
+			{
+				newChunk = (Chunk*)PushSize(arena, sizeof(Chunk),
+												   alignof(Chunk));
+				currentChunk->nextChunk = newChunk;
+			}
+
+			// TODO: Store tiles directly in chunks
+			uptr tileMemSize = sizeof(u32)
+				* tilemap->chunkSizeInTiles * tilemap->chunkSizeInTiles;
+			uptr colorMemSize = sizeof(v3)
+				* tilemap->chunkSizeInTiles * tilemap->chunkSizeInTiles;
+			newChunk->tiles = (u32*)PushSize(arena, tileMemSize, 0);
+			newChunk->colors = (v3*)PushSize(arena, colorMemSize, 0);
+			newChunk->coord.x = chunkX;
+			newChunk->coord.y = chunkY;
+			newChunk->nextChunk = nullptr;
+
+			result = newChunk;
+		}
+		
+		return result;
 	}
 
 	inline ChunkPosition GetChunkPosition(const Tilemap* tilemap, u32 absTileX,
@@ -132,7 +184,7 @@ namespace AB
 		return result;
 	}
 
-	inline u32 GetTileValue(const Tilemap* tilemap, u32 absTileX, u32 absTileY)
+	inline u32 GetTileValue(Tilemap* tilemap, u32 absTileX, u32 absTileY)
 	{
 		u32 result = 0;
 		ChunkPosition chunkPos = GetChunkPosition(tilemap, absTileX, absTileY);
@@ -182,7 +234,7 @@ namespace AB
 							cPos.tileInChunkX, cPos.tileInChunkY, value);
 	}
 
-	b32 TestWorldPoint(const Tilemap* tilemap, TilemapPosition p)
+	b32 TestWorldPoint(Tilemap* tilemap, TilemapPosition p)
 	{
 		u32 tileValue = GetTileValue(tilemap, p.tileX, p.tileY);
 		return tileValue == 1;

@@ -216,7 +216,7 @@ GameUpdateAndRender(AB::MemoryArena* arena,
 	{
 		GameRender(arena, platform);
 	} break;
-	INVALID_DEFAULT_CASE
+	INVALID_DEFAULT_CASE();
 	}
 }
 

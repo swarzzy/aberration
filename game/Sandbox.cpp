@@ -9,92 +9,143 @@
 namespace AB
 {
 
-	u32 AddEntity(GameState* gameState, EntityType type)
+	u32 AddLowEntity(GameState* gameState, EntityType type)
 	{
-		AB_ASSERT(gameState->entityCount <= MAX_ENTITIES);
-		gameState->entityCount++;
-		auto index = gameState->entityCount;
-		gameState->entityResidence[index] =	ENTITY_RESIDENCE_DORMANT;
-		gameState->dormantEntities[index] = {};
-		gameState->dormantEntities[index].type = type;
+		AB_ASSERT(gameState->lowEntityCount < MAX_LOW_ENTITIES);
+		gameState->lowEntityCount++;
+		auto index = gameState->lowEntityCount;
 		gameState->lowEntities[index] = {};
-		gameState->highEntities[index] = {};
+		gameState->lowEntities[index].type = type;
 
 		return index;
 	}
 
 	u32 AddWallEntity(GameState* gameState, u32 tileX, u32 tileY)
 	{
-		AB_ASSERT(gameState->entityCount <= MAX_ENTITIES);
-		gameState->entityCount++;
-		auto index = gameState->entityCount;
-		gameState->entityResidence[index] =	ENTITY_RESIDENCE_DORMANT;
-		gameState->dormantEntities[index] = {
+		AB_ASSERT(gameState->lowEntityCount < MAX_LOW_ENTITIES);
+		gameState->lowEntityCount++;
+		auto index = gameState->lowEntityCount;
+		gameState->lowEntities[index] = {
 			ENTITY_TYPE_WALL,
 			CenteredTilePoint(tileX, tileY),
 			0.0f,
 			V2(1.0f),
-			V3(1.0f, 0.0f, 1.0f)
+			V3(1.0f, 0.0f, 1.0f),
 		};
-		gameState->lowEntities[index] = {};
-		gameState->highEntities[index] = {};
-
 		return index;
 	}
 
-
-	static void
-	ChangeEntityResidence(GameState* gameState, u32 index,
-						  EntityResidence residence)
+	inline LowEntity*
+	GetLowEntity(GameState* gameState, u32 lowIndex)
 	{
-		if (residence == ENTITY_RESIDENCE_HIGH)
+		LowEntity* result = nullptr;
+		if (lowIndex > 0 && lowIndex <= gameState->lowEntityCount)
 		{
-			if (gameState->entityResidence[index] != ENTITY_RESIDENCE_HIGH)
+			result = gameState->lowEntities + lowIndex;
+		}
+		return result;		
+	}
+
+	inline HighEntity*
+	GetHighEntity(GameState* gameState, u32 highIndex)
+	{
+		HighEntity* result = nullptr;
+		if (highIndex > 0 && highIndex <= gameState->highEntityCount)
+		{
+			result = gameState->highEntities + highIndex;
+		}
+		return result;
+	}	
+
+	inline Entity
+	GetEntityFromLowIndex(GameState* gameState, u32 lowIndex)
+	{
+		Entity result = {};
+		if (lowIndex > 0 && lowIndex <= gameState->lowEntityCount)
+		{
+			result.low = gameState->lowEntities + lowIndex;
+			result.lowIndex = lowIndex;
+			
+			u32 highIndex = result.low->highIndex;
+			
+			if (highIndex > 0 && highIndex <= gameState->highEntityCount)
 			{
-				HighEntity* high = &gameState->highEntities[index];
-				DormantEntity* dormant = &gameState->dormantEntities[index];
+				result.high = gameState->highEntities + highIndex;
+			}
+		}
+		
+		return result;
+	}
+
+	inline Entity
+	GetEntityFromHighIndex(GameState* gameState, u32 highIndex)
+	{
+		Entity result = {};
+		if (highIndex > 0 && highIndex <= gameState->highEntityCount)
+		{
+			result.high = gameState->highEntities + highIndex;
+			result.lowIndex = result.high->lowIndex;
+			result.low = gameState->lowEntities + result.lowIndex;
+		}
+		
+		return result;
+	}
+
+
+	u32
+	SetEntityToHigh(GameState* gameState, u32 lowIndex)
+	{
+		AB_ASSERT(lowIndex < MAX_LOW_ENTITIES);
+		u32 result = 0;
+		LowEntity* low = gameState->lowEntities + lowIndex;
+		if (!low->highIndex)
+		{
+			if (gameState->highEntityCount < MAX_HIGH_ENTITIES)
+			{
+				gameState->highEntityCount++;				
+
+				HighEntity* high =
+					gameState->highEntities + gameState->highEntityCount;
 
 				high->pos = TilemapPosDiff(&gameState->world->tilemap,
-										   &dormant->tilemapPos,
+										   &low->tilemapPos,
 										   &gameState->camera.targetWorldPos);
 				high->velocity = V2(0.0f);
+				high->lowIndex = lowIndex;
+				low->highIndex = gameState->highEntityCount;
+				result = gameState->highEntityCount;
 			}
-		}
-		else if (residence == ENTITY_RESIDENCE_DORMANT)
-		{
-			if (gameState->entityResidence[index] == ENTITY_RESIDENCE_HIGH)
+			else
 			{
-				if (gameState->entityResidence[index] != ENTITY_RESIDENCE_HIGH)
-				{
-					HighEntity* high = &gameState->highEntities[index];
-					DormantEntity* dormant = &gameState->dormantEntities[index];
-
-					dormant->tilemapPos =
-						MapToTileSpace(&gameState->world->tilemap,
-									   gameState->camera.targetWorldPos,
-									   high->pos);
-
-				}
+				INVALID_CODE_PATH();
 			}
 		}
-		gameState->entityResidence[index] = residence;		
+		return result;
 	}
-	
-	inline Entity
-	GetEntity(GameState* gameState, u32 index, EntityResidence residence)
+
+	void
+	SetEntityToLow(GameState* gameState, u32 highIndex)
 	{
-		Entity entity = {};
+		AB_ASSERT(highIndex < MAX_HIGH_ENTITIES);
+		HighEntity* high = GetHighEntity(gameState, highIndex);
+		LowEntity* low = GetLowEntity(gameState, high->lowIndex);
 
-		if (index > 0 && index <= gameState->entityCount)
+		u32 lastEntityIndex = gameState->highEntityCount;
+		u32 currentEntityIndex = low->highIndex;
+
+		low->tilemapPos =
+			MapToTileSpace(&gameState->world->tilemap,
+						   gameState->camera.targetWorldPos,
+						   high->pos);
+		low->highIndex = 0;
+
+		if (!(currentEntityIndex == lastEntityIndex))
 		{
-			ChangeEntityResidence(gameState, index, residence);
-			entity.residence = residence;
-			entity.low = &gameState->lowEntities[index];
-			entity.high = &gameState->highEntities[index];
-			entity.dormant = &gameState->dormantEntities[index];
+			Entity lastEntity = GetEntityFromHighIndex(gameState, lastEntityIndex);
+			*(high) = *(lastEntity.high);
+			lastEntity.low->highIndex = currentEntityIndex;
 		}
-
-		return entity;
+		gameState->highEntityCount--;
 	}
 	
 	void Init(MemoryArena* arena,
@@ -161,42 +212,35 @@ namespace AB
 		tilemap->chunkShift = 4;
 		tilemap->chunkMask = (1 << tilemap->chunkShift) - 1;
 		tilemap->chunkSizeInTiles = (1 << tilemap->chunkShift);
-		tilemap->tilemapChunkCountX = 8;
-		tilemap->tilemapChunkCountY = 8;
+		tilemap->chunkCountX = 8;
+		tilemap->chunkCountY = 8;
 		tilemap->tileSizeRaw = 3.0f;
 		tilemap->tileSizeInUnits = 1.0f;
 		tilemap->tileRadiusInUnits = 0.5f;
 		tilemap->toUnits = tilemap->tileSizeInUnits / tilemap->tileSizeRaw;
 		tilemap->unitsToRaw = tilemap->tileSizeRaw / tilemap->tileSizeInUnits;
 
-		tilemap->chunks = (Chunk*)PushSize(arena,
-										   tilemap->tilemapChunkCountX *
-										   tilemap->tilemapChunkCountY *
-										   sizeof(Chunk),
-										   0);
-		AB_ASSERT(tilemap->chunks);
-
 		f32 r = 0.2f;
 		f32 g = 0.2f;
 		f32 b = 0.2f;
 		
-		for (u32 y = 1; y < tilemap->tilemapChunkCountY; y++)
+		for (u32 y = 1; y < tilemap->chunkCountY; y++)
 		{
-			for (u32 x = 1; x < tilemap->tilemapChunkCountX; x++)
+			for (u32 x = 1; x < tilemap->chunkCountX; x++)
 			{
 				r = rand() % 11 / 10.0f;
 				g = rand() % 11 / 10.0f;
 				b = rand() % 11 / 10.0f;
-				Chunk* chunk = GetChunk(tilemap, x, y);
+				Chunk* chunk = GetChunk(tilemap, x, y, arena);
 				for (u32 tileY = 0; tileY < tilemap->chunkSizeInTiles; tileY++)
 				{
 					for (u32 tileX = 0; tileX < tilemap->chunkSizeInTiles; tileX++)
 					{
 						if ((x == 1 && tileX == 0) ||
-							(x == tilemap->tilemapChunkCountX - 1 &&
+							(x == tilemap->chunkCountX - 1 &&
 							 tileX == tilemap->chunkSizeInTiles - 1) ||
 							(y == 1 && tileY == 0) ||
-							(y == tilemap->tilemapChunkCountY - 1 &&
+							(y == tilemap->chunkCountY - 1 &&
 							 tileY == tilemap->chunkSizeInTiles - 1))
 						{
 							SetTileValueInChunk(arena, tilemap, chunk,
@@ -220,70 +264,71 @@ namespace AB
 			}
 		}
 
-		gameState->entity = AddEntity(gameState, ENTITY_TYPE_BODY);
-		Entity e = GetEntity(gameState, gameState->entity, ENTITY_RESIDENCE_DORMANT);
-		e.dormant->tilemapPos.tileX = 20;
-		e.dormant->tilemapPos.tileY = 40;
-		e.dormant->accelerationAmount = 20.0f;
-		e.dormant->size = V2(1.5f, 3.0f);
-		e.dormant->color = V3(1.0f, 0.0f, 0.0f);
-		e.dormant->friction = 0.0f;
+		gameState->entity = AddLowEntity(gameState, ENTITY_TYPE_BODY);
+		LowEntity* e = GetLowEntity(gameState, gameState->entity);
+		e->tilemapPos.tileX = 20;
+		e->tilemapPos.tileY = 40;
+		e->accelerationAmount = 20.0f;
+		e->size = V2(1.5f, 3.0f);
+		e->color = V3(1.0f, 0.0f, 0.0f);
+		e->friction = 0.0f;
 		
-		gameState->entity1 = AddEntity(gameState, ENTITY_TYPE_BODY);
-		Entity e1 = GetEntity(gameState, gameState->entity1, ENTITY_RESIDENCE_DORMANT);
-		e1.dormant->tilemapPos.tileX = 35;
-		e1.dormant->tilemapPos.tileY = 40;
-		e1.dormant->accelerationAmount = 30.0f;
-		e1.dormant->size = V2(1.2f, 0.5f);
-		e1.dormant->color = V3(0.0f, 1.0f, 0.0f);
-		e1.dormant->friction = 0.0f;
-		e1.dormant->type = ENTITY_TYPE_BODY;
+		gameState->entity1 = AddLowEntity(gameState, ENTITY_TYPE_BODY);
+		LowEntity* e1 = GetLowEntity(gameState, gameState->entity1);
+		e1->tilemapPos.tileX = 35;
+		e1->tilemapPos.tileY = 40;
+		e1->accelerationAmount = 30.0f;
+		e1->size = V2(1.2f, 0.5f);
+		e1->color = V3(0.0f, 1.0f, 0.0f);
+		e1->friction = 0.0f;
+		e1->type = ENTITY_TYPE_BODY;
 
 	
-		for (u32 i = 0; i < 128; i++)
+		for (u32 i = 0; i < MOVING_ENTITIES_COUNT; i++)
 		{
-			u32 id = AddEntity(gameState, ENTITY_TYPE_BODY);
+			u32 id = AddLowEntity(gameState, ENTITY_TYPE_BODY);
 			gameState->movingEntities[i] = id; 
-			Entity e = GetEntity(gameState, id, ENTITY_RESIDENCE_DORMANT);
+			LowEntity* e = GetLowEntity(gameState, id);
 			if (i < 32)
 			{
-				e.dormant->tilemapPos.tileX = i + 18 + i * 2;
-				e.dormant->tilemapPos.tileY = i + 18 + i * 2;
+				e->tilemapPos.tileX = i + 18 + i * 2;
+				e->tilemapPos.tileY = i + 18 + i * 2;
 			}
 			else if (i < 64)
 			{
-				e.dormant->tilemapPos.tileX = ((i - 32) + 18 + (i - 32) * 2) + 4;
-				e.dormant->tilemapPos.tileY = (i - 32) + 18 + (i - 32) * 2;
+				e->tilemapPos.tileX = ((i - 32) + 18 + (i - 32) * 2) + 4;
+				e->tilemapPos.tileY = (i - 32) + 18 + (i - 32) * 2;
 			}
 			else if (i < 96)
 			{
-				e.dormant->tilemapPos.tileX = ((i - 64) + 18 + (i - 64) * 2) - 4;
-				e.dormant->tilemapPos.tileY = (i - 64) + 18 + (i - 64) * 2;
+				e->tilemapPos.tileX = ((i - 64) + 18 + (i - 64) * 2) - 4;
+				e->tilemapPos.tileY = (i - 64) + 18 + (i - 64) * 2;
 			}
 			else
 			{
-				e.dormant->tilemapPos.tileX = ((i - 96) + 18 + (i - 96) * 2) - 7;
-				e.dormant->tilemapPos.tileY = (i - 96) + 18 + (i - 96) * 2;				
+				e->tilemapPos.tileX = ((i - 96) + 18 + (i - 96) * 2) - 7;
+				e->tilemapPos.tileY = (i - 96) + 18 + (i - 96) * 2;				
 			}
 			
-			e.dormant->accelerationAmount = 30.0f;
+			e->accelerationAmount = 30.0f;
 
 			f32 w = (f32)(rand() % 22 / 10.0f);
 			f32 h = (f32)(rand() % 22 / 10.0f);
 
-			e.dormant->size = V2(w, h);
+			e->size = V2(w, h);
 
 			r = rand() % 11 / 10.0f;
 			g = rand() % 11 / 10.0f;
 			b = rand() % 11 / 10.0f;
 			
-			e.dormant->color = V3(r, g, b);
-			e.dormant->friction = 0.0f;
+			e->color = V3(r, g, b);
+			e->friction = 0.0f;
 
 			f32 x = (f32)(rand() % 30 * 5);
 			f32 y = (f32)(rand() % 30 * 5);
-			e = GetEntity(gameState, id, ENTITY_RESIDENCE_HIGH);
-			e.high->velocity = V2(x, y);
+			u32 highIndex = SetEntityToHigh(gameState, id);
+			HighEntity* high = GetHighEntity(gameState, highIndex);
+			high->velocity = V2(x, y);
 			
 			
 		}
@@ -300,11 +345,11 @@ namespace AB
 		pos.y = tilemap->tileSizeRaw;
 
 		v3 scale = V3(0.0f);
-		scale.x = tilemap->unitsToRaw * 0.5f * entity.dormant->size.x;
-		scale.z = tilemap->unitsToRaw * 0.5f * entity.dormant->size.y;
+		scale.x = tilemap->unitsToRaw * 0.5f * entity.low->size.x;
+		scale.z = tilemap->unitsToRaw * 0.5f * entity.low->size.y;
 		scale.y = tilemap->unitsToRaw * 0.5f;
 
-		v3 color = entity.dormant->color;
+		v3 color = entity.low->color;
 		
 		DrawDebugCube(renderGroup, assetManager, pos, scale, color);
 	}
@@ -313,7 +358,7 @@ namespace AB
 	EntityApplyMovement(GameState* gameState, Entity entity, v2 delta)
 	{
 		Tilemap* tilemap = &gameState->world->tilemap;
-		v2 colliderSize = entity.dormant->size;
+		v2 colliderSize = entity.low->size;
 
 		for (u32 pass = 0; pass < 4; pass++)
 		{
@@ -322,23 +367,25 @@ namespace AB
 			u32 hitEntityIndex = 0;
 			v2 targetPosition = entity.high->pos + delta;
 
+			// NOTE: Not testing against low enitties. So that is why objects can
+			// go through each other on the edges of the high area
 			for (u32 testEntityIndex = 1;
-				 testEntityIndex <= gameState->entityCount;
+				 testEntityIndex <= gameState->highEntityCount;
 				 testEntityIndex++)
 			{
 #if 1
-				Entity testEntity = GetEntity(gameState, testEntityIndex,
-											  ENTITY_RESIDENCE_HIGH);
+				HighEntity* testHigh = GetHighEntity(gameState, testEntityIndex);
+				LowEntity* testLow = GetLowEntity(gameState, testHigh->lowIndex);
 				
-				if (entity.high != testEntity.high)
+				if (entity.high != testHigh)
 				{
-					v2 minCorner = -0.5f * testEntity.dormant->size;
-					v2 maxCorner = 0.5f * testEntity.dormant->size;
+					v2 minCorner = -0.5f * testLow->size;
+					v2 maxCorner = 0.5f * testLow->size;
 					// NOTE: Minkowski sum
 					minCorner += colliderSize * -0.5f;
 					maxCorner += colliderSize * 0.5f;
 					v2 relOldPos = entity.high->pos
-						- testEntity.high->pos;
+						- testHigh->pos;
 
 					if (TestWall(minCorner.x, relOldPos.x,
 								 relOldPos.y, delta.x,
@@ -399,10 +446,10 @@ namespace AB
 	void
 	MoveEntity(GameState* gameState, Entity entity, v2 acceleration)
 	{
-		f32 speed = entity.dormant->accelerationAmount;
+		f32 speed = entity.low->accelerationAmount;
 		acceleration *= speed;
 
-		f32 friction = entity.dormant->friction;
+		f32 friction = entity.low->friction;
 		acceleration = acceleration - entity.high->velocity * friction;
 
 		v2 movementDelta;
@@ -414,7 +461,7 @@ namespace AB
 		EntityApplyMovement(gameState, entity, movementDelta);
 
 		entity.high->velocity += acceleration * GlobalGameDeltaTime;
-		entity.dormant->tilemapPos =
+		entity.low->tilemapPos =
 			MapToTileSpace(&gameState->world->tilemap,
 						   gameState->camera.targetWorldPos,
 						   entity.high->pos);
@@ -465,13 +512,15 @@ namespace AB
 		return result;
 	}
 
-	void MoveCamera(GameState* gameState, Camera* camera, Tilemap* tilemap, AssetManager* assetManager)
+	void
+	MoveCamera(GameState* gameState, Camera* camera, Tilemap* tilemap,
+			   AssetManager* assetManager)
 	{
 		v2 entityFrameOffset = -MoveCameraTarget(&gameState->camera, tilemap);
 		UpdateCamera(camera, gameState->renderGroup, tilemap);
 
-		i32 cameraTileSpanX = 220;
-		i32 cameraTileSpanY = 220;
+		i32 cameraTileSpanX = 50;
+		i32 cameraTileSpanY = 50;
 
 		v2 min = V2(-cameraTileSpanX / 2 * tilemap->tileSizeInUnits,
 					-cameraTileSpanY / 2 * tilemap->tileSizeInUnits);
@@ -497,33 +546,34 @@ namespace AB
 		u32 maxHighAreaY = 
 			SafeAddU32I32(camera->targetWorldPos.tileY, cameraTileSpanY / 2);
 
-		for (u32 i = 1; i <= gameState->entityCount; i++)
+		for (u32 index = 1; index <= gameState->highEntityCount;)
 		{
-			if (gameState->entityResidence[i] == ENTITY_RESIDENCE_HIGH)
-			{
-				Entity entity = GetEntity(gameState, i, ENTITY_RESIDENCE_HIGH);
-				entity.high->pos += entityFrameOffset;
+			HighEntity* entity = GetHighEntity(gameState, index);
+			entity->pos += entityFrameOffset;
 
-				if (!Contains(highArea, entity.high->pos))
-				{
-					ChangeEntityResidence(gameState, i,
-										  ENTITY_RESIDENCE_DORMANT);
-				}
-			} 
-			else if (gameState->entityResidence[i] == ENTITY_RESIDENCE_DORMANT)
+			if (!Contains(highArea, entity->pos))
 			{
-				Entity entity = GetEntity(gameState, i,
-										  ENTITY_RESIDENCE_DORMANT);
-				if ((entity.dormant->tilemapPos.tileX >= minHighAreaX) &&
-					(entity.dormant->tilemapPos.tileX <= maxHighAreaX) &&
-					(entity.dormant->tilemapPos.tileY >= minHighAreaY) &&
-					(entity.dormant->tilemapPos.tileY <= maxHighAreaY))
-				{
-					ChangeEntityResidence(gameState, i,
-										  ENTITY_RESIDENCE_HIGH);	
-				}
+				SetEntityToLow(gameState, index);
+			}
+			else
+			{
+				index++;
 			}
 		}		
+
+		for (u32 index = 1; index <= gameState->lowEntityCount; index++)
+		{
+			LowEntity* entity = GetLowEntity(gameState, index);
+			if ((entity->tilemapPos.tileX > minHighAreaX) &&
+				(entity->tilemapPos.tileX < maxHighAreaX) &&
+				(entity->tilemapPos.tileY > minHighAreaY) &&
+				(entity->tilemapPos.tileY < maxHighAreaY))
+			{
+				SetEntityToHigh(gameState, index);	
+			}
+		}
+		DEBUG_OVERLAY_TRACE_VAR(gameState->lowEntityCount);
+		DEBUG_OVERLAY_TRACE_VAR(gameState->highEntityCount);
 	}
 
 	void Render(GameState* gameState,
@@ -538,30 +588,27 @@ namespace AB
 
 			MoveCamera(gameState, camera, tilemap, assetManager);
 			
-			for (u32 i = 1; i <= gameState->entityCount; i++)
+			for (u32 index = 1; index <= gameState->highEntityCount; index++)
 			{
-				if (gameState->entityResidence[i] == ENTITY_RESIDENCE_HIGH)
-				{
-					Entity entity = GetEntity(gameState, i, ENTITY_RESIDENCE_HIGH);
+				Entity entity = GetEntityFromHighIndex(gameState, index);
 
-					if (entity.dormant->type == ENTITY_TYPE_BODY)
-					{
-						MoveEntity(gameState, entity, V2(0.0f));
-					}
+				if (entity.low->type == ENTITY_TYPE_BODY)
+				{
+					MoveEntity(gameState, entity, V2(0.0f));
+				}
 				
-					DrawEntity(tilemap, gameState->renderGroup,
-							   assetManager, entity);
-				} 
+				DrawEntity(tilemap, gameState->renderGroup,
+						   assetManager, entity);
 			}
 		}
 
-		Entity entity = GetEntity(gameState, gameState->entity,
-								  ENTITY_RESIDENCE_HIGH);
+		//SetEntityToHigh(gameState, gameState->entity);
+		//SetEntityToHigh(gameState, gameState->entity1);
+		Entity entity = GetEntityFromLowIndex(gameState, gameState->entity);
 		
-		Entity entity1 = GetEntity(gameState, gameState->entity1,
-								   ENTITY_RESIDENCE_HIGH);
+		Entity entity1 = GetEntityFromLowIndex(gameState, gameState->entity1);
 
-		
+		if (entity.high)
 		{ // Enitity 0 movement code
 			v3 _frontDir = V3(camera->front.x, 0.0f, camera->front.z);
 			v3 _rightDir = Cross(V3(0.0f, 1.0f, 0.0f), _frontDir);
@@ -593,6 +640,7 @@ namespace AB
 			MoveEntity(gameState, entity, acceleration);
 		}
 
+		if (entity1.high)
 		{ // Enitity 1 movement code
 			v3 _frontDir = V3(camera->front.x, 0.0f, camera->front.z);
 			v3 _rightDir = Cross(V3(0.0f, 1.0f, 0.0f), _frontDir);
@@ -1415,5 +1463,55 @@ void DrawWorld(Tilemap* tilemap, RenderGroup* renderGroup,
 
 	}
 
+	static void
+	ChangeEntityResidence(GameState* gameState, u32 index,
+						  EntityResidence residence)
+	{
+		if (residence == ENTITY_RESIDENCE_HIGH)
+		{
+			if (gameState->entityResidence[index] != ENTITY_RESIDENCE_HIGH)
+			{
+				HighEntity* high = &gameState->highEntities[index];
+				LowEntity* low = &gameState->lowEntities[index];
+
+				high->pos = TilemapPosDiff(&gameState->world->tilemap,
+										   &low->tilemapPos,
+										   &gameState->camera.targetWorldPos);
+				high->velocity = V2(0.0f);
+			}
+		}
+		else if (residence == ENTITY_RESIDENCE_LOW)
+		{
+			if (gameState->entityResidence[index] == ENTITY_RESIDENCE_HIGH)
+			{
+				HighEntity* high = &gameState->highEntities[index];
+				LowEntity* low = &gameState->lowEntities[index];
+
+				low->tilemapPos =
+					MapToTileSpace(&gameState->world->tilemap,
+								   gameState->camera.targetWorldPos,
+								   high->pos);
+
+			}
+		}
+		gameState->entityResidence[index] = residence;		
+	}
+
+inline Entity
+GetEntity(GameState* gameState, u32 index, EntityResidence residence)
+{
+	Entity entity = {};
+
+	if (index > 0 && index <= gameState->entityCount)
+	{
+		ChangeEntityResidence(gameState, index, residence);
+		entity.residence = residence;
+		entity.low = &gameState->lowEntities[index];
+		entity.high = &gameState->highEntities[index];
+	}
+
+	return entity;
+}
 	
+		
 #endif

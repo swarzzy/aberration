@@ -778,7 +778,7 @@ out vec4 out_FragColor;
 					
 		} break;
 		
-		INVALID_DEFAULT_CASE
+		INVALID_DEFAULT_CASE();
 		}
 			
 		if (result.blendMode == BLEND_MODE_OPAQUE)
@@ -794,7 +794,7 @@ out vec4 out_FragColor;
 
 		} else
 		{
-			INVALID_CODE_PATH
+			INVALID_CODE_PATH();
 		}
 
 		return result;
@@ -1069,7 +1069,7 @@ out vec4 out_FragColor;
 				}
 				else
 				{
-					INVALID_CODE_PATH
+					INVALID_CODE_PATH();
 				}
 				GLCall(glDrawArrays(glLineType, 0, vertexCount));
 			}
@@ -1101,8 +1101,8 @@ out vec4 out_FragColor;
 
 					} else
 					{
-						INVALID_CODE_PATH
-							}
+						INVALID_CODE_PATH();
+					}
 
 					Mesh* mesh = AB::AssetGetMeshData(assetManager, meshHandle);
 

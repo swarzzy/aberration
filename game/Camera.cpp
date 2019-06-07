@@ -39,6 +39,11 @@ namespace AB
 
 				Chunk* chunk = GetChunk(tilemap, chunkTile.chunkX,
 										chunkTile.chunkY);
+				// TODO: Temporary
+				if (chunk == nullptr)
+				{
+					return;
+				}
 				color = GetTileColor(tilemap,  chunk, chunkTile.tileInChunkX,
 									 chunkTile.tileInChunkY);
 			}
@@ -58,8 +63,8 @@ namespace AB
 		u32 beginX = 0;
 		u32 beginY = 0;
 
-		u32 endX = tilemap->tilemapChunkCountX * tilemap->chunkSizeInTiles;
-		u32 endY = tilemap->tilemapChunkCountY * tilemap->chunkSizeInTiles;
+		u32 endX = tilemap->chunkCountX * tilemap->chunkSizeInTiles;
+		u32 endY = tilemap->chunkCountY * tilemap->chunkSizeInTiles;
 
 		RenderCommandBeginDebugCubeInctancing begCommand = {};
 		begCommand.blendMode = BLEND_MODE_OPAQUE;

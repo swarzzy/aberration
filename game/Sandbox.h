@@ -13,8 +13,7 @@ namespace AB
 	{
 		ENTITY_RESIDENCE_NOT_EXIST = 0,
 		ENTITY_RESIDENCE_HIGH,
-		ENTITY_RESIDENCE_LOW,
-		ENTITY_RESIDENCE_DORMANT,
+		ENTITY_RESIDENCE_LOW
 	};
 
 	enum EntityType
@@ -22,19 +21,7 @@ namespace AB
 		ENTITY_TYPE_BODY,
 		ENTITY_TYPE_WALL
 	};
-	
-	struct HighEntity
-	{
-		v2 pos;
-		v2 velocity;
-	};
-
 	struct LowEntity
-	{
-		
-	};
-
-	struct DormantEntity
 	{
 		EntityType type;
 		TilemapPosition tilemapPos;
@@ -42,14 +29,22 @@ namespace AB
 		v2 size;
 		v3 color;
 		f32 friction;
+		u32 highIndex;
+	};
+
+	// TODO: 
+	struct HighEntity
+	{
+		v2 pos;
+		v2 velocity;
+		u32 lowIndex;
 	};
 
 	struct Entity
 	{
-		EntityResidence residence;
+		u32 lowIndex;
 		HighEntity* high;
 		LowEntity* low;
-		DormantEntity* dormant;
 	};
 
 
@@ -70,16 +65,17 @@ namespace AB
 		//FrustumVertices camFrustum;
 		u32 entity;
 		u32 entity1;
+#define MOVING_ENTITIES_COUNT 32 // 128 max
+		u32 movingEntities[MOVING_ENTITIES_COUNT];
 
-		u32 movingEntities[128];
 
-		u32 entityCount;
-
-#define MAX_ENTITIES 1024
-		EntityResidence entityResidence[MAX_ENTITIES];
-		HighEntity highEntities[MAX_ENTITIES];
-		LowEntity lowEntities[MAX_ENTITIES];
-		DormantEntity dormantEntities[MAX_ENTITIES];
+#define MAX_LOW_ENTITIES 1024
+#define MAX_HIGH_ENTITIES 512
+		EntityResidence entityResidence[MAX_LOW_ENTITIES];
+		u32 lowEntityCount;
+		u32 highEntityCount;
+		HighEntity highEntities[MAX_HIGH_ENTITIES];
+		LowEntity lowEntities[MAX_LOW_ENTITIES];
 	};
 
 	void Init(MemoryArena* arena,

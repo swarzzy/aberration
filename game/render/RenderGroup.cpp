@@ -428,7 +428,7 @@ namespace AB
 			group->lineBatchCount = 0;
 		} break;
  
-		INVALID_DEFAULT_CASE
+		INVALID_DEFAULT_CASE();
 		}
 	}
 

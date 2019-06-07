@@ -21,9 +21,14 @@ namespace AB
 
 	struct Chunk
 	{
+		v2u coord;
 		u32* tiles;
 		v3* colors;
+		Chunk* nextChunk;
 	};
+
+	const u32 INVALID_CHUNK_COORD = 0;
+	const u32 CHUNK_TABLE_SIZE = 4096;
 
 	struct Tilemap
 	{
@@ -37,9 +42,9 @@ namespace AB
 		u32 chunkMask;
 
 		u32 chunkSizeInTiles;
-		u32 tilemapChunkCountX;
-		u32 tilemapChunkCountY;
+		u32 chunkCountX;
+		u32 chunkCountY;
 		
-		Chunk* chunks;
+		Chunk chunkTable[CHUNK_TABLE_SIZE];
 	};
 }
