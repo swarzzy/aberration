@@ -599,35 +599,30 @@ namespace AB
 		v2 entityFrameOffset = -MoveCameraTarget(&gameState->camera, world);
 		UpdateCamera(camera, gameState->renderGroup, world);
 
-		i32 cameraTileSpanX = 64;
-		i32 cameraTileSpanY = 64;
-		
-		v2 min = V2(-cameraTileSpanX / 2 * world->tileSizeInUnits,
-					-cameraTileSpanY / 2 * world->tileSizeInUnits);
-		v2 max = V2(cameraTileSpanX / 2 * world->tileSizeInUnits,
-					cameraTileSpanY / 2 * world->tileSizeInUnits);
+		i32 highAreaChunkSpanX = 1;
+		i32 highAreaChunkSpanY = 1;
 
-		v2 minLine = min * world->unitsToRaw;
-		v2 maxLine = max * world->unitsToRaw;
-
-		Rectangle highArea = {min, max};
-
-		DrawAlignedBoxOutline(gameState->renderGroup, assetManager,
-							  V3(minLine.x, 3.0f, minLine.y),
-							  V3(maxLine.x, 10.0f, maxLine.y),
-							  V3(0.8, 0.0, 0.0), 2.0f);
+		i32 minChunkX = camera->targetWorldPos.chunkX - highAreaChunkSpanX;
+		i32 minChunkY = camera->targetWorldPos.chunkY - highAreaChunkSpanY;
+		i32 maxChunkX = camera->targetWorldPos.chunkX + highAreaChunkSpanX;
+		i32 maxChunkY = camera->targetWorldPos.chunkY + highAreaChunkSpanY;
 
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.chunkX);
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.chunkY);
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.offset.x);
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.offset.y);
-		
+
 		for (u32 index = 1; index <= gameState->highEntityCount;)
 		{
-			HighEntity* entity = GetHighEntity(gameState, index);
-			entity->pos += entityFrameOffset;
-
-			if (!Contains(highArea, entity->pos))
+			Entity entity = GetEntityFromHighIndex(gameState, index);
+			entity.high->pos += entityFrameOffset;
+			i32 entityChunkX = entity.low->worldPos.chunkX;
+			i32 entityChunkY = entity.low->worldPos.chunkY;
+			
+			if ((entityChunkX < minChunkX) ||
+				(entityChunkX > maxChunkX) ||
+				(entityChunkY < minChunkY) ||
+				(entityChunkY > maxChunkY))
 			{
 				SetEntityToLow(gameState, index);
 			}
@@ -637,26 +632,43 @@ namespace AB
 			}
 		}
 
-		i32 minHighAreaX =
-			SafeSubI32I32(camera->targetWorldPos.chunkX, 1);
-		i32 minHighAreaY = 
-			SafeSubI32I32(camera->targetWorldPos.chunkY, 1);
-		i32 maxHighAreaX =
-			SafeAddI32I32(camera->targetWorldPos.chunkX, 1);
-		i32 maxHighAreaY = 
-			SafeAddI32I32(camera->targetWorldPos.chunkY, 1);
-
-		for (u32 index = 1; index <= gameState->lowEntityCount; index++)
+		for (i32 chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
 		{
-			LowEntity* entity = GetLowEntity(gameState, index);
-			if ((entity->worldPos.chunkX > minHighAreaX) &&
-				(entity->worldPos.chunkX < maxHighAreaX) &&
-				(entity->worldPos.chunkY > minHighAreaY) &&
-				(entity->worldPos.chunkY < maxHighAreaY))
+			for (i32 chunkX = minChunkX; chunkX <= maxChunkX; chunkX++)
 			{
-				SetEntityToHigh(gameState, index);	
+				Chunk* chunk = GetChunk(world, chunkX, chunkY);
+				if (chunk)
+				{
+					EntityBlock* block = &chunk->firstEntityBlock;
+					for (u32 i = 0; i < block->count; i++)
+					{
+						SetEntityToHigh(gameState, block->lowEntityIndices[i]);
+					}
+					while (block->nextBlock)
+					{
+						block = block->nextBlock;
+						for (u32 i = 0; i < block->count; i++)
+						{
+							SetEntityToHigh(gameState, block->lowEntityIndices[i]);
+						}					
+					}
+				}
 			}
 		}
+
+		v2 minLine = WorldPosDiff(world, {minChunkX, minChunkY, 0, 0},
+								  camera->targetWorldPos);
+
+		v2 maxLine = WorldPosDiff(world,
+								  {maxChunkX, maxChunkY,
+								  world->chunkSizeUnits, world->chunkSizeUnits},
+								  camera->targetWorldPos);
+
+		DrawAlignedBoxOutline(gameState->renderGroup, assetManager,
+							  V3(minLine.x, 3.0f, minLine.y) * world->unitsToRaw,
+							  V3(maxLine.x, 10.0f, maxLine.y) * world->unitsToRaw,
+							  V3(0.8, 0.0, 0.0), 2.0f);
+
 		DEBUG_OVERLAY_TRACE_VAR(gameState->lowEntityCount);
 		DEBUG_OVERLAY_TRACE_VAR(gameState->highEntityCount);
 	}

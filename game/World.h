@@ -9,7 +9,7 @@ namespace AB
 	const u32 INVALID_CHUNK_COORD = AB_INT32_MAX;
 	const u32 CHUNK_TABLE_SIZE = 4096;
 
-	const u32 WORLD_CHUNK_DIM_TILES = 32;
+	const u32 WORLD_CHUNK_DIM_TILES = 64;
 
 	struct WorldPosition
 	{

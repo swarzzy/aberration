@@ -119,8 +119,8 @@ namespace AB
 		// TODO: Better checking!!!!!!! CHECKINNNNN!!! ASSERTSS AAA!!
 		WorldPosition newPos = oldPos;
 		newPos.offset += offset;
-		i32 chunkOffsetX = RoundF32I32(newPos.offset.x / world->chunkSizeUnits);
-		i32 chunkOffsetY = RoundF32I32(newPos.offset.y / world->chunkSizeUnits);
+		i32 chunkOffsetX = Floor(newPos.offset.x / world->chunkSizeUnits);
+		i32 chunkOffsetY = Floor(newPos.offset.y / world->chunkSizeUnits);
 		newPos.offset.x -= chunkOffsetX * world->chunkSizeUnits;
 		newPos.offset.y -= chunkOffsetY * world->chunkSizeUnits;
 

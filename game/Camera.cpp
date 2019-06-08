@@ -70,8 +70,8 @@ namespace AB
 		i32 beginX = origin.chunkX - 1;
 		i32 beginY = origin.chunkY - 1;
 
-		i32 endX = origin.chunkX + 1;
-		i32 endY = origin.chunkY + 1;
+		i32 endX = origin.chunkX + 2;
+		i32 endY = origin.chunkY + 2;
 
 		DEBUG_OVERLAY_TRACE_VAR(beginX);
 		DEBUG_OVERLAY_TRACE_VAR(beginY);

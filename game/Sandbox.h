@@ -65,7 +65,7 @@ namespace AB
 
 
 #define MAX_LOW_ENTITIES 10000
-#define MAX_HIGH_ENTITIES 1024
+#define MAX_HIGH_ENTITIES 2048
 		EntityResidence entityResidence[MAX_LOW_ENTITIES];
 		u32 lowEntityCount;
 		u32 highEntityCount;
