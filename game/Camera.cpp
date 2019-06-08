@@ -76,8 +76,8 @@ namespace AB
 		// TODO: @Important @Bug: There are bug when setting these to + 3
 		// Looks like overflow somewhere. It could work with value above 3
 		// if reduce chunk size is reduced.
-		i32 endX = originChunkPos.chunkX + 2;
-		i32 endY = originChunkPos.chunkY + 2;
+		i32 endX = originChunkPos.chunkX + 1;
+		i32 endY = originChunkPos.chunkY + 1;
 
 		DEBUG_OVERLAY_TRACE_VAR(beginX);
 		DEBUG_OVERLAY_TRACE_VAR(beginY);

@@ -8,30 +8,80 @@
 
 namespace AB
 {
-
-	u32 AddLowEntity(GameState* gameState, EntityType type)
+	u32
+	AddLowEntity(GameState* gameState, Chunk* chunk, EntityType type,
+				 MemoryArena* arena = nullptr)
 	{
 		AB_ASSERT(gameState->lowEntityCount < MAX_LOW_ENTITIES);
-		gameState->lowEntityCount++;
-		auto index = gameState->lowEntityCount;
-		gameState->lowEntities[index] = {};
-		gameState->lowEntities[index].type = type;
+		u32 index = 0;
+		if (chunk->firstEntityBlock.count < ENTITY_BLOCK_CAPACITY)
+		{
+			gameState->lowEntityCount++;
+			index = gameState->lowEntityCount;
+			gameState->lowEntities[index] = {};
+			gameState->lowEntities[index].type = type;
+		
+			chunk->firstEntityBlock.lowEntityIndices[chunk->firstEntityBlock.count]
+				= index;
+			chunk->firstEntityBlock.count++;
+		}
+		else
+		{
+			EntityBlock* currentBlock = &chunk->firstEntityBlock;
+			while (currentBlock->nextBlock)
+			{
+				currentBlock = currentBlock->nextBlock;
+			}
+			if (currentBlock->count < ENTITY_BLOCK_CAPACITY)
+			{
+				gameState->lowEntityCount++;
+				index = gameState->lowEntityCount;
+				gameState->lowEntities[index] = {};
+				gameState->lowEntities[index].type = type;
+		
+				currentBlock->lowEntityIndices[currentBlock->count]	= index;
+				currentBlock->count++;
+			}
+			else if (arena)
+			{
+				currentBlock->nextBlock =
+					(EntityBlock*)PushSize(arena, sizeof(EntityBlock),
+										   alignof(EntityBlock));
+				SetZeroScalar(EntityBlock, currentBlock->nextBlock);
+				currentBlock = currentBlock->nextBlock;
+
+				gameState->lowEntityCount++;
+				index = gameState->lowEntityCount;
+				gameState->lowEntities[index] = {};
+				gameState->lowEntities[index].type = type;
+		
+				currentBlock->lowEntityIndices[currentBlock->count]	= index;
+				currentBlock->count++;				
+			}
+		}
 
 		return index;
 	}
 
-	u32 AddWallEntity(GameState* gameState, i32 tileX, i32 tileY)
+	// TODO: Next step: Made coords inside chunks float for entities
+	u32
+	AddWallEntity(GameState* gameState, Chunk* chunk, u32 tileX, u32 tileY,
+				  MemoryArena* arena = 0)
 	{
-		AB_ASSERT(gameState->lowEntityCount < MAX_LOW_ENTITIES);
-		gameState->lowEntityCount++;
-		auto index = gameState->lowEntityCount;
-		gameState->lowEntities[index] = {
-			ENTITY_TYPE_WALL,
-			CenteredTilePoint(tileX, tileY),
-			0.0f,
-			V2(1.0f),
-			V3(1.0f, 0.0f, 1.0f),
-		};
+		// assert for coord out of chunk bounds
+		u32 index = 0;
+		index = AddLowEntity(gameState, chunk, ENTITY_TYPE_WALL, arena);
+		if (index)
+		{
+			gameState->lowEntities[index] = {
+				ENTITY_TYPE_WALL,
+				CenteredTilePoint(tileX, tileY),
+				0.0f,
+				V2(1.0f),
+				V3(1.0f, 0.0f, 1.0f),
+			};	
+		}
+		
 		return index;
 	}
 
@@ -185,8 +235,8 @@ namespace AB
 		gameState->camera.longSmoothness = 0.3f;
 		gameState->camera.latSmoothness = 0.3f;
 		gameState->camera.distSmoothness = 0.3f;
-		gameState->camera.pos = V3(0.0f, 0.0f, 1.0f);
-		gameState->camera.front = V3(0.0, 0.0f, -1.0f);
+		gameState->camera.pos = V3(0.0f, 0.0f, -1.0f);
+		gameState->camera.front = V3(0.0, 0.0f, 1.0f);
 		gameState->camera.fov = 45.0f;
 		gameState->camera.aspectRatio = 16.0f / 9.0f;
 		gameState->camera.nearPlane = 0.1f;
@@ -227,25 +277,39 @@ namespace AB
 				{
 					for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 					{
-						if ((x == -2 && tileX == 0) ||
-							(x == world->chunkCountX - 3 &&
-							 tileX == WORLD_CHUNK_DIM_TILES - 1) ||
-							(y == -2 && tileY == 0) ||
-							(y == world->chunkCountY - 3 &&
-							 tileY == WORLD_CHUNK_DIM_TILES - 1))
+						if ((tileX == 0 || tileY == 0))
 						{
 							SetTerrainTile(chunk, tileX, tileY,
-										   TERRAIN_TYPE_CLIFF);
+										   TERRAIN_TYPE_WATER);
 							auto wallTilePos =
 								GetWorldPosition(x, y, tileX, tileY);
-							AddWallEntity(gameState, wallTilePos.tileX,
-										  wallTilePos.tileY);
-								
+							AddWallEntity(gameState, chunk, wallTilePos.tileX,
+										  wallTilePos.tileY, arena);
+							
 						}
 						else
 						{
-							SetTerrainTile(chunk, tileX, tileY,
-										   TERRAIN_TYPE_GRASS);
+							if ((x == -2 && tileX == 0) ||
+								(x == world->chunkCountX - 3 &&
+								 tileX == WORLD_CHUNK_DIM_TILES - 1) ||
+								(y == -2 && tileY == 0) ||
+								(y == world->chunkCountY - 3 &&
+								 tileY == WORLD_CHUNK_DIM_TILES - 1))
+							{
+								SetTerrainTile(chunk, tileX, tileY,
+											   TERRAIN_TYPE_CLIFF);
+								auto wallTilePos =
+									GetWorldPosition(x, y, tileX, tileY);
+								AddWallEntity(gameState, chunk,
+											  wallTilePos.tileX,
+											  wallTilePos.tileY, arena);
+								
+							}
+							else
+							{
+								SetTerrainTile(chunk, tileX, tileY,
+											   TERRAIN_TYPE_GRASS);
+							}
 						}
 
 					}
@@ -265,7 +329,11 @@ namespace AB
 
 		}
 
-		gameState->entity = AddLowEntity(gameState, ENTITY_TYPE_BODY);
+		Chunk* firstChunk = GetChunk(gameState->world, 0, 0);
+		AB_ASSERT(firstChunk);
+
+		gameState->entity = AddLowEntity(gameState, firstChunk,
+										 ENTITY_TYPE_BODY, arena);
 		LowEntity* e = GetLowEntity(gameState, gameState->entity);
 		e->worldPos.tileX = 20;
 		e->worldPos.tileY = 40;
@@ -273,8 +341,12 @@ namespace AB
 		e->size = V2(1.5f, 3.0f);
 		e->color = V3(1.0f, 0.0f, 0.0f);
 		e->friction = 0.0f;
+		u32 highIndex = SetEntityToHigh(gameState, gameState->entity);
+		HighEntity* highE = GetHighEntity(gameState, highIndex);
+		highE->velocity = V2(0.0f, 0.1f);
 		
-		gameState->entity1 = AddLowEntity(gameState, ENTITY_TYPE_BODY);
+		gameState->entity1 = AddLowEntity(gameState, firstChunk,
+										  ENTITY_TYPE_BODY, arena);
 		LowEntity* e1 = GetLowEntity(gameState, gameState->entity1);
 		e1->worldPos.tileX = 35;
 		e1->worldPos.tileY = 40;
@@ -287,7 +359,8 @@ namespace AB
 	
 		for (u32 i = 0; i < MOVING_ENTITIES_COUNT; i++)
 		{
-			u32 id = AddLowEntity(gameState, ENTITY_TYPE_BODY);
+			u32 id = AddLowEntity(gameState, firstChunk,
+								  ENTITY_TYPE_BODY, arena);
 			gameState->movingEntities[i] = id; 
 			LowEntity* e = GetLowEntity(gameState, id);
 			if (i < 32)
@@ -325,11 +398,11 @@ namespace AB
 			e->color = V3(r, g, b);
 			e->friction = 0.0f;
 
-			//f32 x = (f32)(rand() % 30 * 5);
-			//f32 y = (f32)(rand() % 30 * 5);
-			//u32 highIndex = SetEntityToHigh(gameState, id);
-			//HighEntity* high = GetHighEntity(gameState, highIndex);
-			//high->velocity = V2(x, y);
+			f32 x = (f32)(rand() % 30 * 5);
+			f32 y = (f32)(rand() % 30 * 5);
+			u32 highIndex = SetEntityToHigh(gameState, id);
+			HighEntity* high = GetHighEntity(gameState, highIndex);
+			high->velocity = V2(x, y);
 			
 			
 		}
@@ -520,8 +593,8 @@ namespace AB
 		v2 entityFrameOffset = -MoveCameraTarget(&gameState->camera, world);
 		UpdateCamera(camera, gameState->renderGroup, world);
 
-		i32 cameraTileSpanX = 50;
-		i32 cameraTileSpanY = 50;
+		i32 cameraTileSpanX = 80;
+		i32 cameraTileSpanY = 80;
 
 		v2 min = V2(-cameraTileSpanX / 2 * world->tileSizeInUnits,
 					-cameraTileSpanY / 2 * world->tileSizeInUnits);

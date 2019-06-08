@@ -36,6 +36,15 @@ namespace AB
 		TERRAIN_TYPE_CLIFF,
 		TERRAIN_TYPE_WATER
 	};
+
+	const u32 ENTITY_BLOCK_CAPACITY = 16;
+
+	struct EntityBlock
+	{
+		u32 count;
+		u32 lowEntityIndices[ENTITY_BLOCK_CAPACITY];
+		EntityBlock* nextBlock;
+	};
 	
 	struct Chunk
 	{
@@ -43,6 +52,7 @@ namespace AB
 		i32 coordY;
 		
 		TerrainType terrainTiles[WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES];
+		EntityBlock firstEntityBlock;
 		Chunk* nextChunk;
 	};
 
