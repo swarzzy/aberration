@@ -21,7 +21,7 @@ namespace AB
 		v3 pos;
 		v3 front;
 		//v3 target;
-		WorldPosition_ targetWorldPos;
+		WorldPosition targetWorldPos;
 		v2 targetWorldVelocity;
 		f32 distance;
 		v2 lastMousePos;
@@ -36,10 +36,6 @@ namespace AB
 	b32 TestWall(f32 wallX, f32 relPlayerX, f32 relPlayerY,
 				 f32 playerDeltaX, f32 playerDeltaY,
 				 f32 minCornerY, f32 maxCornerY, f32* tMin);
-
-	void DoMovement(World* world, WorldPosition begPos,
-					v2 begVelocity, v2 delta,
-					WorldPosition* newPos, v2* newVelocity);
 
 	v2 MoveCameraTarget(Camera* camera, World* world);
 

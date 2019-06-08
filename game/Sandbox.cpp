@@ -63,9 +63,9 @@ namespace AB
 		return index;
 	}
 
-	// TODO: Next step: Made coords inside chunks float for entities
+	// TODO: Think about what's happens if offset is out if chunk bounds
 	u32
-	AddWallEntity(GameState* gameState, Chunk* chunk, u32 tileX, u32 tileY,
+	AddWallEntity(GameState* gameState, Chunk* chunk, v2 offset,
 				  MemoryArena* arena = 0)
 	{
 		// assert for coord out of chunk bounds
@@ -75,7 +75,8 @@ namespace AB
 		{
 			gameState->lowEntities[index] = {
 				ENTITY_TYPE_WALL,
-				CenteredTilePoint(tileX, tileY),
+				// TODO: Offsets that out of chunk bounds
+				{chunk->coordX, chunk->coordY, offset},
 				0.0f,
 				V2(1.0f),
 				V3(1.0f, 0.0f, 1.0f),
@@ -156,13 +157,10 @@ namespace AB
 
 				HighEntity* high =
 					gameState->highEntities + gameState->highEntityCount;
-				// TODO: @TEMPORARY HACK
-				WorldPosition camWorld = WP_toWP(gameState->world,
-												 gameState->camera.targetWorldPos);
 
 				high->pos = WorldPosDiff(gameState->world,
-										   &low->worldPos,
-										   &camWorld);
+										  low->worldPos,
+										  gameState->camera.targetWorldPos);
 				high->velocity = V2(0.0f);
 				high->lowIndex = lowIndex;
 				low->highIndex = gameState->highEntityCount;
@@ -185,15 +183,11 @@ namespace AB
 
 		u32 lastEntityIndex = gameState->highEntityCount;
 		u32 currentEntityIndex = low->highIndex;
-
-		// TODO :HACK:FIX!!!
-		WorldPosition camWorld = WP_toWP(gameState->world,
-										 gameState->camera.targetWorldPos);
-
+		
 		low->worldPos =
-			MapToTileSpace(gameState->world,
-						   camWorld,
-						   high->pos);
+			ChangeWorldPosition(gameState->world,
+								gameState->camera.targetWorldPos,
+								high->pos);
 		low->highIndex = 0;
 
 		if (!(currentEntityIndex == lastEntityIndex))
@@ -288,10 +282,10 @@ namespace AB
 						{
 							SetTerrainTile(chunk, tileX, tileY,
 										   TERRAIN_TYPE_WATER);
-							auto wallTilePos =
-								GetWorldPosition(x, y, tileX, tileY);
-							AddWallEntity(gameState, chunk, wallTilePos.tileX,
-										  wallTilePos.tileY, arena);
+							AddWallEntity(gameState, chunk,
+										  V2(tileX * world->tileSizeInUnits,
+											 tileY * world->tileSizeInUnits),
+										  arena);
 							
 						}
 						else
@@ -305,11 +299,10 @@ namespace AB
 							{
 								SetTerrainTile(chunk, tileX, tileY,
 											   TERRAIN_TYPE_CLIFF);
-								auto wallTilePos =
-									GetWorldPosition(x, y, tileX, tileY);
 								AddWallEntity(gameState, chunk,
-											  wallTilePos.tileX,
-											  wallTilePos.tileY, arena);
+											  V2(tileX * world->tileSizeInUnits,
+												 tileY * world->tileSizeInUnits),
+											  arena);
 								
 							}
 							else
@@ -342,8 +335,9 @@ namespace AB
 		gameState->entity = AddLowEntity(gameState, firstChunk,
 										 ENTITY_TYPE_BODY, arena);
 		LowEntity* e = GetLowEntity(gameState, gameState->entity);
-		e->worldPos.tileX = 1;
-		e->worldPos.tileY = 1;
+		e->worldPos.chunkX = 0;
+		e->worldPos.chunkY = 0;
+		e->worldPos.offset = V2(10.0f, 10.0f);
 		e->accelerationAmount = 20.0f;
 		e->size = V2(1.5f, 3.0f);
 		e->color = V3(1.0f, 0.0f, 0.0f);
@@ -355,15 +349,16 @@ namespace AB
 		gameState->entity1 = AddLowEntity(gameState, firstChunk,
 										  ENTITY_TYPE_BODY, arena);
 		LowEntity* e1 = GetLowEntity(gameState, gameState->entity1);
-		e1->worldPos.tileX = 35;
-		e1->worldPos.tileY = 40;
+		e1->worldPos.chunkX = 0;
+		e1->worldPos.chunkY = 0;
+		e->worldPos.offset = V2(20.0f, 15.0f);
 		e1->accelerationAmount = 30.0f;
 		e1->size = V2(1.2f, 0.5f);
 		e1->color = V3(0.0f, 1.0f, 0.0f);
 		e1->friction = 0.0f;
 		e1->type = ENTITY_TYPE_BODY;
 
-	
+#if 0
 		for (u32 i = 0; i < MOVING_ENTITIES_COUNT; i++)
 		{
 			u32 id = AddLowEntity(gameState, firstChunk,
@@ -413,6 +408,7 @@ namespace AB
 			
 			
 		}
+#endif
 
 	}
 	
@@ -542,14 +538,13 @@ namespace AB
 		EntityApplyMovement(gameState, entity, movementDelta);
 
 		entity.high->velocity += acceleration * GlobalGameDeltaTime;
-		// TODO :HACK!!!
-		WorldPosition camWorld = WP_toWP(gameState->world,
-										 gameState->camera.targetWorldPos);
 
+		// TODO: Move it to more appropriate place maybe.
+		// This stuff should happens once at the end of update loop _maybe_
 		entity.low->worldPos =
-			MapToTileSpace(gameState->world,
-						   camWorld,
-						   entity.high->pos);
+			ChangeWorldPosition(gameState->world,
+								gameState->camera.targetWorldPos,
+								entity.high->pos);
 		
 	}
 
@@ -604,9 +599,9 @@ namespace AB
 		v2 entityFrameOffset = -MoveCameraTarget(&gameState->camera, world);
 		UpdateCamera(camera, gameState->renderGroup, world);
 
-		i32 cameraTileSpanX = 80;
-		i32 cameraTileSpanY = 80;
-
+		i32 cameraTileSpanX = 64;
+		i32 cameraTileSpanY = 64;
+		
 		v2 min = V2(-cameraTileSpanX / 2 * world->tileSizeInUnits,
 					-cameraTileSpanY / 2 * world->tileSizeInUnits);
 		v2 max = V2(cameraTileSpanX / 2 * world->tileSizeInUnits,
@@ -626,19 +621,7 @@ namespace AB
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.chunkY);
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.offset.x);
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.offset.y);
-
-		WorldPosition camWorld = WP_toWP(gameState->world,
-										 gameState->camera.targetWorldPos);
-
-		i32 minHighAreaX =
-			SafeSubI32I32(camWorld.tileX, cameraTileSpanX / 2);
-		i32 minHighAreaY = 
-			SafeSubI32I32(camWorld.tileY, cameraTileSpanY / 2);
-		i32 maxHighAreaX =
-			SafeAddI32I32(camWorld.tileX, cameraTileSpanX / 2);
-		i32 maxHighAreaY = 
-			SafeAddI32I32(camWorld.tileY, cameraTileSpanY / 2);
-
+		
 		for (u32 index = 1; index <= gameState->highEntityCount;)
 		{
 			HighEntity* entity = GetHighEntity(gameState, index);
@@ -652,15 +635,24 @@ namespace AB
 			{
 				index++;
 			}
-		}		
+		}
+
+		i32 minHighAreaX =
+			SafeSubI32I32(camera->targetWorldPos.chunkX, 1);
+		i32 minHighAreaY = 
+			SafeSubI32I32(camera->targetWorldPos.chunkY, 1);
+		i32 maxHighAreaX =
+			SafeAddI32I32(camera->targetWorldPos.chunkX, 1);
+		i32 maxHighAreaY = 
+			SafeAddI32I32(camera->targetWorldPos.chunkY, 1);
 
 		for (u32 index = 1; index <= gameState->lowEntityCount; index++)
 		{
 			LowEntity* entity = GetLowEntity(gameState, index);
-			if ((entity->worldPos.tileX > minHighAreaX) &&
-				(entity->worldPos.tileX < maxHighAreaX) &&
-				(entity->worldPos.tileY > minHighAreaY) &&
-				(entity->worldPos.tileY < maxHighAreaY))
+			if ((entity->worldPos.chunkX > minHighAreaX) &&
+				(entity->worldPos.chunkX < maxHighAreaX) &&
+				(entity->worldPos.chunkY > minHighAreaY) &&
+				(entity->worldPos.chunkY < maxHighAreaY))
 			{
 				SetEntityToHigh(gameState, index);	
 			}

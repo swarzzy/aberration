@@ -4,7 +4,7 @@ namespace AB
 {
 	void
 	DrawChunkInstanced(World* world, RenderGroup* renderGroup,
-					   AssetManager* assetManager, WorldPosition_ origin,
+					   AssetManager* assetManager, WorldPosition origin,
 					   Chunk* chunk)
 	{
 		if (chunk)
@@ -64,7 +64,7 @@ namespace AB
 	void
 	DrawWorldInstanced(World* world, RenderGroup* renderGroup,
 					   AssetManager* assetManager,
-					   WorldPosition_ origin)
+					   WorldPosition origin)
 	{
 		// TODO: Pass this area as parameters	
 		i32 beginX = origin.chunkX - 1;
@@ -172,7 +172,7 @@ namespace AB
 			camera->targetWorldVelocity *
 			GlobalGameDeltaTime;
 
-		WorldPosition_ newPos = {};
+		WorldPosition newPos = {};
 		v2 newVelocity = {};
 
 		newPos = ChangeWorldPosition(world, camera->targetWorldPos, movementDelta);
@@ -181,7 +181,7 @@ namespace AB
 		newVelocity = newVelocity +
 			acceleration * GlobalGameDeltaTime;
 
-		camFrameOffset = WorldPosDiff_(world, newPos, camera->targetWorldPos);
+		camFrameOffset = WorldPosDiff(world, newPos, camera->targetWorldPos);
 		camera->targetWorldPos = newPos;
 		camera->targetWorldVelocity = newVelocity;
 

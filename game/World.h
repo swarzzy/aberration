@@ -9,36 +9,16 @@ namespace AB
 	const u32 INVALID_CHUNK_COORD = AB_INT32_MAX;
 	const u32 CHUNK_TABLE_SIZE = 4096;
 
-	const i32 WORLD_CHUNK_SHIFT = 6;
-	// TODO: Do we need that now
-	const u32 WORLD_CHUNK_DIM_TILES = (u32)(1 << WORLD_CHUNK_SHIFT);
-	const i32 WORLD_CHUNK_MASK = (1 << WORLD_CHUNK_SHIFT) - 1;
+	const u32 WORLD_CHUNK_DIM_TILES = 32;
 
-	
 	struct WorldPosition
 	{
-		i32 tileX;
-		i32 tileY;
-		// NOTE: Offset in chunk 0..chunkSizeUnits
-		v2 offset;
-	};
-
-	struct WorldPosition_
-	{
 		i32 chunkX;
 		i32 chunkY;
 		// NOTE: Offset in chunk 0..chunkSizeUnits
 		v2 offset;
 	};
 	
-	struct ChunkPosition
-	{
-		i32 chunkX;
-		i32 chunkY;
-		u32 tileInChunkX;
-		u32 tileInChunkY;
-	};
-
 	enum TerrainType
 	{
 		TERRAIN_TYPE_EMPTY = 0,
