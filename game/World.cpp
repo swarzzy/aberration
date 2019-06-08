@@ -14,6 +14,7 @@ namespace AB
 		world->tileSizeRaw = 3.0f;
 		world->tileSizeInUnits = 1.0f;
 		world->tileRadiusInUnits = 0.5f;
+		world->chunkSizeUnits = world->tileSizeInUnits * WORLD_CHUNK_DIM_TILES;
 		world->toUnits = world->tileSizeInUnits / world->tileSizeRaw;
 		world->unitsToRaw = world->tileSizeRaw / world->tileSizeInUnits;
 
@@ -219,5 +220,59 @@ namespace AB
 		auto newPos = RecanonicalizePosition(world, pos);
 		return newPos;
 	}
+
+	inline WorldPosition_
+	ChangeWorldPosition(World* world, WorldPosition_ oldPos, v2 offset)
+	{
+		// TODO: Better checking!!!!!!! CHECKINNNNN!!! ASSERTSS AAA!!
+		WorldPosition_ newPos = oldPos;
+		newPos.offset += offset;
+		i32 chunkOffsetX = RoundF32I32(newPos.offset.x / world->chunkSizeUnits);
+		i32 chunkOffsetY = RoundF32I32(newPos.offset.y / world->chunkSizeUnits);
+		newPos.offset.x -= chunkOffsetX * world->chunkSizeUnits;
+		newPos.offset.y -= chunkOffsetY * world->chunkSizeUnits;
+
+		AB_ASSERT(oldPos.chunkX + chunkOffsetX > INT32_MIN + CHUNK_SAFE_MARGIN);
+		AB_ASSERT(oldPos.chunkX + chunkOffsetX < INT32_MAX - CHUNK_SAFE_MARGIN);
+
+		AB_ASSERT(oldPos.chunkY + chunkOffsetY > INT32_MIN + CHUNK_SAFE_MARGIN);
+		AB_ASSERT(oldPos.chunkY + chunkOffsetY < INT32_MAX - CHUNK_SAFE_MARGIN);
+
+		newPos.chunkX += chunkOffsetX;
+		newPos.chunkY += chunkOffsetY;
+
+		return newPos;
+	}
+
+	inline v2
+	WorldPosDiff_(World* world, WorldPosition_ a, WorldPosition_ b)
+	{
+		v2 result;
+		// TODO: Potential integer overflow
+		i32 dX = a.chunkX - b.chunkX;
+		i32 dY = a.chunkY - b.chunkY;
+		f32 dOffX = a.offset.x - b.offset.x;
+		f32 dOffY = a.offset.y - b.offset.y;
+		result = V2(world->chunkSizeUnits * dX + dOffX,
+					world->chunkSizeUnits * dY + dOffY);
+		return result;
+	}
+
+	inline WorldPosition
+	WP_toWP(World* world, WorldPosition_ pos)
+	{
+		WorldPosition result = {};
+		result.tileX = pos.chunkX * WORLD_CHUNK_DIM_TILES;
+		result.tileY = pos.chunkY * WORLD_CHUNK_DIM_TILES;
+		result.tileX += RoundF32I32(pos.offset.x / world->tileSizeInUnits);
+		result.tileY += RoundF32I32(pos.offset.y / world->tileSizeInUnits);
+		result.offset.x = pos.offset.x -
+			RoundF32I32(pos.offset.x / world->tileSizeInUnits);
+		result.offset.y = pos.offset.y -
+			RoundF32I32(pos.offset.y / world->tileSizeInUnits);
+		return result;
+
+	}
+
 
 }

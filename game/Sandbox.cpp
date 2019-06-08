@@ -156,10 +156,13 @@ namespace AB
 
 				HighEntity* high =
 					gameState->highEntities + gameState->highEntityCount;
+				// TODO: @TEMPORARY HACK
+				WorldPosition camWorld = WP_toWP(gameState->world,
+												 gameState->camera.targetWorldPos);
 
 				high->pos = WorldPosDiff(gameState->world,
 										   &low->worldPos,
-										   &gameState->camera.targetWorldPos);
+										   &camWorld);
 				high->velocity = V2(0.0f);
 				high->lowIndex = lowIndex;
 				low->highIndex = gameState->highEntityCount;
@@ -183,9 +186,13 @@ namespace AB
 		u32 lastEntityIndex = gameState->highEntityCount;
 		u32 currentEntityIndex = low->highIndex;
 
+		// TODO :HACK:FIX!!!
+		WorldPosition camWorld = WP_toWP(gameState->world,
+										 gameState->camera.targetWorldPos);
+
 		low->worldPos =
 			MapToTileSpace(gameState->world,
-						   gameState->camera.targetWorldPos,
+						   camWorld,
 						   high->pos);
 		low->highIndex = 0;
 
@@ -242,8 +249,8 @@ namespace AB
 		gameState->camera.nearPlane = 0.1f;
 		gameState->camera.farPlane = 200.0f;
 		
-		gameState->camera.targetWorldPos.tileX = 16 * 2 + 3;
-		gameState->camera.targetWorldPos.tileY = 16 * 2 + 3;
+		gameState->camera.targetWorldPos.chunkX = 0;
+		gameState->camera.targetWorldPos.chunkY = 0;
 		gameState->camera.targetWorldPos.offset.x = 1.0f;
 		gameState->camera.targetWorldPos.offset.y = 1.0f;
 
@@ -335,8 +342,8 @@ namespace AB
 		gameState->entity = AddLowEntity(gameState, firstChunk,
 										 ENTITY_TYPE_BODY, arena);
 		LowEntity* e = GetLowEntity(gameState, gameState->entity);
-		e->worldPos.tileX = 20;
-		e->worldPos.tileY = 40;
+		e->worldPos.tileX = 1;
+		e->worldPos.tileY = 1;
 		e->accelerationAmount = 20.0f;
 		e->size = V2(1.5f, 3.0f);
 		e->color = V3(1.0f, 0.0f, 0.0f);
@@ -535,9 +542,13 @@ namespace AB
 		EntityApplyMovement(gameState, entity, movementDelta);
 
 		entity.high->velocity += acceleration * GlobalGameDeltaTime;
+		// TODO :HACK!!!
+		WorldPosition camWorld = WP_toWP(gameState->world,
+										 gameState->camera.targetWorldPos);
+
 		entity.low->worldPos =
 			MapToTileSpace(gameState->world,
-						   gameState->camera.targetWorldPos,
+						   camWorld,
 						   entity.high->pos);
 		
 	}
@@ -611,17 +622,22 @@ namespace AB
 							  V3(maxLine.x, 10.0f, maxLine.y),
 							  V3(0.8, 0.0, 0.0), 2.0f);
 
-		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.tileX);
-		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.tileY);
-		
+		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.chunkX);
+		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.chunkY);
+		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.offset.x);
+		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.offset.y);
+
+		WorldPosition camWorld = WP_toWP(gameState->world,
+										 gameState->camera.targetWorldPos);
+
 		i32 minHighAreaX =
-			SafeSubI32I32(camera->targetWorldPos.tileX, cameraTileSpanX / 2);
+			SafeSubI32I32(camWorld.tileX, cameraTileSpanX / 2);
 		i32 minHighAreaY = 
-			SafeSubI32I32(camera->targetWorldPos.tileY, cameraTileSpanY / 2);
+			SafeSubI32I32(camWorld.tileY, cameraTileSpanY / 2);
 		i32 maxHighAreaX =
-			SafeAddI32I32(camera->targetWorldPos.tileX, cameraTileSpanX / 2);
+			SafeAddI32I32(camWorld.tileX, cameraTileSpanX / 2);
 		i32 maxHighAreaY = 
-			SafeAddI32I32(camera->targetWorldPos.tileY, cameraTileSpanY / 2);
+			SafeAddI32I32(camWorld.tileY, cameraTileSpanY / 2);
 
 		for (u32 index = 1; index <= gameState->highEntityCount;)
 		{

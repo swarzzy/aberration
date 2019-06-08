@@ -21,7 +21,7 @@ namespace AB
 		v3 pos;
 		v3 front;
 		//v3 target;
-		WorldPosition targetWorldPos;
+		WorldPosition_ targetWorldPos;
 		v2 targetWorldVelocity;
 		f32 distance;
 		v2 lastMousePos;

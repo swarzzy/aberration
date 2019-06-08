@@ -4,6 +4,7 @@
 namespace AB
 {
 	const i32 TILEMAP_SAFE_MARGIN = 16 * 16;
+	const i32 CHUNK_SAFE_MARGIN = 16;
 	// TODO: @Important !!!! Safe margin and stuff
 	const u32 INVALID_CHUNK_COORD = AB_INT32_MAX;
 	const u32 CHUNK_TABLE_SIZE = 4096;
@@ -13,14 +14,23 @@ namespace AB
 	const u32 WORLD_CHUNK_DIM_TILES = (u32)(1 << WORLD_CHUNK_SHIFT);
 	const i32 WORLD_CHUNK_MASK = (1 << WORLD_CHUNK_SHIFT) - 1;
 
+	
 	struct WorldPosition
 	{
 		i32 tileX;
 		i32 tileY;
-		// NOTE: Realtive to tile
+		// NOTE: Offset in chunk 0..chunkSizeUnits
 		v2 offset;
 	};
 
+	struct WorldPosition_
+	{
+		i32 chunkX;
+		i32 chunkY;
+		// NOTE: Offset in chunk 0..chunkSizeUnits
+		v2 offset;
+	};
+	
 	struct ChunkPosition
 	{
 		i32 chunkX;
@@ -63,10 +73,11 @@ namespace AB
 		f32 tileSizeRaw;
 		f32 toUnits;
 		f32 unitsToRaw;
+		f32 chunkSizeUnits;
 
 		u32 chunkCountX;
 		u32 chunkCountY;
-		
+
 		Chunk chunkTable[CHUNK_TABLE_SIZE];
 	};
 }

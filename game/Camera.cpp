@@ -4,57 +4,57 @@ namespace AB
 {
 	void
 	DrawChunkInstanced(World* world, RenderGroup* renderGroup,
-					   AssetManager* assetManager, WorldPosition origin,
+					   AssetManager* assetManager, WorldPosition_ origin,
 					   Chunk* chunk)
 	{
-		for (u32 tileY = 0; tileY < WORLD_CHUNK_DIM_TILES; tileY++)
+		if (chunk)
 		{
-			for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
+			v2 offset = V2(0.0f);
+			offset.x = (chunk->coordX - origin.chunkX) * world->chunkSizeUnits;
+			offset.x -= origin.offset.x;
+			offset.y = (chunk->coordY - origin.chunkY) * world->chunkSizeUnits;
+			offset.y -= origin.offset.y;
+
+			for (u32 tileY = 0; tileY < WORLD_CHUNK_DIM_TILES; tileY++)
 			{
-				TerrainType type = GetTerrainTile(chunk, tileX, tileY);
-				if (type)
+				for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 				{
-					WorldPosition tilePos =
-						GetWorldPosition(chunk->coordX, chunk->coordY,
-										 tileX, tileY);
-					
-					i32 relTileOffsetX = tilePos.tileX - origin.tileX;
-					f32 relOffsetX = tilePos.offset.x - origin.offset.x;
-					i32 relTileOffsetY = tilePos.tileY - origin.tileY;
-					f32 relOffsetY = tilePos.offset.y - origin.offset.y;
+					TerrainType type = GetTerrainTile(chunk, tileX, tileY);
+					if (type)
+					{
+						f32 pX = offset.x + tileX * world->tileSizeInUnits;
+						f32 pZ = offset.y + tileY * world->tileSizeInUnits;
 
-					f32 pX = relTileOffsetX * world->tileSizeInUnits + relOffsetX;
-					f32 pZ = relTileOffsetY * world->tileSizeInUnits + relOffsetY;
+						pX *= world->unitsToRaw;
+						pZ *= world->unitsToRaw;
 
-					pX *= world->unitsToRaw;
-					pZ *= world->unitsToRaw;
+						v3 color = {};
+						f32 pY = 0.0f;
+						switch (type)
+						{
+						case TERRAIN_TYPE_CLIFF:
+						{
+							color = V3(0.7f, 0.7f, 0.7f);
+							pY = 2.0f;
+						} break;
+						case TERRAIN_TYPE_GRASS:
+						{
+							color = V3(0.1f, 0.7f, 0.2f);
+						} break;
+						case TERRAIN_TYPE_WATER:
+						{
+							color = V3(0.0f, 0.0f, 0.8f);
+							pY = -1.0f;
+						} break;
+						INVALID_DEFAULT_CASE();
+						}
 
-					v3 color = {};
-					f32 pY = 0.0f;
-					switch (type)
-					{
-					case TERRAIN_TYPE_CLIFF:
-					{
-						color = V3(0.7f, 0.7f, 0.7f);
-						pY = 2.0f;
-					} break;
-					case TERRAIN_TYPE_GRASS:
-					{
-						color = V3(0.1f, 0.7f, 0.2f);
-					} break;
-					case TERRAIN_TYPE_WATER:
-					{
-						color = V3(0.0f, 0.0f, 0.8f);
-						pY = -1.0f;
-					} break;
-					INVALID_DEFAULT_CASE();
+						DrawDebugCubeInstanced(renderGroup,
+											   assetManager,
+											   V3(pX, pY, pZ),
+											   world->tileSizeRaw * 0.5f,
+											   color);		
 					}
-
-					DrawDebugCubeInstanced(renderGroup,
-										   assetManager,
-										   V3(pX, pY, pZ),
-										   world->tileSizeRaw * 0.5f,
-										   color);		
 				}
 			}
 		}
@@ -64,20 +64,14 @@ namespace AB
 	void
 	DrawWorldInstanced(World* world, RenderGroup* renderGroup,
 					   AssetManager* assetManager,
-					   WorldPosition origin)
+					   WorldPosition_ origin)
 	{
-		ChunkPosition originChunkPos =
-			GetChunkPosition(origin.tileX, origin.tileY);
-
 		// TODO: Pass this area as parameters	
-		i32 beginX = originChunkPos.chunkX - 1;
-		i32 beginY = originChunkPos.chunkY - 1;
+		i32 beginX = origin.chunkX - 1;
+		i32 beginY = origin.chunkY - 1;
 
-		// TODO: @Important @Bug: There are bug when setting these to + 3
-		// Looks like overflow somewhere. It could work with value above 3
-		// if reduce chunk size is reduced.
-		i32 endX = originChunkPos.chunkX + 1;
-		i32 endY = originChunkPos.chunkY + 1;
+		i32 endX = origin.chunkX + 1;
+		i32 endY = origin.chunkY + 1;
 
 		DEBUG_OVERLAY_TRACE_VAR(beginX);
 		DEBUG_OVERLAY_TRACE_VAR(beginY);
@@ -109,7 +103,7 @@ namespace AB
 							   nullptr);
 	}
 
-
+	// TODO: Get rid of this
 	b32 TestWall(f32 wallX, f32 relPlayerX, f32 relPlayerY,
 				 f32 playerDeltaX, f32 playerDeltaY,
 				 f32 minCornerY, f32 maxCornerY, f32* tMin)
@@ -178,16 +172,16 @@ namespace AB
 			camera->targetWorldVelocity *
 			GlobalGameDeltaTime;
 
-		WorldPosition newPos = {};
+		WorldPosition_ newPos = {};
 		v2 newVelocity = {};
 
-		newPos = OffsetWorldPos(world, camera->targetWorldPos, movementDelta);
+		newPos = ChangeWorldPosition(world, camera->targetWorldPos, movementDelta);
 		newVelocity = camera->targetWorldVelocity;
 
 		newVelocity = newVelocity +
 			acceleration * GlobalGameDeltaTime;
 
-		camFrameOffset = WorldPosDiff(world, &newPos, &camera->targetWorldPos);
+		camFrameOffset = WorldPosDiff_(world, newPos, camera->targetWorldPos);
 		camera->targetWorldPos = newPos;
 		camera->targetWorldVelocity = newVelocity;
 
@@ -335,95 +329,3 @@ namespace AB
 
 	}
 }
-
-#if 0
-
-	
-	void DrawTileInstanced(World* world, RenderGroup* renderGroup,
-						   AssetManager* assetManager, WorldPosition origin,
-						   WorldPosition tilePos)
-	{
-		u32 tileValue = GetTileValue(world, tilePos.tileX, tilePos.tileY);
-		if (tileValue)
-		{
-			i32 relTileOffsetX = tilePos.tileX - origin.tileX;
-			f32 relOffsetX = tilePos.offset.x - origin.offset.x;
-			i32 relTileOffsetY = tilePos.tileY - origin.tileY;
-			f32 relOffsetY = tilePos.offset.y - origin.offset.y;
-		
-			f32 pX = relTileOffsetX * world->tileSizeInUnits + relOffsetX;
-			f32 pZ = relTileOffsetY * world->tileSizeInUnits + relOffsetY;
-
-			pX *= world->unitsToRaw;
-			pZ *= world->unitsToRaw;
-
-			v3 color;
-			f32 pY = 0.0f;
-			// TODO: Temporary code
-			{
-				if (tileValue == 3)
-				{
-					pY = 0.0f;
-				}
-				else
-				{
-					pY = 0.0f;
-				}
-				ChunkPosition chunkTile = GetChunkPosition(world, tilePos.tileX,
-														   tilePos.tileY);
-
-				Chunk* chunk = GetChunk(world, chunkTile.chunkX,
-										chunkTile.chunkY);
-				// TODO: Temporary
-				if (chunk == nullptr)
-				{
-					return;
-				}
-				color = GetTileColor(world,  chunk, chunkTile.tileInChunkX,
-									 chunkTile.tileInChunkY);
-			}
-
-			DrawDebugCubeInstanced(renderGroup,
-								   assetManager,
-								   V3(pX, pY, pZ),
-								   world->tileSizeRaw * 0.5f,
-								   color);
-		}
-	}
-	
-	void DrawWorldWholeInstanced(World* world, RenderGroup* renderGroup,
-								 AssetManager* assetManager,
-								 WorldPosition origin)
-	{
-		
-		i32 beginX = origin.tileX - 64;
-		i32 beginY = origin.tileY - 64;
-
-		i32 endX = origin.tileX + 64;
-		i32 endY = origin.tileY + 64;
-
-		RenderCommandBeginDebugCubeInctancing begCommand = {};
-		begCommand.blendMode = BLEND_MODE_OPAQUE;
-
-		RenderGroupPushCommand(renderGroup,
-							   assetManager,
-							   RENDER_COMMAND_BEGIN_DEBUG_CUBE_INSTANCING,
-							   (void*)(&begCommand));
-
-		for (i32 y = beginY; y < endY; y++)
-		{
-			for (i32 x = beginX; x < endX; x++)
-			{
-				DrawTileInstanced(tilemap, renderGroup,
-								  assetManager, origin,
-								  WorldPosition{x, y});
-					
-			}
-		}
-
-		RenderGroupPushCommand(renderGroup,
-							   assetManager,
-							   RENDER_COMMAND_END_DEBUG_CUBE_INSTANCING,
-							   nullptr);
-	}
-#endif
