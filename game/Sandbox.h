@@ -78,7 +78,8 @@ namespace AB
 			  GameState* gameState,
 			  AssetManager* assetManager);
 	
-	void Render(GameState* gameState,
+	void Render(MemoryArena* arena,
+				GameState* gameState,
 				AssetManager* assetManager,
 				Renderer* renderer);
 }

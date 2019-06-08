@@ -286,7 +286,8 @@ void GameRender(AB::MemoryArena* arena, AB::PlatformState* platform)
 	platform->gl->_glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	DrawDebugOverlay(g_StaticStorage->debugOverlay);
 	
-	Render(g_StaticStorage->gameVars,
+	Render(arena,
+		   g_StaticStorage->gameVars,
 		   g_StaticStorage->assetManager,
 		   g_StaticStorage->renderer);
 	

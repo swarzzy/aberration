@@ -136,6 +136,82 @@ namespace AB
 		return newPos;
 	}
 
+	// TODO @Important: Potential memory leak here.
+	// For now there are no way to delete empty blocks, so
+	// entity movement may cause memory leaks
+	void
+	ChangeEntityPosition(World* world, Entity entity, WorldPosition newPos,
+						 MemoryArena* arena)
+	{
+		WorldPosition oldPos = entity.low->worldPos;
+		if(oldPos.chunkX == newPos.chunkX && oldPos.chunkY == newPos.chunkY)
+		{
+			// NOTE: In same chunk
+		}
+		else
+		{
+			// NOTE: Chunk transition
+			// Here where fun begins!!!
+			{
+				Chunk* oldChunk = GetChunk(world, oldPos.chunkX, oldPos.chunkY);
+				AB_ASSERT(oldChunk);
+				EntityBlock* oldBlock = &oldChunk->firstEntityBlock;
+				bool found = false;
+				do
+				{
+					for (u32 i = 0; i < oldBlock->count; i++)
+					{
+						if (oldBlock->lowEntityIndices[i] == entity.lowIndex)
+						{
+							if (i != oldBlock->count - 1)
+							{
+								oldBlock->lowEntityIndices[i] =
+									oldBlock->lowEntityIndices[oldBlock->count - 1];
+							}
+							oldBlock->count--;
+							found = true;
+							break;
+						}
+					}
+					oldBlock = oldBlock->nextBlock;
+				} while (oldBlock && !found);
+				AB_ASSERT(found);
+			}
+			{
+				Chunk* newChunk = GetChunk(world, newPos.chunkX, newPos.chunkY);
+				AB_ASSERT(newChunk);
+				EntityBlock* newBlock = &newChunk->firstEntityBlock;
+				bool inserted = false;
+				EntityBlock* prevBlock = nullptr;
+				do
+				{
+					if (newBlock->count < ENTITY_BLOCK_CAPACITY)
+					{
+						newBlock->lowEntityIndices[newBlock->count] =
+							entity.lowIndex;
+						newBlock->count++;
+						inserted = true;
+						break;
+					}
+					prevBlock = newBlock;
+					newBlock = newBlock->nextBlock;
+				} while (newBlock);
+
+				if (!inserted)
+				{
+					prevBlock->nextBlock =
+						(EntityBlock*)PushSize(arena,
+											   sizeof(EntityBlock),
+											   alignof(EntityBlock));
+					SetZeroScalar(EntityBlock, prevBlock->nextBlock);
+					prevBlock->nextBlock->count++;
+					prevBlock->nextBlock->lowEntityIndices[0] = entity.lowIndex;
+				}
+			}
+		}
+		entity.low->worldPos = newPos;
+	}
+
 	inline v2
 	WorldPosDiff(World* world, WorldPosition a, WorldPosition b)
 	{
@@ -149,4 +225,61 @@ namespace AB
 					world->chunkSizeUnits * dY + dOffY);
 		return result;
 	}
+
+	u32
+	AddLowEntity(GameState* gameState, Chunk* chunk, EntityType type,
+				 MemoryArena* arena = nullptr)
+	{
+		AB_ASSERT(gameState->lowEntityCount < MAX_LOW_ENTITIES);
+		u32 index = 0;
+		if (chunk->firstEntityBlock.count < ENTITY_BLOCK_CAPACITY)
+		{
+			gameState->lowEntityCount++;
+			index = gameState->lowEntityCount;
+			gameState->lowEntities[index] = {};
+			gameState->lowEntities[index].type = type;
+		
+			chunk->firstEntityBlock.lowEntityIndices[chunk->firstEntityBlock.count]
+				= index;
+			chunk->firstEntityBlock.count++;
+		}
+		else
+		{
+			EntityBlock* currentBlock = &chunk->firstEntityBlock;
+			while (currentBlock->nextBlock)
+			{
+				currentBlock = currentBlock->nextBlock;
+				if (currentBlock->count < ENTITY_BLOCK_CAPACITY)
+				{
+					gameState->lowEntityCount++;
+					index = gameState->lowEntityCount;
+					gameState->lowEntities[index] = {};
+					gameState->lowEntities[index].type = type;
+		
+					currentBlock->lowEntityIndices[currentBlock->count]	= index;
+					currentBlock->count++;
+					break;
+				}
+			}			
+			if ((!index) && arena)
+			{
+				currentBlock->nextBlock =
+					(EntityBlock*)PushSize(arena, sizeof(EntityBlock),
+										   alignof(EntityBlock));
+				SetZeroScalar(EntityBlock, currentBlock->nextBlock);
+				currentBlock = currentBlock->nextBlock;
+
+				gameState->lowEntityCount++;
+				index = gameState->lowEntityCount;
+				gameState->lowEntities[index] = {};
+				gameState->lowEntities[index].type = type;
+		
+				currentBlock->lowEntityIndices[currentBlock->count]	= index;
+				currentBlock->count++;				
+			}
+		}
+
+		return index;
+	}
+
 }

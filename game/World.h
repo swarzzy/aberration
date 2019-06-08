@@ -35,9 +35,11 @@ namespace AB
 		u32 lowEntityIndices[ENTITY_BLOCK_CAPACITY];
 		EntityBlock* nextBlock;
 	};
-	
+
+	// TODO: High chunk list
 	struct Chunk
 	{
+		b32 high;
 		i32 coordX;
 		i32 coordY;
 		
