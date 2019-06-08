@@ -100,7 +100,6 @@ namespace AB
 				DrawChunkInstanced(world, renderGroup,
 								   assetManager, origin,
 								   chunk);
-					
 			}
 		}
 

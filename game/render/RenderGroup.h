@@ -132,14 +132,15 @@ namespace AB
 	{
 		BLEND_TYPE_BIT_OPAQUE = 0,
 			BLEND_TYPE_BIT_TRANSPARENT = 1
-			};
-	
+	};
+
+	// NOTE: If the sorting of the whole buffer will stay
+	// Then we need to care about size of that struct more preciesly!
 	struct CommandQueueEntry
 	{
 		u64 sortKey;
 		u32 rbOffset;
-		u16 instanceCount;
-	   	byte _reserved0;
+		u32 instanceCount;
 		RenderCommandType commandType;
 	};
 
@@ -180,11 +181,11 @@ namespace AB
 		u32 renderBufferFree;
 
 		b32 pendingInstancingArray;
-		u16 instancingArrayCount;
+		u32 instancingArrayCount;
 		CommandQueueEntry* pendingInstancingCommandHeader;
 
 		b32 pendingLineBatch;
-		u16 lineBatchCount;
+		u32 lineBatchCount;
 		CommandQueueEntry* pendingLineBatchCommandHeader;
 
 		CommandQueueEntry* commandQueue;

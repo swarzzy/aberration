@@ -1084,7 +1084,7 @@ out vec4 out_FragColor;
 				
 					BlendMode blendMode = renderData->blendMode;
 					i32 meshHandle = renderData->_meshHandle;
-					u16 instanceCount = command->instanceCount;
+					u32 instanceCount = command->instanceCount;
 					//SetPolygonFillMode(renderer->pipeline,
 					//POLYGON_FILL_MODE_FILL);
 					//EnableFaceCulling(renderer->pipeline, true);
@@ -1149,7 +1149,7 @@ out vec4 out_FragColor;
 				
 					u32 instancingVBO = renderer->impl->debugInstancingVBHandle;
 					GLCall(glBindBuffer(GL_ARRAY_BUFFER, instancingVBO));
-					u32 bufferSize =
+					u64 bufferSize =
 						instanceCount * sizeof(RenderCommandPushDebugCubeInstance);
 					byte* instanceData = (byte*)renderData +
 						sizeof(RenderCommandBeginDebugCubeInctancing);
