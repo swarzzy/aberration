@@ -263,17 +263,17 @@ namespace AB
 
 	// TODO: Pass world instead of gameState
 	u32
-	AddLowEntity(GameState* gameState, Chunk* chunk, EntityType type,
+	AddLowEntity(World* world, Chunk* chunk, EntityType type,
 				 MemoryArena* arena = nullptr)
 	{
-		AB_ASSERT(gameState->lowEntityCount < MAX_LOW_ENTITIES);
+		AB_ASSERT(world->lowEntityCount < MAX_LOW_ENTITIES);
 		u32 index = 0;
 		if (chunk->firstEntityBlock.count < ENTITY_BLOCK_CAPACITY)
 		{
-			gameState->lowEntityCount++;
-			index = gameState->lowEntityCount;
-			gameState->lowEntities[index] = {};
-			gameState->lowEntities[index].type = type;
+			world->lowEntityCount++;
+			index = world->lowEntityCount;
+			world->lowEntities[index] = {};
+			world->lowEntities[index].type = type;
 		
 			chunk->firstEntityBlock.lowEntityIndices[chunk->firstEntityBlock.count]
 				= index;
@@ -281,7 +281,7 @@ namespace AB
 		}
 		else
 		{
-			EntityBlock* emptyBlock = GetEmptyEntityBlock(gameState->world, arena);
+			EntityBlock* emptyBlock = GetEmptyEntityBlock(world, arena);
 			if (emptyBlock)
 			{
 				*emptyBlock = chunk->firstEntityBlock;
@@ -289,10 +289,10 @@ namespace AB
 				chunk->firstEntityBlock.nextBlock = emptyBlock;
 				chunk->firstEntityBlock.count++;
 
-				gameState->lowEntityCount++;
-				index = gameState->lowEntityCount;
-				gameState->lowEntities[index] = {};
-				gameState->lowEntities[index].type = type;
+				world->lowEntityCount++;
+				index = world->lowEntityCount;
+				world->lowEntities[index] = {};
+				world->lowEntities[index].type = type;
 		
 				chunk->firstEntityBlock.lowEntityIndices[0] = index;
 			}
@@ -300,5 +300,141 @@ namespace AB
 
 		return index;
 	}
+
+	inline LowEntity*
+	GetLowEntity(World* world, u32 lowIndex)
+	{
+		LowEntity* result = nullptr;
+		if (lowIndex > 0 && lowIndex <= world->lowEntityCount)
+		{
+			result = world->lowEntities + lowIndex;
+		}
+		return result;		
+	}
+
+	inline HighEntity*
+	GetHighEntity(World* world, u32 highIndex)
+	{
+		HighEntity* result = nullptr;
+		if (highIndex > 0 && highIndex <= world->highEntityCount)
+		{
+			result = world->highEntities + highIndex;
+		}
+		return result;
+	}	
+
+	inline Entity
+	GetEntityFromLowIndex(World* world, u32 lowIndex)
+	{
+		Entity result = {};
+		if (lowIndex > 0 && lowIndex <= world->lowEntityCount)
+		{
+			result.low = world->lowEntities + lowIndex;
+			result.lowIndex = lowIndex;
+			
+			u32 highIndex = result.low->highIndex;
+			
+			if (highIndex > 0 && highIndex <= world->highEntityCount)
+			{
+				result.high = world->highEntities + highIndex;
+			}
+		}
+		
+		return result;
+	}
+
+	inline Entity
+	GetEntityFromHighIndex(World* world, u32 highIndex)
+	{
+		Entity result = {};
+		if (highIndex > 0 && highIndex <= world->highEntityCount)
+		{
+			result.high = world->highEntities + highIndex;
+			result.lowIndex = result.high->lowIndex;
+			result.low = world->lowEntities + result.lowIndex;
+		}
+		
+		return result;
+	}
+
+	u32
+	SetEntityToHigh(World* world, Camera* camera, u32 lowIndex)
+	{
+		AB_ASSERT(lowIndex < MAX_LOW_ENTITIES);
+		u32 result = 0;
+		LowEntity* low = world->lowEntities + lowIndex;
+		if (!low->highIndex)
+		{
+			if (world->highEntityCount < MAX_HIGH_ENTITIES)
+			{
+				world->highEntityCount++;				
+
+				HighEntity* high =
+					world->highEntities + world->highEntityCount;
+
+				high->pos = WorldPosDiff(world,
+										 low->worldPos,
+										 camera->targetWorldPos);
+				high->velocity = V2(0.0f);
+				high->lowIndex = lowIndex;
+				low->highIndex = world->highEntityCount;
+				result = world->highEntityCount;
+			}
+			else
+			{
+				INVALID_CODE_PATH();
+			}
+		}
+		return result;
+	}
+
+	void
+	SetEntityToLow(World* world, Camera* camera, u32 highIndex)
+	{
+		AB_ASSERT(highIndex < MAX_HIGH_ENTITIES);
+		HighEntity* high = GetHighEntity(world, highIndex);
+		LowEntity* low = GetLowEntity(world, high->lowIndex);
+
+		u32 lastEntityIndex = world->highEntityCount;
+		u32 currentEntityIndex = low->highIndex;
+		
+		low->worldPos =
+			ChangeWorldPosition(world,
+								camera->targetWorldPos,
+								high->pos);
+		low->highIndex = 0;
+
+		if (!(currentEntityIndex == lastEntityIndex))
+		{
+			Entity lastEntity = GetEntityFromHighIndex(world, lastEntityIndex);
+			*(high) = *(lastEntity.high);
+			lastEntity.low->highIndex = currentEntityIndex;
+		}
+		world->highEntityCount--;
+	}
+
+	// TODO: Think about what's happens if offset is out if chunk bounds
+	u32
+	AddWallEntity(World* world, Chunk* chunk, v2 offset,
+				  MemoryArena* arena = 0)
+	{
+		// assert for coord out of chunk bounds
+		u32 index = 0;
+		index = AddLowEntity(world, chunk, ENTITY_TYPE_WALL, arena);
+		if (index)
+		{
+			world->lowEntities[index] = {
+				ENTITY_TYPE_WALL,
+				// TODO: Offsets that out of chunk bounds
+				{chunk->coordX, chunk->coordY, offset},
+				0.0f,
+				V2(1.0f),
+				V3(1.0f, 0.0f, 1.0f),
+			};	
+		}
+		
+		return index;
+	}
+
 
 }

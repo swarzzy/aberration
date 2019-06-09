@@ -11,12 +11,53 @@ namespace AB
 
 	const u32 WORLD_CHUNK_DIM_TILES = 64;
 
+	const u32  MAX_LOW_ENTITIES = 10000;
+	const u32  MAX_HIGH_ENTITIES = 2048;
+
 	struct WorldPosition
 	{
 		i32 chunkX;
 		i32 chunkY;
 		// NOTE: Offset in chunk 0..chunkSizeUnits
 		v2 offset;
+	};
+
+	enum EntityResidence
+	{
+		ENTITY_RESIDENCE_NOT_EXIST = 0,
+		ENTITY_RESIDENCE_HIGH,
+		ENTITY_RESIDENCE_LOW
+	};
+
+	enum EntityType
+	{
+		ENTITY_TYPE_BODY,
+		ENTITY_TYPE_WALL
+	};
+	
+	struct LowEntity
+	{
+		EntityType type;
+		WorldPosition worldPos;
+		f32 accelerationAmount;
+		v2 size;
+		v3 color;
+		f32 friction;
+		u32 highIndex;
+	};
+
+	struct HighEntity
+	{
+		v2 pos;
+		v2 velocity;
+		u32 lowIndex;
+	};
+
+	struct Entity
+	{
+		u32 lowIndex;
+		HighEntity* high;
+		LowEntity* low;
 	};
 	
 	enum TerrainType
@@ -64,5 +105,11 @@ namespace AB
 		u32 nonResidentEntityBlocksCount;
 		u32 freeEntityBlockCount;
 		EntityBlock* firstFreeBlock;
+
+		u32 lowEntityCount;
+		u32 highEntityCount;
+		HighEntity highEntities[MAX_HIGH_ENTITIES];
+		LowEntity lowEntities[MAX_LOW_ENTITIES];
+
 	};
 }

@@ -7,144 +7,7 @@
 
 
 namespace AB
-{
-
-	// TODO: Think about what's happens if offset is out if chunk bounds
-	u32
-	AddWallEntity(GameState* gameState, Chunk* chunk, v2 offset,
-				  MemoryArena* arena = 0)
-	{
-		// assert for coord out of chunk bounds
-		u32 index = 0;
-		index = AddLowEntity(gameState, chunk, ENTITY_TYPE_WALL, arena);
-		if (index)
-		{
-			gameState->lowEntities[index] = {
-				ENTITY_TYPE_WALL,
-				// TODO: Offsets that out of chunk bounds
-				{chunk->coordX, chunk->coordY, offset},
-				0.0f,
-				V2(1.0f),
-				V3(1.0f, 0.0f, 1.0f),
-			};	
-		}
-		
-		return index;
-	}
-
-	inline LowEntity*
-	GetLowEntity(GameState* gameState, u32 lowIndex)
-	{
-		LowEntity* result = nullptr;
-		if (lowIndex > 0 && lowIndex <= gameState->lowEntityCount)
-		{
-			result = gameState->lowEntities + lowIndex;
-		}
-		return result;		
-	}
-
-	inline HighEntity*
-	GetHighEntity(GameState* gameState, u32 highIndex)
-	{
-		HighEntity* result = nullptr;
-		if (highIndex > 0 && highIndex <= gameState->highEntityCount)
-		{
-			result = gameState->highEntities + highIndex;
-		}
-		return result;
-	}	
-
-	inline Entity
-	GetEntityFromLowIndex(GameState* gameState, u32 lowIndex)
-	{
-		Entity result = {};
-		if (lowIndex > 0 && lowIndex <= gameState->lowEntityCount)
-		{
-			result.low = gameState->lowEntities + lowIndex;
-			result.lowIndex = lowIndex;
-			
-			u32 highIndex = result.low->highIndex;
-			
-			if (highIndex > 0 && highIndex <= gameState->highEntityCount)
-			{
-				result.high = gameState->highEntities + highIndex;
-			}
-		}
-		
-		return result;
-	}
-
-	inline Entity
-	GetEntityFromHighIndex(GameState* gameState, u32 highIndex)
-	{
-		Entity result = {};
-		if (highIndex > 0 && highIndex <= gameState->highEntityCount)
-		{
-			result.high = gameState->highEntities + highIndex;
-			result.lowIndex = result.high->lowIndex;
-			result.low = gameState->lowEntities + result.lowIndex;
-		}
-		
-		return result;
-	}
-
-
-	u32
-	SetEntityToHigh(GameState* gameState, u32 lowIndex)
-	{
-		AB_ASSERT(lowIndex < MAX_LOW_ENTITIES);
-		u32 result = 0;
-		LowEntity* low = gameState->lowEntities + lowIndex;
-		if (!low->highIndex)
-		{
-			if (gameState->highEntityCount < MAX_HIGH_ENTITIES)
-			{
-				gameState->highEntityCount++;				
-
-				HighEntity* high =
-					gameState->highEntities + gameState->highEntityCount;
-
-				high->pos = WorldPosDiff(gameState->world,
-										 low->worldPos,
-										 gameState->camera.targetWorldPos);
-				high->velocity = V2(0.0f);
-				high->lowIndex = lowIndex;
-				low->highIndex = gameState->highEntityCount;
-				result = gameState->highEntityCount;
-			}
-			else
-			{
-				INVALID_CODE_PATH();
-			}
-		}
-		return result;
-	}
-
-	void
-	SetEntityToLow(GameState* gameState, u32 highIndex)
-	{
-		AB_ASSERT(highIndex < MAX_HIGH_ENTITIES);
-		HighEntity* high = GetHighEntity(gameState, highIndex);
-		LowEntity* low = GetLowEntity(gameState, high->lowIndex);
-
-		u32 lastEntityIndex = gameState->highEntityCount;
-		u32 currentEntityIndex = low->highIndex;
-		
-		low->worldPos =
-			ChangeWorldPosition(gameState->world,
-								gameState->camera.targetWorldPos,
-								high->pos);
-		low->highIndex = 0;
-
-		if (!(currentEntityIndex == lastEntityIndex))
-		{
-			Entity lastEntity = GetEntityFromHighIndex(gameState, lastEntityIndex);
-			*(high) = *(lastEntity.high);
-			lastEntity.low->highIndex = currentEntityIndex;
-		}
-		gameState->highEntityCount--;
-	}
-	
+{	
 	void Init(MemoryArena* arena,
 			  MemoryArena* tempArena,
 			  GameState* gameState,
@@ -247,7 +110,7 @@ namespace AB
 							{
 								SetTerrainTile(chunk, tileX, tileY,
 											   TERRAIN_TYPE_CLIFF);
-								AddWallEntity(gameState, chunk,
+								AddWallEntity(world, chunk,
 											  V2(tileX * world->tileSizeInUnits,
 												 tileY * world->tileSizeInUnits),
 											  arena);
@@ -280,9 +143,9 @@ namespace AB
 		Chunk* firstChunk = GetChunk(gameState->world, 0, 0);
 		AB_ASSERT(firstChunk);
 
-		gameState->entity = AddLowEntity(gameState, firstChunk,
+		gameState->entity = AddLowEntity(world, firstChunk,
 										 ENTITY_TYPE_BODY, arena);
-		LowEntity* e = GetLowEntity(gameState, gameState->entity);
+		LowEntity* e = GetLowEntity(world, gameState->entity);
 		e->worldPos.chunkX = 0;
 		e->worldPos.chunkY = 0;
 		e->worldPos.offset = V2(10.0f, 10.0f);
@@ -290,13 +153,14 @@ namespace AB
 		e->size = V2(1.5f, 3.0f);
 		e->color = V3(1.0f, 0.0f, 0.0f);
 		e->friction = 3.0f;
-		u32 highIndex = SetEntityToHigh(gameState, gameState->entity);
-		HighEntity* highE = GetHighEntity(gameState, highIndex);
+		u32 highIndex = SetEntityToHigh(world, &gameState->camera,
+										gameState->entity);
+		HighEntity* highE = GetHighEntity(world, highIndex);
 		highE->velocity = V2(0.0f, 0.1f);
 		
-		gameState->entity1 = AddLowEntity(gameState, firstChunk,
+		gameState->entity1 = AddLowEntity(world, firstChunk,
 										  ENTITY_TYPE_BODY, arena);
-		LowEntity* e1 = GetLowEntity(gameState, gameState->entity1);
+		LowEntity* e1 = GetLowEntity(world, gameState->entity1);
 		e1->worldPos.chunkX = 0;
 		e1->worldPos.chunkY = 0;
 		e1->worldPos.offset = V2(20.0f, 15.0f);
@@ -309,10 +173,10 @@ namespace AB
 #if 1
 		for (u32 i = 0; i < MOVING_ENTITIES_COUNT; i++)
 		{
-			u32 id = AddLowEntity(gameState, firstChunk,
+			u32 id = AddLowEntity(world, firstChunk,
 								  ENTITY_TYPE_BODY, arena);
 			gameState->movingEntities[i] = id; 
-			LowEntity* e = GetLowEntity(gameState, id);
+			LowEntity* e = GetLowEntity(world, id);
 			if (i < 32)
 			{
 				e->worldPos.chunkX= 0;
@@ -353,8 +217,8 @@ namespace AB
 
 			f32 x = (f32)(rand() % 30 * 5);
 			f32 y = (f32)(rand() % 30 * 5);
-			u32 highIndex = SetEntityToHigh(gameState, id);
-			HighEntity* high = GetHighEntity(gameState, highIndex);
+			u32 highIndex = SetEntityToHigh(world, &gameState->camera, id);
+			HighEntity* high = GetHighEntity(world, highIndex);
 			high->velocity = V2(x, y);
 			
 			
@@ -408,7 +272,7 @@ namespace AB
 				{
 					u32 testEntityIndex = block->lowEntityIndices[i];
 #if 1
-				   	Entity testEntity = GetEntityFromLowIndex(gameState,
+				   	Entity testEntity = GetEntityFromLowIndex(world,
 															  testEntityIndex);
 				
 					if (entity.high != testEntity.high)
@@ -578,9 +442,9 @@ namespace AB
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.offset.x);
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.offset.y);
 
-		for (u32 index = 1; index <= gameState->highEntityCount;)
+		for (u32 index = 1; index <= world->highEntityCount;)
 		{
-			Entity entity = GetEntityFromHighIndex(gameState, index);
+			Entity entity = GetEntityFromHighIndex(world, index);
 			entity.high->pos += entityFrameOffset;
 			i32 entityChunkX = entity.low->worldPos.chunkX;
 			i32 entityChunkY = entity.low->worldPos.chunkY;
@@ -597,7 +461,7 @@ namespace AB
 				if (chunk)
 				{
 					chunk->high = false;
-					SetEntityToLow(gameState, index);
+					SetEntityToLow(world, &gameState->camera, index);
 				}
 				else
 				{
@@ -624,14 +488,15 @@ namespace AB
 						EntityBlock* block = &chunk->firstEntityBlock;
 						for (u32 i = 0; i < block->count; i++)
 						{
-							SetEntityToHigh(gameState, block->lowEntityIndices[i]);
+							SetEntityToHigh(world, &gameState->camera,
+											block->lowEntityIndices[i]);
 						}
 						while (block->nextBlock)
 						{
 							block = block->nextBlock;
 							for (u32 i = 0; i < block->count; i++)
 							{
-								SetEntityToHigh(gameState, block->lowEntityIndices[i]);
+								SetEntityToHigh(world, &gameState->camera, block->lowEntityIndices[i]);
 							}					
 						}
 					}
@@ -652,8 +517,8 @@ namespace AB
 							  V3(maxLine.x, 10.0f, maxLine.y) * world->unitsToRaw,
 							  V3(0.8, 0.0, 0.0), 2.0f);
 
-		DEBUG_OVERLAY_TRACE_VAR(gameState->lowEntityCount);
-		DEBUG_OVERLAY_TRACE_VAR(gameState->highEntityCount);
+		DEBUG_OVERLAY_TRACE_VAR(world->lowEntityCount);
+		DEBUG_OVERLAY_TRACE_VAR(world->highEntityCount);
 	}
 
 	void Render(MemoryArena* arena,
@@ -671,9 +536,9 @@ namespace AB
 
 			MoveCamera(gameState, camera, world, assetManager);
 			
-			for (u32 index = 1; index <= gameState->highEntityCount; index++)
+			for (u32 index = 1; index <= world->highEntityCount; index++)
 			{
-				Entity entity = GetEntityFromHighIndex(gameState, index);
+				Entity entity = GetEntityFromHighIndex(world, index);
 
 				if (entity.low->type == ENTITY_TYPE_BODY)
 				{
@@ -687,9 +552,9 @@ namespace AB
 
 		//SetEntityToHigh(gameState, gameState->entity);
 		//SetEntityToHigh(gameState, gameState->entity1);
-		Entity entity = GetEntityFromLowIndex(gameState, gameState->entity);
+		Entity entity = GetEntityFromLowIndex(world, gameState->entity);
 		
-		Entity entity1 = GetEntityFromLowIndex(gameState, gameState->entity1);
+		Entity entity1 = GetEntityFromLowIndex(world, gameState->entity1);
 
 		if (entity.high)
 		{ // Enitity 0 movement code
