@@ -208,12 +208,12 @@ namespace AB
 		f32 g = 0.2f;
 		f32 b = 0.2f;
 		
-		for (i32 y = -2;
-			 y < (i32)(world->chunkCountY) - 2;
+		for (i32 y = -4;
+			 y < (i32)(world->chunkCountY) - 4;
 			 y++)
 		{
-			for (i32 x = -2;
-				 x < (i32)(world->chunkCountX) -2;
+			for (i32 x = -4;
+				 x < (i32)(world->chunkCountX) -4;
 				 x++)
 			{
 				r = rand() % 11 / 10.0f;
@@ -224,27 +224,25 @@ namespace AB
 				{
 					for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 					{
-#if 1
+#if 0
 						if ((tileX == 0 || tileY == 0))
 						{
 							SetTerrainTile(chunk, tileX, tileY,
 										   TERRAIN_TYPE_WATER);
-#if 0
 							AddWallEntity(gameState, chunk,
 										  V2(tileX * world->tileSizeInUnits,
 											 tileY * world->tileSizeInUnits),
 										  arena);
-#endif
 							
 						}
 						else
 #endif
 						{
-							if ((x == -2 && tileX == 0) ||
-								(x == world->chunkCountX - 3 &&
+							if ((x == -1 && tileX == 0) ||
+								(x == world->chunkCountX - 15 &&
 								 tileX == WORLD_CHUNK_DIM_TILES - 1) ||
-								(y == -2 && tileY == 0) ||
-								(y == world->chunkCountY - 3 &&
+								(y == -1 && tileY == 0) ||
+								(y == world->chunkCountY - 15 &&
 								 tileY == WORLD_CHUNK_DIM_TILES - 1))
 							{
 								SetTerrainTile(chunk, tileX, tileY,
@@ -301,14 +299,14 @@ namespace AB
 		LowEntity* e1 = GetLowEntity(gameState, gameState->entity1);
 		e1->worldPos.chunkX = 0;
 		e1->worldPos.chunkY = 0;
-		e->worldPos.offset = V2(20.0f, 15.0f);
+		e1->worldPos.offset = V2(20.0f, 15.0f);
 		e1->accelerationAmount = 30.0f;
 		e1->size = V2(1.2f, 0.5f);
 		e1->color = V3(0.0f, 1.0f, 0.0f);
 		e1->friction = 3.0f;
 		e1->type = ENTITY_TYPE_BODY;
 
-#if 0
+#if 1
 		for (u32 i = 0; i < MOVING_ENTITIES_COUNT; i++)
 		{
 			u32 id = AddLowEntity(gameState, firstChunk,
@@ -317,23 +315,26 @@ namespace AB
 			LowEntity* e = GetLowEntity(gameState, id);
 			if (i < 32)
 			{
-				e->worldPos.tileX = i + 18 + i * 2;
-				e->worldPos.tileY = i + 18 + i * 2;
+				e->worldPos.chunkX= 0;
+				e->worldPos.chunkY= 0;
+				e->worldPos.offset = V2((f32)(i + i * 2));
 			}
 			else if (i < 64)
 			{
-				e->worldPos.tileX = ((i - 32) + 18 + (i - 32) * 2) + 4;
-				e->worldPos.tileY = (i - 32) + 18 + (i - 32) * 2;
+				e->worldPos.chunkX= 0;
+				e->worldPos.chunkY= 0;
+				e->worldPos.offset = V2((f32)(((i - 32) + (i - 32) * 2) + 4), (f32)((i - 32) + 18 + (i - 32) * 2));
+
 			}
 			else if (i < 96)
 			{
-				e->worldPos.tileX = ((i - 64) + 18 + (i - 64) * 2) - 4;
-				e->worldPos.tileY = (i - 64) + 18 + (i - 64) * 2;
+				//e->worldPos.tileX = ((i - 64) + 18 + (i - 64) * 2) - 4;
+				//e->worldPos.tileY = (i - 64) + 18 + (i - 64) * 2;
 			}
 			else
 			{
-				e->worldPos.tileX = ((i - 96) + 18 + (i - 96) * 2) - 7;
-				e->worldPos.tileY = (i - 96) + 18 + (i - 96) * 2;				
+				//e->worldPos.tileX = ((i - 96) + 18 + (i - 96) * 2) - 7;
+				//e->worldPos.tileY = (i - 96) + 18 + (i - 96) * 2;				
 			}
 			
 			e->accelerationAmount = 30.0f;
@@ -408,7 +409,7 @@ namespace AB
 					u32 testEntityIndex = block->lowEntityIndices[i];
 #if 1
 				   	Entity testEntity = GetEntityFromLowIndex(gameState,
-															   testEntityIndex);
+															  testEntityIndex);
 				
 					if (entity.high != testEntity.high)
 					{
@@ -593,8 +594,15 @@ namespace AB
 				// keep list of high chunks and check _if chunk is outside_
 				// and evict whole chunk
 				Chunk* chunk = GetChunk(world, entityChunkX, entityChunkY);
-				chunk->high = false;
-				SetEntityToLow(gameState, index);
+				if (chunk)
+				{
+					chunk->high = false;
+					SetEntityToLow(gameState, index);
+				}
+				else
+				{
+					index++;
+				}
 			}
 			else
 			{
@@ -657,6 +665,8 @@ namespace AB
 		World* world = gameState->world;
 		Camera* camera = &gameState->camera;
 
+		DEBUG_OVERLAY_TRACE_VAR(world->nonResidentEntityBlocksCount);
+		DEBUG_OVERLAY_TRACE_VAR(world->freeEntityBlockCount);
 		{
 
 			MoveCamera(gameState, camera, world, assetManager);

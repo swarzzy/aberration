@@ -9,8 +9,8 @@ namespace AB
 		world = (World*)PushSize(arena, sizeof(World), alignof(World));
 		SetZeroScalar(World, world);
 		
-		world->chunkCountX = 8;
-		world->chunkCountY = 8;
+		world->chunkCountX = 16;
+		world->chunkCountY = 16;
 		world->tileSizeRaw = 3.0f;
 		world->tileSizeInUnits = 1.0f;
 		world->tileRadiusInUnits = 0.5f;
@@ -136,12 +136,34 @@ namespace AB
 		return newPos;
 	}
 
-	// TODO @Important: Potential memory leak here.
-	// For now there are no way to delete empty blocks, so
-	// entity movement may cause memory leaks
+	static inline EntityBlock*
+	GetEmptyEntityBlock(World* world, MemoryArena* arena = nullptr)
+	{
+		EntityBlock* block = nullptr;
+		if (world->firstFreeBlock)
+		{
+			block = world->firstFreeBlock;
+			world->firstFreeBlock = block->nextBlock;
+			world->freeEntityBlockCount--;
+			SetZeroScalar(EntityBlock, block);
+		}
+		else if (arena)
+		{
+			block =	(EntityBlock*)PushSize(arena, sizeof(EntityBlock),
+										   alignof(EntityBlock));
+			world->nonResidentEntityBlocksCount++;
+			SetZeroScalar(EntityBlock, block);
+		}
+		return block;
+	}
+
+	// TODO @Important: It may take some extra blocks of memory
+	// Because entities are spreading across half-filled resident blocks.
+	// When entity goes from half-filled block to full it need extra block.
+	// Number of extra blocks should be fixed and depends of number of chunks and
+	// entities
 	void
-	ChangeEntityPosition(World* world, Entity entity, WorldPosition newPos,
-						 MemoryArena* arena)
+	ChangeEntityPosition(World* world, Entity entity, WorldPosition newPos, MemoryArena* arena)
 	{
 		WorldPosition oldPos = entity.low->worldPos;
 		if(oldPos.chunkX == newPos.chunkX && oldPos.chunkY == newPos.chunkY)
@@ -156,6 +178,7 @@ namespace AB
 				Chunk* oldChunk = GetChunk(world, oldPos.chunkX, oldPos.chunkY);
 				AB_ASSERT(oldChunk);
 				EntityBlock* oldBlock = &oldChunk->firstEntityBlock;
+				EntityBlock* prevBlock = nullptr;
 				bool found = false;
 				do
 				{
@@ -163,16 +186,37 @@ namespace AB
 					{
 						if (oldBlock->lowEntityIndices[i] == entity.lowIndex)
 						{
-							if (i != oldBlock->count - 1)
+							// NOTE: Moving last index from last block here
+							EntityBlock* head = &oldChunk->firstEntityBlock;
+							u32 lastIndex =
+								head->lowEntityIndices[head->count - 1];
+							head->count--;
+							oldBlock->lowEntityIndices[i] = lastIndex;		
+
+							// NOTE: Head block empty. Move it to freelist
+							if (head->count == 0)
 							{
-								oldBlock->lowEntityIndices[i] =
-									oldBlock->lowEntityIndices[oldBlock->count - 1];
+								EntityBlock* freeBlock = head->nextBlock;
+								*head = *head->nextBlock;
+
+								if (!world->firstFreeBlock)
+								{
+									world->firstFreeBlock = freeBlock;
+									freeBlock->nextBlock = nullptr;
+								}
+								else
+								{
+									freeBlock->nextBlock = world->firstFreeBlock;
+									world->firstFreeBlock = freeBlock;
+								}
+								world->freeEntityBlockCount++;
 							}
-							oldBlock->count--;
+							
 							found = true;
 							break;
 						}
 					}
+					prevBlock = oldBlock;
 					oldBlock = oldBlock->nextBlock;
 				} while (oldBlock && !found);
 				AB_ASSERT(found);
@@ -181,31 +225,22 @@ namespace AB
 				Chunk* newChunk = GetChunk(world, newPos.chunkX, newPos.chunkY);
 				AB_ASSERT(newChunk);
 				EntityBlock* newBlock = &newChunk->firstEntityBlock;
-				bool inserted = false;
-				EntityBlock* prevBlock = nullptr;
-				do
+				if (newBlock->count < ENTITY_BLOCK_CAPACITY)
 				{
-					if (newBlock->count < ENTITY_BLOCK_CAPACITY)
-					{
-						newBlock->lowEntityIndices[newBlock->count] =
-							entity.lowIndex;
-						newBlock->count++;
-						inserted = true;
-						break;
-					}
-					prevBlock = newBlock;
-					newBlock = newBlock->nextBlock;
-				} while (newBlock);
-
-				if (!inserted)
+					newBlock->lowEntityIndices[newBlock->count] =
+						entity.lowIndex;
+					newBlock->count++;
+				}
+				else
 				{
-					prevBlock->nextBlock =
-						(EntityBlock*)PushSize(arena,
-											   sizeof(EntityBlock),
-											   alignof(EntityBlock));
-					SetZeroScalar(EntityBlock, prevBlock->nextBlock);
-					prevBlock->nextBlock->count++;
-					prevBlock->nextBlock->lowEntityIndices[0] = entity.lowIndex;
+					EntityBlock* emptyBlock = GetEmptyEntityBlock(world, arena);
+					AB_ASSERT(emptyBlock);
+					*emptyBlock = newChunk->firstEntityBlock;
+					newChunk->firstEntityBlock.count = 0;
+					newChunk->firstEntityBlock.nextBlock = emptyBlock;
+					newChunk->firstEntityBlock.count++;
+					newChunk->firstEntityBlock.lowEntityIndices[0]
+						= entity.lowIndex;
 				}
 			}
 		}
@@ -226,6 +261,7 @@ namespace AB
 		return result;
 	}
 
+	// TODO: Pass world instead of gameState
 	u32
 	AddLowEntity(GameState* gameState, Chunk* chunk, EntityType type,
 				 MemoryArena* arena = nullptr)
@@ -245,37 +281,20 @@ namespace AB
 		}
 		else
 		{
-			EntityBlock* currentBlock = &chunk->firstEntityBlock;
-			while (currentBlock->nextBlock)
+			EntityBlock* emptyBlock = GetEmptyEntityBlock(gameState->world, arena);
+			if (emptyBlock)
 			{
-				currentBlock = currentBlock->nextBlock;
-				if (currentBlock->count < ENTITY_BLOCK_CAPACITY)
-				{
-					gameState->lowEntityCount++;
-					index = gameState->lowEntityCount;
-					gameState->lowEntities[index] = {};
-					gameState->lowEntities[index].type = type;
-		
-					currentBlock->lowEntityIndices[currentBlock->count]	= index;
-					currentBlock->count++;
-					break;
-				}
-			}			
-			if ((!index) && arena)
-			{
-				currentBlock->nextBlock =
-					(EntityBlock*)PushSize(arena, sizeof(EntityBlock),
-										   alignof(EntityBlock));
-				SetZeroScalar(EntityBlock, currentBlock->nextBlock);
-				currentBlock = currentBlock->nextBlock;
+				*emptyBlock = chunk->firstEntityBlock;
+				chunk->firstEntityBlock.count = 0;
+				chunk->firstEntityBlock.nextBlock = emptyBlock;
+				chunk->firstEntityBlock.count++;
 
 				gameState->lowEntityCount++;
 				index = gameState->lowEntityCount;
 				gameState->lowEntities[index] = {};
 				gameState->lowEntities[index].type = type;
 		
-				currentBlock->lowEntityIndices[currentBlock->count]	= index;
-				currentBlock->count++;				
+				chunk->firstEntityBlock.lowEntityIndices[0] = index;
 			}
 		}
 

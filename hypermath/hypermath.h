@@ -237,7 +237,7 @@ namespace hpm
 	{
 		return Vector2{x, y};
 	}
-	
+
 	inline Vector2 V2(f32 val)
 	{
 		return Vector2{val, val};

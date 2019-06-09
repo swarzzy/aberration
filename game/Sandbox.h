@@ -60,7 +60,7 @@ namespace AB
 		//FrustumVertices camFrustum;
 		u32 entity;
 		u32 entity1;
-#define MOVING_ENTITIES_COUNT 128 // 128 max
+#define MOVING_ENTITIES_COUNT 64 // 128 max
 		u32 movingEntities[MOVING_ENTITIES_COUNT];
 
 

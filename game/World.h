@@ -61,5 +61,8 @@ namespace AB
 		u32 chunkCountY;
 
 		Chunk chunkTable[CHUNK_TABLE_SIZE];
+		u32 nonResidentEntityBlocksCount;
+		u32 freeEntityBlockCount;
+		EntityBlock* firstFreeBlock;
 	};
 }
