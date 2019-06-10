@@ -163,7 +163,7 @@ namespace AB
 		LowEntity* e1 = GetLowEntity(world, gameState->entity1);
 		e1->worldPos.chunkX = 0;
 		e1->worldPos.chunkY = 0;
-		e1->worldPos.offset = V2(20.0f, 15.0f);
+		e1->worldPos.offset = V2(0.0f, 0.0f);
 		e1->accelerationAmount = 30.0f;
 		e1->size = V2(1.2f, 0.5f);
 		e1->color = V3(0.0f, 1.0f, 0.0f);
@@ -215,10 +215,10 @@ namespace AB
 			e->color = V3(r, g, b);
 			e->friction = 0.0f;
 
-			f32 x = (f32)(rand() % 30 * 5);
-			f32 y = (f32)(rand() % 30 * 5);
+			f32 x = (f32)(rand() % 11 / 5);
+			f32 y = (f32)(rand() % 11 / 5);
 			u32 highIndex = SetEntityToHigh(world, &gameState->camera, id);
-			HighEntity* high = GetHighEntity(world, highIndex);
+				HighEntity* high = GetHighEntity(world, highIndex);
 			high->velocity = V2(x, y);
 			
 			
@@ -247,13 +247,34 @@ namespace AB
 	}
 
 	void
-	EntityApplyMovement(GameState* gameState, Entity entity, v2 delta)
+	EntityApplyMovement(GameState* gameState, Entity entity, v2 delta, Camera* camera)
 	{
 		World* world = gameState->world;
 		v2 colliderSize = entity.low->size;
-
+		v2 iterationOffset = V2(0.0f);
+	
 		for (u32 pass = 0; pass < 4; pass++)
 		{
+			// TODO: Using AABB's to calculate chunks for checking
+			WorldPosition beginPos = ChangeWorldPosition(world,
+														 entity.low->worldPos,
+														 iterationOffset);
+			WorldPosition desiredPosP = ChangeWorldPosition(gameState->world,
+														   beginPos, delta + colliderSize);
+
+			WorldPosition desiredPosN = ChangeWorldPosition(gameState->world,
+															beginPos, delta - colliderSize);
+
+
+			i32 minChunkX = MINIMUM(beginPos.chunkX,
+									MINIMUM(desiredPosP.chunkX, desiredPosN.chunkX));
+			i32 maxChunkX = MAXIMUM(beginPos.chunkX,
+									MAXIMUM(desiredPosP.chunkX, desiredPosN.chunkX));
+			i32 minChunkY = MINIMUM(beginPos.chunkY,
+									MINIMUM(desiredPosP.chunkY, desiredPosN.chunkY));
+			i32 maxChunkY = MAXIMUM(beginPos.chunkY,
+									MAXIMUM(desiredPosP.chunkY, desiredPosN.chunkY));
+
 			v2 wallNormal = V2(0.0f);
 			f32 tMin = 1.0f;
 			u32 hitEntityIndex = 0;
@@ -261,70 +282,79 @@ namespace AB
 
 			// NOTE: Not testing against low enitties. So that is why objects can
 			// go through each other on the edges of the high area
-			Chunk* chunk = GetChunk(gameState->world, entity.low->worldPos.chunkX,
-									entity.low->worldPos.chunkY);
-			EntityBlock* block = &chunk->firstEntityBlock;
-			do
+			for (i32 chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
 			{
-				for (u32 i = 0;
-					 i < block->count;
-					 i++)
+				for (i32 chunkX = minChunkX; chunkX <= maxChunkX; chunkX++)
 				{
-					u32 testEntityIndex = block->lowEntityIndices[i];
-#if 1
-				   	Entity testEntity = GetEntityFromLowIndex(world,
-															  testEntityIndex);
-				
-					if (entity.high != testEntity.high)
+					Chunk* chunk = GetChunk(gameState->world,
+											chunkX,	chunkY);
+					// TODO: Make chunk high
+					EntityBlock* block = &chunk->firstEntityBlock;
+					do
 					{
-						v2 minCorner = -0.5f * testEntity.low->size;
-						v2 maxCorner = 0.5f * testEntity.low->size;
-						// NOTE: Minkowski sum
-						minCorner += colliderSize * -0.5f;
-						maxCorner += colliderSize * 0.5f;
-						v2 relOldPos = entity.high->pos
-							- testEntity.high->pos;
-
-						if (TestWall(minCorner.x, relOldPos.x,
-									 relOldPos.y, delta.x,
-									 delta.y,
-									 minCorner.y, maxCorner.y, &tMin))
+						for (u32 i = 0;
+							 i < block->count;
+							 i++)
 						{
-							wallNormal = V2(1.0f, 0.0f);
-							hitEntityIndex = testEntityIndex;
-						}
-						
-						if(TestWall(maxCorner.x, relOldPos.x,
-									relOldPos.y, delta.x,
-									delta.y,
-									minCorner.y, maxCorner.y, &tMin))
-						{
-							wallNormal = V2(-1.0f, 0.0f);
-							hitEntityIndex = testEntityIndex;
-						}
-						if(TestWall(minCorner.y, relOldPos.y,
-									relOldPos.x, delta.y,
-									delta.x,
-									minCorner.x, maxCorner.x, &tMin))
-						{
-							wallNormal = V2(0.0f, 1.0f);
-							hitEntityIndex = testEntityIndex;
-						}
-						if(TestWall(maxCorner.y, relOldPos.y,
-									relOldPos.x, delta.y,
-									delta.x,
-									minCorner.x, maxCorner.x, &tMin))
-						{
-							wallNormal = V2(0.0f, -1.0f);
-							hitEntityIndex = testEntityIndex;
-						}
+							u32 testEntityIndex = block->lowEntityIndices[i];
+#if 1
+							Entity testEntity =
+								GetEntityFromLowIndex(world, testEntityIndex);
 				
-					}
+							if (entity.high != testEntity.high)
+							{
+								v2 minCorner = -0.5f * testEntity.low->size;
+								v2 maxCorner = 0.5f * testEntity.low->size;
+								//NOTE: Minkowski sum
+								minCorner += colliderSize * -0.5f;
+								maxCorner += colliderSize * 0.5f;
+								v2 relOldPos = entity.high->pos
+									- testEntity.high->pos;
+
+								if (TestWall(minCorner.x, relOldPos.x,
+											 relOldPos.y, delta.x,
+											 delta.y,
+											 minCorner.y, maxCorner.y, &tMin))
+								{
+									wallNormal = V2(1.0f, 0.0f);
+									hitEntityIndex = testEntityIndex;
+								}
+						
+								if(TestWall(maxCorner.x, relOldPos.x,
+											relOldPos.y, delta.x,
+											delta.y,
+											minCorner.y, maxCorner.y, &tMin))
+								{
+									wallNormal = V2(-1.0f, 0.0f);
+									hitEntityIndex = testEntityIndex;
+								}
+								if(TestWall(minCorner.y, relOldPos.y,
+											relOldPos.x, delta.y,
+											delta.x,
+											minCorner.x, maxCorner.x, &tMin))
+								{
+									wallNormal = V2(0.0f, 1.0f);
+									hitEntityIndex = testEntityIndex;
+								}
+								if(TestWall(maxCorner.y, relOldPos.y,
+											relOldPos.x, delta.y,
+											delta.x,
+											minCorner.x, maxCorner.x, &tMin))
+								{
+									wallNormal = V2(0.0f, -1.0f);
+									hitEntityIndex = testEntityIndex;
+								}
+				
+							}
 #endif
+						}
+						block = block->nextBlock;
+					} while (block);		
 				}
-				block = block->nextBlock;
-			} while (block);
+			}
+			
 			entity.high->pos += delta * tMin;
+			iterationOffset += delta * tMin;
 
 			if (hitEntityIndex)
 			{
@@ -359,7 +389,7 @@ namespace AB
 			entity.high->velocity *
 			GlobalGameDeltaTime;
 
-		EntityApplyMovement(gameState, entity, movementDelta);
+		EntityApplyMovement(gameState, entity, movementDelta, &gameState->camera);
 
 		entity.high->velocity += acceleration * GlobalGameDeltaTime;
 

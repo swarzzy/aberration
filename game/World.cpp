@@ -194,7 +194,7 @@ namespace AB
 							oldBlock->lowEntityIndices[i] = lastIndex;		
 
 							// NOTE: Head block empty. Move it to freelist
-							if (head->count == 0)
+							if (head->count == 0 && head->nextBlock)
 							{
 								EntityBlock* freeBlock = head->nextBlock;
 								*head = *head->nextBlock;
