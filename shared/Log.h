@@ -37,8 +37,9 @@ namespace AB
 		bool32 succeeded;
 		uint64 written;
 	};
-	
+#if 0	
 	AB_API GetDirectoryRet GetDirectory(const char* file_path, char* buffer, uint32 buffer_size);
+#endif
 }
 
 #if defined(AB_CONFIG_DISTRIB)

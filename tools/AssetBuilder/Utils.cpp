@@ -1,4 +1,4 @@
-#include "../../aberration/AB.h"
+//#include "../../shared/Shared.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,6 +12,8 @@ struct GetDirectoryRet { bool32 succeeded;
 	uint64 written;
 };
 
+
+// Because log.h included alongside with Shared.h
 GetDirectoryRet GetDirectory(const char* file_path, char* buffer, uint32 buffer_size) {
 #if defined(AB_PLATFORM_WINDOWS)
 	char sep_1 = '\\';
@@ -52,7 +54,6 @@ GetDirectoryRet GetDirectory(const char* file_path, char* buffer, uint32 buffer_
 	result.written = dir_num_chars;
 	return result;
 }
-
 
 #if defined(AB_PLATFORM_WINDOWS)
 #include <windows.h>

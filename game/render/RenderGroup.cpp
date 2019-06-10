@@ -525,6 +525,24 @@ namespace AB
 
 	}
 
+	void DrawDebugMesh(RenderGroup* renderGroup,
+					   AssetManager* assetManager,
+					   v3 position, v3 scale, i32 meshHandle)
+	{
+		RenderCommandDrawMesh command = {};
+		m4x4 world = Identity4();
+		world = Translate(world, position);
+		world = Scale(world, scale);
+		command.transform.worldMatrix = world;
+		command.meshHandle = meshHandle;
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_DRAW_MESH,
+							   (void*)(&command));
+
+	}
+
+
 	void DrawDebugCubeInstanced(RenderGroup* renderGroup,
 								AssetManager* assetManager,
 								v3 position, f32 scale, v3 color)

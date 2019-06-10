@@ -1,7 +1,7 @@
 
 @echo off
 
-set BuildTools=FALSE
+set BuildTools=TRUE
 
 set ObjOutDir=build\obj\
 set BinOutDir=build\
@@ -34,8 +34,8 @@ cl /MP /W3 /Fo%ObjOutDir% /DGAME_CODE %CommonDefines% %IncludeDirs% %CommonCompi
 cl /MP /W3 /Fo%ObjOutDir% /DPLATFORM_CODE %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% platform\Platform.cpp /link %LinkerFlags%
 
 IF %BuildTools%==TRUE (
-	cl /MP /W3 /Fo%ObjOutDir% %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% tools\AssetBuilder\AssetBuilder.cpp /link %AppLinkerFlags% /OUT:%BinOutDir%\AssetBuilder.exe /PDB:%BinOutDir%\AssetBuilder.pdb
-	cl /MP /W3 /Fo%ObjOutDir% %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% tools\FontPreprocessor\FontPreprocessor.cpp /link %AppLinkerFlags% /OUT:%BinOutDir%\FontPreprocessor.exe /PDB:%BinOutDir%\FontPreprocessor.pdb
+	cl /MP /W3 /Fo%ObjOutDir% %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% tools\AssetBuilder\AssetBuilder.cpp /link /OUT:%BinOutDir%\AssetBuilder.exe /PDB:%BinOutDir%\AssetBuilder.pdb
+	cl /MP /W3 /Fo%ObjOutDir% %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% tools\FontPreprocessor\FontPreprocessor.cpp /link  /OUT:%BinOutDir%\FontPreprocessor.exe /PDB:%BinOutDir%\FontPreprocessor.pdb
 )
 
 project\ctime -end build\ab_ctime.ctm

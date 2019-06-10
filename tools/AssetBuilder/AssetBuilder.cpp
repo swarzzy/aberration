@@ -1,8 +1,9 @@
+#pragma warning(disable:4530)
 #include <cstdint>
 #include <cassert>
 #include <vector>
 
-#include "../../aberration/FileFormats.h"
+#include "../../game/FileFormats.h"
 #include <hypermath.h>
 
 #include "OBJLoader.cpp"

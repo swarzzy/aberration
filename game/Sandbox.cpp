@@ -26,17 +26,17 @@ namespace AB
 		gameState->dirLightOffset = V3(-10, 38, 17);
 		
 		BeginTemporaryMemory(tempArena);
-#if 0
-		gameState->mansionMeshHandle =
+		gameState->treeFoliageHandle =
 			AssetCreateMeshAAB(assetManager,
 							   arena,
 							   tempArena,
-							   "../assets/mansion/mansion.aab");
-		gameState->planeMeshHandle =
+							   "../assets/tree_foliage.aab");
+		gameState->treeTrunkHandle =
 			AssetCreateMeshAAB(assetManager,
-							   arena, tempArena,
-							   "../assets/Plane.aab");
-#endif
+							   arena,
+							   tempArena,
+							   "../assets/tree_trunk.aab");
+
 		
 		//AB_CORE_ASSERT(gameState->mansionMeshHandle != ASSET_INVALID_HANDLE);
 		EndTemporaryMemory(tempArena);
@@ -150,7 +150,7 @@ namespace AB
 		e->worldPos.chunkY = 0;
 		e->worldPos.offset = V2(10.0f, 10.0f);
 		e->accelerationAmount = 20.0f;
-		e->size = V2(1.5f, 3.0f);
+		e->size = V2(3.0f, 3.0f);
 		e->color = V3(1.0f, 0.0f, 0.0f);
 		e->friction = 3.0f;
 		e->velocity = V2(0.0f, 0.1f);
@@ -162,12 +162,12 @@ namespace AB
 		e1->worldPos.chunkY = 0;
 		e1->worldPos.offset = V2(0.0f, 0.0f);
 		e1->accelerationAmount = 30.0f;
-		e1->size = V2(1.2f, 0.5f);
+		e1->size = V2(2.0f, 2.0f);
 		e1->color = V3(0.0f, 1.0f, 0.0f);
 		e1->friction = 3.0f;
 		e1->type = ENTITY_TYPE_BODY;
 
-#if 1
+#if 0
 		for (u32 i = 0; i < MOVING_ENTITIES_COUNT; i++)
 		{
 			u32 id = AddLowEntity(world, firstChunk,
@@ -224,7 +224,8 @@ namespace AB
 	
 	void
 	DrawEntity(World* world, RenderGroup* renderGroup,
-			   AssetManager* assetManager, Entity entity, Camera* camera)
+			   AssetManager* assetManager, Entity entity, Camera* camera,
+			   i32 meshHandle)
 	{
 		v2 camRelPos = GetCamRelPos(world, entity.low->worldPos,
 									camera->targetWorldPos);
@@ -240,8 +241,31 @@ namespace AB
 
 		v3 color = entity.low->color;
 		
-		DrawDebugCube(renderGroup, assetManager, pos, scale, color);
+		DrawDebugMesh(renderGroup, assetManager, pos, scale, meshHandle);
 	}
+
+	
+	void
+	DrawTree(GameState* gameState, AssetManager* assetManager, Entity entity)
+	{
+		v2 camRelPos = GetCamRelPos(gameState->world, entity.low->worldPos,
+									gameState->camera.targetWorldPos);
+		v3 pos = V3(0.0f);
+		pos.x = camRelPos.x * gameState->world->unitsToRaw;
+		pos.z = camRelPos.y * gameState->world->unitsToRaw;
+		pos.y = gameState->world->tileSizeRaw;
+
+		v3 scale = V3(0.0f);
+		scale.x = gameState->world->unitsToRaw * 0.5f * entity.low->size.x;
+		scale.z = scale.x;
+		scale.y = scale.x;
+
+		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
+					  gameState->treeFoliageHandle);
+		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
+					  gameState->treeTrunkHandle);
+	}
+
 
 	WorldPosition
 	EntityApplyMovement(World* world, LowEntity* entity, v2 delta)
@@ -582,8 +606,8 @@ namespace AB
 					MoveEntity(world, entity.low , V2(0.0f) ,arena);
 				}
 				
-				DrawEntity(world, gameState->renderGroup,
-						   assetManager, entity, camera);
+				DrawTree(gameState, assetManager, entity);
+
 			}
 		}
 
@@ -682,11 +706,6 @@ namespace AB
 		renderer->cc.gamma = gameState->gamma;
 		renderer->cc.exposure = gameState->exposure;
 		
-		RenderCommandDrawMesh planeCommand = {};
-		planeCommand.meshHandle = gameState->mansionMeshHandle;
-		planeCommand.transform.worldMatrix = Identity4();
-		planeCommand.blendMode = BLEND_MODE_OPAQUE;
-
 		f32 ka = gameState->dirLight.ambient.r;
 		f32 kd = gameState->dirLight.diffuse.r;
 #if 0

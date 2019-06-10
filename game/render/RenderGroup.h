@@ -1,4 +1,3 @@
-#pragma once
 #include "Shared.h"
 #include <hypermath.h>
 

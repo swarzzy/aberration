@@ -148,8 +148,8 @@ namespace AB {
 			assert(i + 3 < size_indices);
 			assert(beg_indices[i + 2] < size_vertices); // Out of range
 
-			hpm::Vector3 first = hpm::Subtract(beg_vertices[beg_indices[i + 1]], beg_vertices[beg_indices[i]]);
-			hpm::Vector3 second = hpm::Subtract(beg_vertices[beg_indices[i + 2]], beg_vertices[beg_indices[i]]);
+			hpm::Vector3 first = hpm::SubV3V3(beg_vertices[beg_indices[i + 1]], beg_vertices[beg_indices[i]]);
+			hpm::Vector3 second = hpm::SubV3V3(beg_vertices[beg_indices[i + 2]], beg_vertices[beg_indices[i]]);
 			hpm::Vector3 normal = hpm::Normalize(hpm::Cross(first, second));
 			beg_normals[normals_at] = normal;
 			beg_normals[normals_at + 1] = normal;

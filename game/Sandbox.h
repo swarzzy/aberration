@@ -8,8 +8,8 @@ namespace AB
 	struct GameState
 	{
 		RenderGroup* renderGroup;
-		i32 mansionMeshHandle;
-		i32 planeMeshHandle;
+		i32 treeFoliageHandle;
+		i32 treeTrunkHandle;
 		f32 gamma;
 		f32 exposure;
 		Camera camera;
