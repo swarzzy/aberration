@@ -153,10 +153,7 @@ namespace AB
 		e->size = V2(1.5f, 3.0f);
 		e->color = V3(1.0f, 0.0f, 0.0f);
 		e->friction = 3.0f;
-		u32 highIndex = SetEntityToHigh(world, &gameState->camera,
-										gameState->entity);
-		HighEntity* highE = GetHighEntity(world, highIndex);
-		highE->velocity = V2(0.0f, 0.1f);
+		e->velocity = V2(0.0f, 0.1f);
 		
 		gameState->entity1 = AddLowEntity(world, firstChunk,
 										  ENTITY_TYPE_BODY, arena);
@@ -215,11 +212,9 @@ namespace AB
 			e->color = V3(r, g, b);
 			e->friction = 0.0f;
 
-			f32 x = (f32)(rand() % 11 / 5);
-			f32 y = (f32)(rand() % 11 / 5);
-			u32 highIndex = SetEntityToHigh(world, &gameState->camera, id);
-				HighEntity* high = GetHighEntity(world, highIndex);
-			high->velocity = V2(x, y);
+			f32 x = (f32)(rand() % 11 * 5);
+			f32 y = (f32)(rand() % 11 * 5);
+			e->velocity = V2(x, y);
 			
 			
 		}
@@ -229,11 +224,13 @@ namespace AB
 	
 	void
 	DrawEntity(World* world, RenderGroup* renderGroup,
-			   AssetManager* assetManager, Entity entity)
+			   AssetManager* assetManager, Entity entity, Camera* camera)
 	{
+		v2 camRelPos = GetCamRelPos(world, entity.low->worldPos,
+									camera->targetWorldPos);
 		v3 pos = V3(0.0f);
-		pos.x = entity.high->pos.x * world->unitsToRaw;
-		pos.z = entity.high->pos.y * world->unitsToRaw;
+		pos.x = camRelPos.x * world->unitsToRaw;
+		pos.z = camRelPos.y * world->unitsToRaw;
 		pos.y = world->tileSizeRaw;
 
 		v3 scale = V3(0.0f);
@@ -246,48 +243,77 @@ namespace AB
 		DrawDebugCube(renderGroup, assetManager, pos, scale, color);
 	}
 
-	void
-	EntityApplyMovement(GameState* gameState, Entity entity, v2 delta, Camera* camera)
+	WorldPosition
+	EntityApplyMovement(World* world, LowEntity* entity, v2 delta)
 	{
-		World* world = gameState->world;
-		v2 colliderSize = entity.low->size;
-		v2 iterationOffset = V2(0.0f);
-	
+		WorldPosition resultPos = entity->worldPos;
+		v2 colliderSize = entity->size;
+		v2 iterationOffset = {};
+
 		for (u32 pass = 0; pass < 4; pass++)
 		{
 			// TODO: Using AABB's to calculate chunks for checking
-			WorldPosition beginPos = ChangeWorldPosition(world,
-														 entity.low->worldPos,
-														 iterationOffset);
-			WorldPosition desiredPosP = ChangeWorldPosition(gameState->world,
-														   beginPos, delta + colliderSize);
+			// TODO: This is totally crappy code for collision
+			// detection on chunk bounds
+			// Needs to be rapaced with robust code.
+			WorldPosition beginPos = resultPos;
+			WorldPosition desiredPosP = ChangeWorldPosition(world,
+															beginPos,
+															delta + colliderSize);
 
-			WorldPosition desiredPosN = ChangeWorldPosition(gameState->world,
-															beginPos, delta - colliderSize);
+			WorldPosition desiredPosN = ChangeWorldPosition(world,
+															beginPos,
+															delta - colliderSize);
+
+			WorldPosition desiredPosC = ChangeWorldPosition(world,
+															beginPos,
+															delta);
 
 
 			i32 minChunkX = MINIMUM(beginPos.chunkX,
-									MINIMUM(desiredPosP.chunkX, desiredPosN.chunkX));
+									MINIMUM(desiredPosP.chunkX,
+											desiredPosN.chunkX));
 			i32 maxChunkX = MAXIMUM(beginPos.chunkX,
-									MAXIMUM(desiredPosP.chunkX, desiredPosN.chunkX));
+									MAXIMUM(desiredPosP.chunkX,
+											desiredPosN.chunkX));
 			i32 minChunkY = MINIMUM(beginPos.chunkY,
-									MINIMUM(desiredPosP.chunkY, desiredPosN.chunkY));
+									MINIMUM(desiredPosP.chunkY,
+											desiredPosN.chunkY));
 			i32 maxChunkY = MAXIMUM(beginPos.chunkY,
-									MAXIMUM(desiredPosP.chunkY, desiredPosN.chunkY));
+									MAXIMUM(desiredPosP.chunkY,
+											desiredPosN.chunkY));
+			if (desiredPosC.offset.x > world->chunkSizeUnits / 2.0f)
+			{
+				maxChunkX++;
+			}
+			else
+			{
+				minChunkX--;
+			}
 
+			if (desiredPosC.offset.y > world->chunkSizeUnits / 2.0f)
+			{
+				maxChunkY++;
+			}
+			else
+			{
+				minChunkY--;
+			}
+			
+			
 			v2 wallNormal = V2(0.0f);
 			f32 tMin = 1.0f;
 			u32 hitEntityIndex = 0;
-			v2 targetPosition = entity.high->pos + delta;
+			WorldPosition targetPosition =
+				ChangeWorldPosition(world, resultPos, delta);
 
-			// NOTE: Not testing against low enitties. So that is why objects can
-			// go through each other on the edges of the high area
 			for (i32 chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
 			{
 				for (i32 chunkX = minChunkX; chunkX <= maxChunkX; chunkX++)
 				{
-					Chunk* chunk = GetChunk(gameState->world,
-											chunkX,	chunkY);
+					Chunk* chunk = GetChunk(world, chunkX, chunkY);
+					// TODO: Handle world edges
+					AB_ASSERT(chunk);
 					// TODO: Make chunk high
 					EntityBlock* block = &chunk->firstEntityBlock;
 					do
@@ -297,19 +323,20 @@ namespace AB
 							 i++)
 						{
 							u32 testEntityIndex = block->lowEntityIndices[i];
-#if 1
-							Entity testEntity =
-								GetEntityFromLowIndex(world, testEntityIndex);
-				
-							if (entity.high != testEntity.high)
+							LowEntity* testEntity =
+								GetLowEntity(world, testEntityIndex);
+							
+							if (entity != testEntity)
 							{
-								v2 minCorner = -0.5f * testEntity.low->size;
-								v2 maxCorner = 0.5f * testEntity.low->size;
+								v2 relOldPos = WorldPosDiff(world,
+															resultPos,
+															testEntity->worldPos);
+								
+								v2 minCorner = -0.5f * testEntity->size;
+								v2 maxCorner = 0.5f * testEntity->size;
 								//NOTE: Minkowski sum
 								minCorner += colliderSize * -0.5f;
 								maxCorner += colliderSize * 0.5f;
-								v2 relOldPos = entity.high->pos
-									- testEntity.high->pos;
 
 								if (TestWall(minCorner.x, relOldPos.x,
 											 relOldPos.y, delta.x,
@@ -346,22 +373,19 @@ namespace AB
 								}
 				
 							}
-#endif
 						}
 						block = block->nextBlock;
 					} while (block);		
 				}
 			}
 			
-			entity.high->pos += delta * tMin;
-			iterationOffset += delta * tMin;
-
+			resultPos = ChangeWorldPosition(world, resultPos, delta * tMin);
+			
 			if (hitEntityIndex)
 			{
-				//tRemaining -= tMin * tRemaining;
-				delta = targetPosition - entity.high->pos;
-				entity.high->velocity -=
-					2.0f * Dot(entity.high->velocity, wallNormal) * wallNormal;
+				delta = WorldPosDiff(world, targetPosition, resultPos);
+				entity->velocity -=
+					2.0f * Dot(entity->velocity, wallNormal) * wallNormal;
 				delta *= 1.0f - tMin;
 				delta -= Dot(delta, wallNormal) * wallNormal;				
 			}
@@ -370,38 +394,34 @@ namespace AB
 				break;
 			}
 		}
+		return resultPos;
 	}
 
 	
 	void
-	MoveEntity(GameState* gameState, Entity entity, v2 acceleration,
+	MoveEntity(World* world, LowEntity* entity, v2 acceleration,
 			   MemoryArena* arena)
 	{
-		f32 speed = entity.low->accelerationAmount;
+		f32 speed = entity->accelerationAmount;
 		acceleration *= speed;
 
-		f32 friction = entity.low->friction;
-		acceleration = acceleration - entity.high->velocity * friction;
+		f32 friction = entity->friction;
+		acceleration = acceleration - entity->velocity * friction;
 
 		v2 movementDelta;
 		movementDelta = 0.5f * acceleration *
 			Square(GlobalGameDeltaTime) + 
-			entity.high->velocity *
+			entity->velocity *
 			GlobalGameDeltaTime;
 
-		EntityApplyMovement(gameState, entity, movementDelta, &gameState->camera);
+		auto newPos = EntityApplyMovement(world, entity,  movementDelta);
 
-		entity.high->velocity += acceleration * GlobalGameDeltaTime;
+		entity->velocity += acceleration * GlobalGameDeltaTime;
 
 		// TODO: Move it to more appropriate place maybe.
 		// This stuff should happens once at the end of update loop _maybe_
 		
-		WorldPosition newPos =
-			ChangeWorldPosition(gameState->world,
-								gameState->camera.targetWorldPos,
-								entity.high->pos);
-		ChangeEntityPosition(gameState->world, entity, newPos, arena);
-		
+		ChangeEntityPosition(world, entity, newPos, arena);
 	}
 
 	inline i32
@@ -475,7 +495,6 @@ namespace AB
 		for (u32 index = 1; index <= world->highEntityCount;)
 		{
 			Entity entity = GetEntityFromHighIndex(world, index);
-			entity.high->pos += entityFrameOffset;
 			i32 entityChunkX = entity.low->worldPos.chunkX;
 			i32 entityChunkY = entity.low->worldPos.chunkY;
 			
@@ -572,11 +591,11 @@ namespace AB
 
 				if (entity.low->type == ENTITY_TYPE_BODY)
 				{
-					MoveEntity(gameState, entity, V2(0.0f), arena);
+					MoveEntity(world, entity.low , V2(0.0f) ,arena);
 				}
 				
 				DrawEntity(world, gameState->renderGroup,
-						   assetManager, entity);
+						   assetManager, entity, camera);
 			}
 		}
 
@@ -615,7 +634,7 @@ namespace AB
 		
 			acceleration = Normalize(acceleration);
 
-			MoveEntity(gameState, entity, acceleration, arena);
+			MoveEntity(world, entity.low, acceleration,arena);
 			DEBUG_OVERLAY_TRACE_VAR(entity.low->worldPos.chunkX);
 			DEBUG_OVERLAY_TRACE_VAR(entity.low->worldPos.chunkY);
 			DEBUG_OVERLAY_TRACE_VAR(entity.low->worldPos.offset.x);
@@ -650,7 +669,7 @@ namespace AB
 			}
 		
 			acceleration = Normalize(acceleration);
-			MoveEntity(gameState, entity1, acceleration, arena);
+			MoveEntity(world, entity1.low, acceleration, arena);
 			DEBUG_OVERLAY_TRACE_VAR(entity1.low->worldPos.chunkX);
 			DEBUG_OVERLAY_TRACE_VAR(entity1.low->worldPos.chunkY);
 			DEBUG_OVERLAY_TRACE_VAR(entity1.low->worldPos.offset.x);

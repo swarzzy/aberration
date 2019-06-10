@@ -37,6 +37,7 @@ namespace AB
 	
 	struct LowEntity
 	{
+		u32 lowIndex;
 		EntityType type;
 		WorldPosition worldPos;
 		f32 accelerationAmount;
@@ -44,12 +45,12 @@ namespace AB
 		v3 color;
 		f32 friction;
 		u32 highIndex;
+		v2 velocity;
 	};
 
 	struct HighEntity
 	{
-		v2 pos;
-		v2 velocity;
+		//v2 pos;
 		u32 lowIndex;
 	};
 

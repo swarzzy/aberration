@@ -163,9 +163,10 @@ namespace AB
 	// Number of extra blocks should be fixed and depends of number of chunks and
 	// entities
 	void
-	ChangeEntityPosition(World* world, Entity entity, WorldPosition newPos, MemoryArena* arena)
+	ChangeEntityPosition(World* world, LowEntity* entity,
+						 WorldPosition newPos, MemoryArena* arena)
 	{
-		WorldPosition oldPos = entity.low->worldPos;
+		WorldPosition oldPos = entity->worldPos;
 		if(oldPos.chunkX == newPos.chunkX && oldPos.chunkY == newPos.chunkY)
 		{
 			// NOTE: In same chunk
@@ -184,7 +185,7 @@ namespace AB
 				{
 					for (u32 i = 0; i < oldBlock->count; i++)
 					{
-						if (oldBlock->lowEntityIndices[i] == entity.lowIndex)
+						if (oldBlock->lowEntityIndices[i] == entity->lowIndex)
 						{
 							// NOTE: Moving last index from last block here
 							EntityBlock* head = &oldChunk->firstEntityBlock;
@@ -228,7 +229,7 @@ namespace AB
 				if (newBlock->count < ENTITY_BLOCK_CAPACITY)
 				{
 					newBlock->lowEntityIndices[newBlock->count] =
-						entity.lowIndex;
+						entity->lowIndex;
 					newBlock->count++;
 				}
 				else
@@ -240,11 +241,11 @@ namespace AB
 					newChunk->firstEntityBlock.nextBlock = emptyBlock;
 					newChunk->firstEntityBlock.count++;
 					newChunk->firstEntityBlock.lowEntityIndices[0]
-						= entity.lowIndex;
+						= entity->lowIndex;
 				}
 			}
 		}
-		entity.low->worldPos = newPos;
+		entity->worldPos = newPos;
 	}
 
 	inline v2
@@ -274,6 +275,7 @@ namespace AB
 			index = world->lowEntityCount;
 			world->lowEntities[index] = {};
 			world->lowEntities[index].type = type;
+			world->lowEntities[index].lowIndex = index;
 		
 			chunk->firstEntityBlock.lowEntityIndices[chunk->firstEntityBlock.count]
 				= index;
@@ -293,6 +295,7 @@ namespace AB
 				index = world->lowEntityCount;
 				world->lowEntities[index] = {};
 				world->lowEntities[index].type = type;
+				world->lowEntities[index].lowIndex = index;
 		
 				chunk->firstEntityBlock.lowEntityIndices[0] = index;
 			}
@@ -372,10 +375,10 @@ namespace AB
 				HighEntity* high =
 					world->highEntities + world->highEntityCount;
 
-				high->pos = WorldPosDiff(world,
-										 low->worldPos,
-										 camera->targetWorldPos);
-				high->velocity = V2(0.0f);
+				//high->pos = WorldPosDiff(world,
+				//						 low->worldPos,
+				//						 camera->targetWorldPos);
+				//high->velocity = V2(0.0f);
 				high->lowIndex = lowIndex;
 				low->highIndex = world->highEntityCount;
 				result = world->highEntityCount;
@@ -398,10 +401,10 @@ namespace AB
 		u32 lastEntityIndex = world->highEntityCount;
 		u32 currentEntityIndex = low->highIndex;
 		
-		low->worldPos =
-			ChangeWorldPosition(world,
-								camera->targetWorldPos,
-								high->pos);
+		//low->worldPos =
+		//	ChangeWorldPosition(world,
+		//						camera->targetWorldPos,
+		//						high->pos);
 		low->highIndex = 0;
 
 		if (!(currentEntityIndex == lastEntityIndex))
@@ -411,6 +414,14 @@ namespace AB
 			lastEntity.low->highIndex = currentEntityIndex;
 		}
 		world->highEntityCount--;
+	}
+
+	inline v2
+	GetCamRelPos(World* world, WorldPosition worldPos,
+				 WorldPosition camTargetWorldPos)
+	{
+		v2 result = WorldPosDiff(world, worldPos, camTargetWorldPos);
+		return result;
 	}
 
 	// TODO: Think about what's happens if offset is out if chunk bounds
@@ -424,6 +435,7 @@ namespace AB
 		if (index)
 		{
 			world->lowEntities[index] = {
+				index,
 				ENTITY_TYPE_WALL,
 				// TODO: Offsets that out of chunk bounds
 				{chunk->coordX, chunk->coordY, offset},
