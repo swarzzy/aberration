@@ -168,9 +168,9 @@ namespace AB
 
 		v2 movementDelta;
 		movementDelta = 0.5f * acceleration *
-			Square(GlobalGameDeltaTime) + 
+			Square(GlobalAbsDeltaTime) + 
 			camera->targetWorldVelocity *
-			GlobalGameDeltaTime;
+			GlobalAbsDeltaTime;
 
 		WorldPosition newPos = {};
 		v2 newVelocity = {};
@@ -179,7 +179,7 @@ namespace AB
 		newVelocity = camera->targetWorldVelocity;
 
 		newVelocity = newVelocity +
-			acceleration * GlobalGameDeltaTime;
+			acceleration * GlobalAbsDeltaTime;
 
 		camFrameOffset = WorldPosDiff(world, newPos, camera->targetWorldPos);
 		camera->targetWorldPos = newPos;
@@ -220,7 +220,8 @@ namespace AB
 			f32 scrollSpeed = 5.0f;
 		
 			i32 frameScrollOffset = GlobalInput.scrollFrameOffset;
-			camera->targetDistance -= frameScrollOffset * scrollSpeed;
+			camera->targetDistance -=
+				frameScrollOffset * scrollSpeed;
 
 			if (camera->targetDistance < 5.0f)
 			{
@@ -317,7 +318,7 @@ namespace AB
 			v3 pos = camera->debugPos * world->unitsToRaw;
 			v3 front = camera->debugFront * world->unitsToRaw;
 			
-			camera->debugLookAt = LookAtRH(pos,
+			camera->debugLookAt = LookAtLH(pos,
 										AddV3V3(pos, front),
 										V3(0.0f, 1.0f, 0.0f));
 		

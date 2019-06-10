@@ -2,6 +2,50 @@
 
 namespace AB
 {
+	inline i32
+	SafeAddChunkCoord(i32 a, i32 b);
+	
+
+	inline i32
+	SafeSubChunkCoord(i32 a, i32 b)
+	{
+		i32 result = 0;
+		if (b < 0)
+		{
+			result = SafeAddChunkCoord(a, -b);
+		}
+		else
+		{
+			result = a - b;
+			if (result > a)
+			{
+				result = AB_INT32_MIN + CHUNK_SAFE_MARGIN;
+			}
+		}
+		
+		return result;
+	}
+
+	inline i32
+	SafeAddChunkCoord(i32 a, i32 b)
+	{
+		i32 result;
+		if (b < 0)
+		{
+			result = SafeSubChunkCoord(a, -b);
+		}
+		else
+		{
+			result = a + b;
+			if (result < a)
+			{
+				result = AB_INT32_MAX - CHUNK_SAFE_MARGIN;
+			}
+		}
+
+		return result;
+	}
+
 	World*
 	CreateWorld(MemoryArena* arena)
 	{
@@ -240,8 +284,8 @@ namespace AB
 		AB_ASSERT(oldPos.chunkY + chunkOffsetY > INT32_MIN + CHUNK_SAFE_MARGIN);
 		AB_ASSERT(oldPos.chunkY + chunkOffsetY < INT32_MAX - CHUNK_SAFE_MARGIN);
 
-		newPos.chunkX += chunkOffsetX;
-		newPos.chunkY += chunkOffsetY;
+		newPos.chunkX = SafeAddChunkCoord(newPos.chunkX, chunkOffsetX);
+		newPos.chunkY = SafeAddChunkCoord(newPos.chunkY, chunkOffsetY);
 
 		return newPos;
 	}

@@ -427,50 +427,6 @@ namespace AB
 		ChangeEntityPos(world, entity, newPos, arena);
 	}
 
-	inline i32
-	SafeAddI32I32(i32 a, i32 b);
-	
-
-	inline i32
-	SafeSubI32I32(i32 a, i32 b)
-	{
-		i32 result = 0;
-		if (b < 0)
-		{
-			result = SafeAddI32I32(a, -b);
-		}
-		else
-		{
-			result = a - b;
-			if (result > a)
-			{
-				result = AB_INT32_MIN;
-			}
-		}
-		
-		return result;
-	}
-
-	inline i32
-	SafeAddI32I32(i32 a, i32 b)
-	{
-		i32 result;
-		if (b < 0)
-		{
-			result = SafeSubI32I32(a, -b);
-		}
-		else
-		{
-			result = a + b;
-			if (result < a)
-			{
-				result = AB_INT32_MAX;
-			}
-		}
-
-		return result;
-	}
-
 	void SetChunkToLow(World* world, Chunk* chunk)
 	{
 		if (chunk->high)
@@ -539,14 +495,14 @@ namespace AB
 		i32 highAreaChunkSpanX = 1;
 		i32 highAreaChunkSpanY = 1;
 
-		i32 minChunkX = SafeSubI32I32(camera->targetWorldPos.chunkX,
-									  highAreaChunkSpanX);
-		i32 minChunkY = SafeSubI32I32(camera->targetWorldPos.chunkY,
-									  highAreaChunkSpanY);
-		i32 maxChunkX = SafeAddI32I32(camera->targetWorldPos.chunkX,
-									  highAreaChunkSpanX);
-		i32 maxChunkY = SafeAddI32I32(camera->targetWorldPos.chunkY,
-									  highAreaChunkSpanY); 
+		i32 minChunkX = SafeSubChunkCoord(camera->targetWorldPos.chunkX,
+										  highAreaChunkSpanX);
+		i32 minChunkY = SafeSubChunkCoord(camera->targetWorldPos.chunkY,
+										  highAreaChunkSpanY);
+		i32 maxChunkX = SafeAddChunkCoord(camera->targetWorldPos.chunkX,
+										  highAreaChunkSpanX);
+		i32 maxChunkY = SafeAddChunkCoord(camera->targetWorldPos.chunkY,
+										  highAreaChunkSpanY); 
 
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.chunkX);
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.chunkY);
