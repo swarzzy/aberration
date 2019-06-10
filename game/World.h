@@ -5,14 +5,14 @@ namespace AB
 {
 	const i32 TILEMAP_SAFE_MARGIN = 16 * 16;
 	const i32 CHUNK_SAFE_MARGIN = 16;
-	// TODO: @Important !!!! Safe margin and stuff
 	const u32 INVALID_CHUNK_COORD = AB_INT32_MAX;
 	const u32 CHUNK_TABLE_SIZE = 4096;
 
 	const u32 WORLD_CHUNK_DIM_TILES = 64;
 
-	const u32  MAX_LOW_ENTITIES = 10000;
-	const u32  MAX_HIGH_ENTITIES = 2048;
+	const u32 MAX_LOW_ENTITIES = 10000;
+	const u32 MAX_HIGH_CHUNKS = 16;
+	const u32 MAX_HIGH_ENTITIES = 2048;
 
 	struct WorldPosition
 	{
@@ -56,7 +56,6 @@ namespace AB
 
 	struct Entity
 	{
-		u32 lowIndex;
 		HighEntity* high;
 		LowEntity* low;
 	};
@@ -99,13 +98,14 @@ namespace AB
 		f32 unitsToRaw;
 		f32 chunkSizeUnits;
 
-		u32 chunkCountX;
-		u32 chunkCountY;
+		u32 chunkCount;
 
 		Chunk chunkTable[CHUNK_TABLE_SIZE];
 		u32 nonResidentEntityBlocksCount;
 		u32 freeEntityBlockCount;
 		EntityBlock* firstFreeBlock;
+		u32 highChunkCount;
+		Chunk* highChunks[MAX_HIGH_CHUNKS];
 
 		u32 lowEntityCount;
 		u32 highEntityCount;

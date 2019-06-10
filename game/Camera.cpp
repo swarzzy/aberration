@@ -175,7 +175,7 @@ namespace AB
 		WorldPosition newPos = {};
 		v2 newVelocity = {};
 
-		newPos = ChangeWorldPosition(world, camera->targetWorldPos, movementDelta);
+		newPos = OffsetWorldPos(world, camera->targetWorldPos, movementDelta);
 		newVelocity = camera->targetWorldVelocity;
 
 		newVelocity = newVelocity +

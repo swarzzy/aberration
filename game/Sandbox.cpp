@@ -72,11 +72,11 @@ namespace AB
 		f32 b = 0.2f;
 		
 		for (i32 y = -4;
-			 y < (i32)(world->chunkCountY) - 4;
+			 y < 4;
 			 y++)
 		{
 			for (i32 x = -4;
-				 x < (i32)(world->chunkCountX) -4;
+				 x < 4;
 				 x++)
 			{
 				r = rand() % 11 / 10.0f;
@@ -101,11 +101,11 @@ namespace AB
 						else
 #endif
 						{
-							if ((x == -1 && tileX == 0) ||
-								(x == world->chunkCountX - 15 &&
+							if ((x == -4 && tileX == 0) ||
+								(x == 3 &&
 								 tileX == WORLD_CHUNK_DIM_TILES - 1) ||
-								(y == -1 && tileY == 0) ||
-								(y == world->chunkCountY - 15 &&
+								(y == -4 && tileY == 0) ||
+								(y == 3 &&
 								 tileY == WORLD_CHUNK_DIM_TILES - 1))
 							{
 								SetTerrainTile(chunk, tileX, tileY,
@@ -257,17 +257,17 @@ namespace AB
 			// detection on chunk bounds
 			// Needs to be rapaced with robust code.
 			WorldPosition beginPos = resultPos;
-			WorldPosition desiredPosP = ChangeWorldPosition(world,
-															beginPos,
-															delta + colliderSize);
+			WorldPosition desiredPosP = OffsetWorldPos(world,
+													   beginPos,
+													   delta + colliderSize);
 
-			WorldPosition desiredPosN = ChangeWorldPosition(world,
-															beginPos,
-															delta - colliderSize);
+			WorldPosition desiredPosN = OffsetWorldPos(world,
+													   beginPos,
+													   delta - colliderSize);
 
-			WorldPosition desiredPosC = ChangeWorldPosition(world,
-															beginPos,
-															delta);
+			WorldPosition desiredPosC = OffsetWorldPos(world,
+													   beginPos,
+													   delta);
 
 
 			i32 minChunkX = MINIMUM(beginPos.chunkX,
@@ -305,7 +305,7 @@ namespace AB
 			f32 tMin = 1.0f;
 			u32 hitEntityIndex = 0;
 			WorldPosition targetPosition =
-				ChangeWorldPosition(world, resultPos, delta);
+				OffsetWorldPos(world, resultPos, delta);
 
 			for (i32 chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
 			{
@@ -313,73 +313,76 @@ namespace AB
 				{
 					Chunk* chunk = GetChunk(world, chunkX, chunkY);
 					// TODO: Handle world edges
-					AB_ASSERT(chunk);
-					// TODO: Make chunk high
-					EntityBlock* block = &chunk->firstEntityBlock;
-					do
+					if (chunk)
 					{
-						for (u32 i = 0;
-							 i < block->count;
-							 i++)
+						// TODO: Make chunk high
+						EntityBlock* block = &chunk->firstEntityBlock;
+						do
 						{
-							u32 testEntityIndex = block->lowEntityIndices[i];
-							LowEntity* testEntity =
-								GetLowEntity(world, testEntityIndex);
-							
-							if (entity != testEntity)
+							for (u32 i = 0;
+								 i < block->count;
+								 i++)
 							{
-								v2 relOldPos = WorldPosDiff(world,
-															resultPos,
-															testEntity->worldPos);
+								u32 testEntityIndex = block->lowEntityIndices[i];
+								LowEntity* testEntity =
+									GetLowEntity(world, testEntityIndex);
+							
+								if (entity != testEntity)
+								{
+									v2 relOldPos = WorldPosDiff(world,
+																resultPos,
+																testEntity->worldPos);
 								
-								v2 minCorner = -0.5f * testEntity->size;
-								v2 maxCorner = 0.5f * testEntity->size;
-								//NOTE: Minkowski sum
-								minCorner += colliderSize * -0.5f;
-								maxCorner += colliderSize * 0.5f;
+									v2 minCorner = -0.5f * testEntity->size;
+									v2 maxCorner = 0.5f * testEntity->size;
+									//NOTE: Minkowski sum
+									minCorner += colliderSize * -0.5f;
+									maxCorner += colliderSize * 0.5f;
 
-								if (TestWall(minCorner.x, relOldPos.x,
-											 relOldPos.y, delta.x,
-											 delta.y,
-											 minCorner.y, maxCorner.y, &tMin))
-								{
-									wallNormal = V2(1.0f, 0.0f);
-									hitEntityIndex = testEntityIndex;
-								}
+									if (TestWall(minCorner.x, relOldPos.x,
+												 relOldPos.y, delta.x,
+												 delta.y,
+												 minCorner.y, maxCorner.y, &tMin))
+									{
+										wallNormal = V2(1.0f, 0.0f);
+										hitEntityIndex = testEntityIndex;
+									}
 						
-								if(TestWall(maxCorner.x, relOldPos.x,
-											relOldPos.y, delta.x,
-											delta.y,
-											minCorner.y, maxCorner.y, &tMin))
-								{
-									wallNormal = V2(-1.0f, 0.0f);
-									hitEntityIndex = testEntityIndex;
-								}
-								if(TestWall(minCorner.y, relOldPos.y,
-											relOldPos.x, delta.y,
-											delta.x,
-											minCorner.x, maxCorner.x, &tMin))
-								{
-									wallNormal = V2(0.0f, 1.0f);
-									hitEntityIndex = testEntityIndex;
-								}
-								if(TestWall(maxCorner.y, relOldPos.y,
-											relOldPos.x, delta.y,
-											delta.x,
-											minCorner.x, maxCorner.x, &tMin))
-								{
-									wallNormal = V2(0.0f, -1.0f);
-									hitEntityIndex = testEntityIndex;
-								}
+									if(TestWall(maxCorner.x, relOldPos.x,
+												relOldPos.y, delta.x,
+												delta.y,
+												minCorner.y, maxCorner.y, &tMin))
+									{
+										wallNormal = V2(-1.0f, 0.0f);
+										hitEntityIndex = testEntityIndex;
+									}
+									if(TestWall(minCorner.y, relOldPos.y,
+												relOldPos.x, delta.y,
+												delta.x,
+												minCorner.x, maxCorner.x, &tMin))
+									{
+										wallNormal = V2(0.0f, 1.0f);
+										hitEntityIndex = testEntityIndex;
+									}
+									if(TestWall(maxCorner.y, relOldPos.y,
+												relOldPos.x, delta.y,
+												delta.x,
+												minCorner.x, maxCorner.x, &tMin))
+									{
+										wallNormal = V2(0.0f, -1.0f);
+										hitEntityIndex = testEntityIndex;
+									}
 				
+								}
 							}
-						}
-						block = block->nextBlock;
-					} while (block);		
+							block = block->nextBlock;
+						} while (block);
+					
+					}
 				}
 			}
 			
-			resultPos = ChangeWorldPosition(world, resultPos, delta * tMin);
+			resultPos = OffsetWorldPos(world, resultPos, delta * tMin);
 			
 			if (hitEntityIndex)
 			{
@@ -421,7 +424,7 @@ namespace AB
 		// TODO: Move it to more appropriate place maybe.
 		// This stuff should happens once at the end of update loop _maybe_
 		
-		ChangeEntityPosition(world, entity, newPos, arena);
+		ChangeEntityPos(world, entity, newPos, arena);
 	}
 
 	inline i32
@@ -468,6 +471,64 @@ namespace AB
 		return result;
 	}
 
+	void SetChunkToLow(World* world, Chunk* chunk)
+	{
+		if (chunk->high)
+		{
+			EntityBlock* block = &chunk->firstEntityBlock;
+			do
+			{
+				for (u32 i = 0; i < block->count; i++)
+				{
+					u32 index = block->lowEntityIndices[i];
+					LowEntity* entity = GetLowEntity(world, index);
+					AB_ASSERT(entity->highIndex);
+					_SetEntityToLow(world, entity->highIndex);
+				}
+
+				block = block->nextBlock;
+			}
+			while(block);
+			for (u32 i = 0; i < world->highChunkCount; i++)
+			{
+				Chunk* highPtr = world->highChunks[i];
+				if (highPtr == chunk)
+				{
+					world->highChunks[i] =
+						world->highChunks[world->highChunkCount - 1];
+					world->highChunkCount--;
+					break;
+				}
+			}
+			chunk->high = false;
+		}
+	}
+
+	void SetChunkToHigh(World* world, Chunk* chunk)
+	{
+		if (!chunk->high)
+		{
+			EntityBlock* block = &chunk->firstEntityBlock;
+			do
+			{
+				for (u32 i = 0; i < block->count; i++)
+				{
+					u32 index = block->lowEntityIndices[i];
+					LowEntity* entity = GetLowEntity(world, index);
+					AB_ASSERT(!entity->highIndex);
+					_SetEntityToHigh(world, index);
+				}
+
+				block = block->nextBlock;
+			}
+			while(block);
+			AB_ASSERT(world->highChunkCount < MAX_HIGH_CHUNKS);
+			world->highChunks[world->highChunkCount] = chunk;
+			world->highChunkCount++;
+			chunk->high = true;
+		}
+	}
+
 	void
 	MoveCamera(GameState* gameState, Camera* camera, World* world,
 			   AssetManager* assetManager)
@@ -492,37 +553,23 @@ namespace AB
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.offset.x);
 		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.offset.y);
 
-		for (u32 index = 1; index <= world->highEntityCount;)
+		for (u32 i = 0; i < world->highChunkCount;)
 		{
-			Entity entity = GetEntityFromHighIndex(world, index);
-			i32 entityChunkX = entity.low->worldPos.chunkX;
-			i32 entityChunkY = entity.low->worldPos.chunkY;
-			
-			if ((entityChunkX < minChunkX) ||
-				(entityChunkX > maxChunkX) ||
-				(entityChunkY < minChunkY) ||
-				(entityChunkY > maxChunkY))
+			Chunk* chunk = world->highChunks[i];
+			if ((chunk->coordX < minChunkX) ||
+				(chunk->coordX > maxChunkX) ||
+				(chunk->coordY < minChunkY) ||
+				(chunk->coordY > maxChunkY))
 			{
-				// TODO: Instead of travercing entities
-				// keep list of high chunks and check _if chunk is outside_
-				// and evict whole chunk
-				Chunk* chunk = GetChunk(world, entityChunkX, entityChunkY);
-				if (chunk)
-				{
-					chunk->high = false;
-					SetEntityToLow(world, &gameState->camera, index);
-				}
-				else
-				{
-					index++;
-				}
+				SetChunkToLow(world, chunk);
 			}
 			else
 			{
-				index++;
+				i++;
 			}
 		}
 
+		
 		for (i32 chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
 		{
 			for (i32 chunkX = minChunkX; chunkX <= maxChunkX; chunkX++)
@@ -532,22 +579,7 @@ namespace AB
 				{
 					if (!(chunk->high)) 
 					{
-						chunk->high = true;
-
-						EntityBlock* block = &chunk->firstEntityBlock;
-						for (u32 i = 0; i < block->count; i++)
-						{
-							SetEntityToHigh(world, &gameState->camera,
-											block->lowEntityIndices[i]);
-						}
-						while (block->nextBlock)
-						{
-							block = block->nextBlock;
-							for (u32 i = 0; i < block->count; i++)
-							{
-								SetEntityToHigh(world, &gameState->camera, block->lowEntityIndices[i]);
-							}					
-						}
+						SetChunkToHigh(world, chunk);
 					}
 				}
 			}
