@@ -166,6 +166,11 @@ namespace hpm
 			f32 g;
 			f32 b;
 		};
+		struct
+		{
+			Vector2 xy;
+			f32 _z;
+		};
 		f32 data[3];
 	};
 

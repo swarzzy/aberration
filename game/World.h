@@ -41,7 +41,7 @@ namespace AB
 		EntityType type;
 		WorldPosition worldPos;
 		f32 accelerationAmount;
-		v2 size;
+		v3 size;
 		v3 color;
 		f32 friction;
 		u32 highIndex;

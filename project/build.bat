@@ -1,7 +1,7 @@
 
 @echo off
 
-set BuildTools=TRUE
+set BuildTools=FALSE
 
 set ObjOutDir=build\obj\
 set BinOutDir=build\
@@ -29,7 +29,6 @@ set PdbTimestamp=%date:~6,4%-%date:~3,2%-%date:~0,2%-%time:~1,1%-%time:~3,2%-%ti
 del %BinOutDir%*.pdb >NUL 2>&1
 
 cl /MP /W3 /Fo%ObjOutDir% /DGAME_CODE %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% game\Game.cpp /link %AppLinkerFlags% /OUT:%BinOutDir%\Game.dll /PDB:%BinOutDir%\Game_%PdbTimestamp%.pdb
-
 
 cl /MP /W3 /Fo%ObjOutDir% /DPLATFORM_CODE %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% platform\Platform.cpp /link %LinkerFlags%
 

@@ -493,7 +493,7 @@ namespace AB
 				// TODO: Offsets that out of chunk bounds
 				{chunk->coordX, chunk->coordY, offset},
 				0.0f,
-				V2(1.0f),
+				V3(1.0f),
 				V3(1.0f, 0.0f, 1.0f),
 			};	
 		}

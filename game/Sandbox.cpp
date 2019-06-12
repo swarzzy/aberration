@@ -150,7 +150,7 @@ namespace AB
 		e->worldPos.chunkY = 0;
 		e->worldPos.offset = V2(10.0f, 10.0f);
 		e->accelerationAmount = 20.0f;
-		e->size = V2(3.0f, 3.0f);
+		e->size = V3(3.0f, 3.0f, 3.0f);
 		e->color = V3(1.0f, 0.0f, 0.0f);
 		e->friction = 3.0f;
 		e->velocity = V2(0.0f, 0.1f);
@@ -162,7 +162,7 @@ namespace AB
 		e1->worldPos.chunkY = 0;
 		e1->worldPos.offset = V2(0.0f, 0.0f);
 		e1->accelerationAmount = 30.0f;
-		e1->size = V2(2.0f, 2.0f);
+		e1->size = V3(2.0f, 2.0f, 2.0f);
 		e1->color = V3(0.0f, 1.0f, 0.0f);
 		e1->friction = 3.0f;
 		e1->type = ENTITY_TYPE_BODY;
@@ -271,7 +271,7 @@ namespace AB
 	EntityApplyMovement(World* world, LowEntity* entity, v2 delta)
 	{
 		WorldPosition resultPos = entity->worldPos;
-		v2 colliderSize = entity->size;
+		v2 colliderSize = entity->size.xy;
 		v2 iterationOffset = {};
 
 		for (u32 pass = 0; pass < 4; pass++)
@@ -357,8 +357,8 @@ namespace AB
 																resultPos,
 																testEntity->worldPos);
 								
-									v2 minCorner = -0.5f * testEntity->size;
-									v2 maxCorner = 0.5f * testEntity->size;
+									v2 minCorner = -0.5f * testEntity->size.xy;
+									v2 maxCorner = 0.5f * testEntity->size.xy;
 									//NOTE: Minkowski sum
 									minCorner += colliderSize * -0.5f;
 									maxCorner += colliderSize * 0.5f;
@@ -608,6 +608,109 @@ namespace AB
 				
 				DrawTree(gameState, assetManager, entity);
 
+			}
+
+			if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow)
+			{
+				v3 dir = -camera->front;
+				v3 from = camera->pos;
+				// TODO: Just reserve null entity instead of this mess
+				for (u32 index = 1; index <= world->lowEntityCount; index++)
+				{
+					LowEntity* entity = GetLowEntity(world, index);
+					AB_ASSERT(entity);
+					v2 _entityCamRelPos = GetCamRelPos(world, entity->worldPos,
+													  camera->targetWorldPos);
+					v3 entityCamRelPos = V3(_entityCamRelPos.x, 0.0f,
+											_entityCamRelPos.y);
+
+					// TODO: Complete size cinversion to full 3d
+					// TODO: bounding volumes
+					v3 minCorner = entityCamRelPos + (-0.5f * entity->size);
+					v3 maxCorner = entityCamRelPos + (0.5f * entity->size);
+
+					f32 t = 0.0f;
+					bool intersects = false;
+
+					if (AbsF32(dir.x) > FLOAT_EPS)
+					{
+						f32 t = (minCorner.x - from.x) / dir.x;
+						f32 yMin = from.y + dir.y * t;
+						f32 zMin = from.z + dir.z * t;
+						if (yMin >= minCorner.y && yMin <= maxCorner.y &&
+							zMin >= minCorner.z && zMin <= maxCorner.z)
+						{
+							intersects = true;
+						}
+					}
+
+					if (AbsF32(dir.x) > FLOAT_EPS)
+					{
+						f32 t = (maxCorner.x - from.x) / dir.x;
+						f32 yMax = from.y + dir.y * t;
+						f32 zMax = from.z + dir.z * t;
+						if (yMax >= minCorner.y && yMax <= maxCorner.y &&
+							zMax >= minCorner.z && zMax <= maxCorner.y)
+						{
+							intersects = true;
+						}
+					}
+
+					if (AbsF32(dir.y) > FLOAT_EPS)
+					{
+						f32 t = (minCorner.y - from.y) / dir.y;
+						f32 xMin = from.x + dir.x * t;
+						f32 zMin = from.z + dir.z * t;
+						if (xMin >= minCorner.x && xMin <= maxCorner.x &&
+							zMin >= minCorner.z && zMin <= maxCorner.z)
+						{
+							intersects = true;
+						}
+					}
+
+					if (AbsF32(dir.y) > FLOAT_EPS)
+					{
+						f32 t = (maxCorner.y - from.y) / dir.y;
+						f32 xMax = from.x + dir.x * t;
+						f32 zMax = from.z + dir.z * t;
+						if (xMax >= minCorner.x && xMax <= maxCorner.x &&
+							zMax >= minCorner.z && zMax <= maxCorner.z)
+						{
+							intersects = true;
+						}
+					}
+
+					if (AbsF32(dir.z) > FLOAT_EPS)
+					{
+						f32 t = (minCorner.z - from.z) / dir.z;
+						f32 xMin = from.x + dir.x * t;
+						f32 yMin = from.y + dir.y * t;
+						if (xMin >= minCorner.x && xMin <= maxCorner.x &&
+							yMin >= minCorner.y && yMin <= maxCorner.y)
+						{
+							intersects = true;
+						}
+					}
+
+					if (AbsF32(dir.z) > FLOAT_EPS)
+					{
+						f32 t = (maxCorner.z - from.z) / dir.z;
+						f32 xMax = from.x + dir.x * t;
+						f32 yMax = from.y + dir.y * t;
+						if (xMax >= minCorner.x && xMax <= maxCorner.x &&
+							yMax >= minCorner.y && yMax <= maxCorner.y)
+						{
+							intersects = true;
+						}
+					}
+
+					if (intersects)
+					{
+						DEBUG_OVERLAY_TRACE_VAR(index);
+					}
+
+				}
+				
 			}
 		}
 
