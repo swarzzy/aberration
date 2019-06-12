@@ -24,6 +24,7 @@ namespace AB
 		u32 entity1;
 #define MOVING_ENTITIES_COUNT 64 // 128 max
 		u32 movingEntities[MOVING_ENTITIES_COUNT];
+		u32 selectedEntityIndex;
 
 
 		//EntityResidence entityResidence[MAX_LOW_ENTITIES];

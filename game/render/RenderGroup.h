@@ -60,6 +60,7 @@ namespace AB
 		i32 meshHandle;
 		BlendMode blendMode;
 		RenderSortCriteria sortCriteria;
+		b32 highlight;
 	};
 
 	struct RenderCommandDrawMeshWireframe

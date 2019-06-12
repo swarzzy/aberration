@@ -727,7 +727,8 @@ out vec4 out_FragColor;
 		BlendMode blendMode;
 		i32 meshHandle;
 		v3 debugColor;
-		b32 useDebugColor;		
+		b32 useDebugColor;
+		b32 highlight;
 	};
 	
 	static DrawCallData FetchDrawCallDataAndSetState(Renderer* renderer,
@@ -745,6 +746,7 @@ out vec4 out_FragColor;
 			result.transform = &renderData->transform;
 			result.blendMode = renderData->blendMode;
 			result.meshHandle = renderData->meshHandle;
+			result.highlight = renderData->highlight;
 			//SetPolygonFillMode(renderer->pipeline,
 			//POLYGON_FILL_MODE_FILL);
 		//EnableFaceCulling(renderer->pipeline, true);
@@ -1036,6 +1038,13 @@ out vec4 out_FragColor;
 					   glGetUniformLocation(renderer->impl->lineShaderHandle,
 											"u_Color"));
 
+				GLuint modelProjLoc;
+				GLCall(modelProjLoc =  glGetUniformLocation(renderer->impl->lineShaderHandle, "u_ModelMatrix"));
+
+				GLCall(glUniformMatrix4fv(modelProjLoc, 1, GL_FALSE,
+										  Identity4().data));
+
+
 
 				GLCall(glUniformMatrix4fv(viewProjLoc, 1, GL_FALSE,
 										  viewProj.data));
@@ -1204,7 +1213,63 @@ out vec4 out_FragColor;
 						dcData = FetchDrawCallDataAndSetState(renderer,
 															  renderGroup, command);
 
-						Mesh* mesh = AB::AssetGetMeshData(assetManager, dcData.meshHandle);
+						Mesh* mesh = AB::AssetGetMeshData(assetManager,
+														  dcData.meshHandle);
+						if (dcData.highlight)
+						{
+							GLCall(glUseProgram(renderer->impl->lineShaderHandle));
+
+							m4x4 viewProj = MulM4M4(renderGroup->projectionMatrix,
+													renderGroup->camera.lookAt);
+							v3* viewPos = &renderGroup->camera.position;
+		
+							GLuint viewProjLoc;
+							GLCall(viewProjLoc =  glGetUniformLocation(renderer->impl->lineShaderHandle, "u_ViewProjMatrix"));
+
+							GLuint modelProjLoc;
+							GLCall(modelProjLoc =  glGetUniformLocation(renderer->impl->lineShaderHandle, "u_ModelMatrix"));
+
+
+							GLuint colorLoc;
+							GLCall(colorLoc = glGetUniformLocation(renderer->impl->lineShaderHandle, "u_Color"));
+
+
+							GLCall(glUniformMatrix4fv(viewProjLoc, 1, GL_FALSE,
+													  viewProj.data));
+
+							GLCall(glUniformMatrix4fv(modelProjLoc, 1, GL_FALSE,
+													  dcData.transform->worldMatrix.data));
+
+
+							GLCall(glUniform3fv(colorLoc, 1,
+												V4(1.0f, 0.0f, 0.0f, 1.0f).data));
+
+							u32 VBO = mesh->api_vb_handle;
+							GLCall(glBindBuffer(GL_ARRAY_BUFFER, VBO));
+							u64 bufferSize = mesh->mem_size;
+							GLCall(glEnableVertexAttribArray(0));
+							//GLCall(glEnableVertexAttribArray(1));
+							GLCall(glVertexAttribPointer(0, 3, GL_FLOAT,
+														 GL_FALSE, 0,
+														 nullptr));
+							GLCall(glLineWidth(1.0f));
+							if (mesh->api_ib_handle != 0)
+							{
+								GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
+													mesh->api_ib_handle));
+								GLCall(glDrawElements(GL_LINE_STRIP,
+													  (GLsizei)mesh->num_indices,
+													  GL_UNSIGNED_INT, 0));
+
+							}
+							else
+							{
+								GLCall(glDrawArrays(GL_LINE_STRIP, 0,
+													mesh->num_vertices));
+								
+							}
+
+						}
 
 						VertexBufferToDraw(mesh);
 						GLCall(glUseProgram(renderer->impl->programHandle));

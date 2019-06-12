@@ -223,7 +223,7 @@ namespace AB
 	}
 	
 	void
-	DrawEntity(World* world, RenderGroup* renderGroup,
+	DrawEntity(GameState* gameState, World* world, RenderGroup* renderGroup,
 			   AssetManager* assetManager, Entity entity, Camera* camera,
 			   i32 meshHandle)
 	{
@@ -240,8 +240,13 @@ namespace AB
 		scale.y = world->unitsToRaw * 0.5f;
 
 		v3 color = entity.low->color;
+		bool selected = false;
+		if (entity.low->lowIndex == gameState->selectedEntityIndex)
+		{
+			selected = true;
+		}
 		
-		DrawDebugMesh(renderGroup, assetManager, pos, scale, meshHandle);
+		DrawDebugMesh(renderGroup, assetManager, pos, scale, meshHandle, selected);
 	}
 
 	
@@ -260,10 +265,15 @@ namespace AB
 		scale.z = scale.x;
 		scale.y = scale.x;
 
+		bool selected = false;
+		if (entity.low->lowIndex == gameState->selectedEntityIndex)
+		{
+			selected = true;
+		}
 		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
-					  gameState->treeFoliageHandle);
+					  gameState->treeFoliageHandle, selected);
 		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
-					  gameState->treeTrunkHandle);
+					  gameState->treeTrunkHandle, selected);
 	}
 
 
@@ -593,6 +603,7 @@ namespace AB
 
 		DEBUG_OVERLAY_TRACE_VAR(world->nonResidentEntityBlocksCount);
 		DEBUG_OVERLAY_TRACE_VAR(world->freeEntityBlockCount);
+		DEBUG_OVERLAY_TRACE_VAR(gameState->selectedEntityIndex);
 		{
 
 			MoveCamera(gameState, camera, world, assetManager);
@@ -610,9 +621,10 @@ namespace AB
 
 			}
 
-			if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow)
+			if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow &&
+				!GlobalInput.mouseButtons[MBUTTON_LEFT].wasPressed)
 			{
-				v3 dir = -camera->front;
+				v3 dir = camera->front;
 				v3 from = camera->pos;
 				// TODO: Just reserve null entity instead of this mess
 				for (u32 index = 1; index <= world->lowEntityCount; index++)
@@ -620,7 +632,7 @@ namespace AB
 					LowEntity* entity = GetLowEntity(world, index);
 					AB_ASSERT(entity);
 					v2 _entityCamRelPos = GetCamRelPos(world, entity->worldPos,
-													  camera->targetWorldPos);
+													   camera->targetWorldPos);
 					v3 entityCamRelPos = V3(_entityCamRelPos.x, 0.0f,
 											_entityCamRelPos.y);
 
@@ -635,78 +647,102 @@ namespace AB
 					if (AbsF32(dir.x) > FLOAT_EPS)
 					{
 						f32 t = (minCorner.x - from.x) / dir.x;
-						f32 yMin = from.y + dir.y * t;
-						f32 zMin = from.z + dir.z * t;
-						if (yMin >= minCorner.y && yMin <= maxCorner.y &&
-							zMin >= minCorner.z && zMin <= maxCorner.z)
+						if (t >= 0.0f)
 						{
-							intersects = true;
+							f32 yMin = from.y + dir.y * t;
+							f32 zMin = from.z + dir.z * t;
+							if (yMin >= minCorner.y && yMin <= maxCorner.y &&
+								zMin >= minCorner.z && zMin <= maxCorner.z)
+							{
+								intersects = true;
+							}
 						}
 					}
 
 					if (AbsF32(dir.x) > FLOAT_EPS)
 					{
 						f32 t = (maxCorner.x - from.x) / dir.x;
-						f32 yMax = from.y + dir.y * t;
-						f32 zMax = from.z + dir.z * t;
-						if (yMax >= minCorner.y && yMax <= maxCorner.y &&
-							zMax >= minCorner.z && zMax <= maxCorner.y)
+						if (t >= 0.0f)
 						{
-							intersects = true;
+							f32 yMax = from.y + dir.y * t;
+							f32 zMax = from.z + dir.z * t;
+							if (yMax >= minCorner.y && yMax <= maxCorner.y &&
+								zMax >= minCorner.z && zMax <= maxCorner.z)
+							{
+								intersects = true;
+							}
 						}
 					}
 
 					if (AbsF32(dir.y) > FLOAT_EPS)
 					{
 						f32 t = (minCorner.y - from.y) / dir.y;
-						f32 xMin = from.x + dir.x * t;
-						f32 zMin = from.z + dir.z * t;
-						if (xMin >= minCorner.x && xMin <= maxCorner.x &&
-							zMin >= minCorner.z && zMin <= maxCorner.z)
+						if (t >= 0.0f)
 						{
-							intersects = true;
+							f32 xMin = from.x + dir.x * t;
+							f32 zMin = from.z + dir.z * t;
+							if (xMin >= minCorner.x && xMin <= maxCorner.x &&
+								zMin >= minCorner.z && zMin <= maxCorner.z)
+							{
+								intersects = true;
+							}
 						}
 					}
 
 					if (AbsF32(dir.y) > FLOAT_EPS)
 					{
 						f32 t = (maxCorner.y - from.y) / dir.y;
-						f32 xMax = from.x + dir.x * t;
-						f32 zMax = from.z + dir.z * t;
-						if (xMax >= minCorner.x && xMax <= maxCorner.x &&
-							zMax >= minCorner.z && zMax <= maxCorner.z)
+						if (t >= 0.0f)
 						{
-							intersects = true;
+							f32 xMax = from.x + dir.x * t;
+							f32 zMax = from.z + dir.z * t;
+							if (xMax >= minCorner.x && xMax <= maxCorner.x &&
+								zMax >= minCorner.z && zMax <= maxCorner.z)
+							{
+								intersects = true;
+							}
 						}
 					}
 
 					if (AbsF32(dir.z) > FLOAT_EPS)
 					{
 						f32 t = (minCorner.z - from.z) / dir.z;
-						f32 xMin = from.x + dir.x * t;
-						f32 yMin = from.y + dir.y * t;
-						if (xMin >= minCorner.x && xMin <= maxCorner.x &&
-							yMin >= minCorner.y && yMin <= maxCorner.y)
+						if (t >= 0.0f)
 						{
-							intersects = true;
+							f32 xMin = from.x + dir.x * t;
+							f32 yMin = from.y + dir.y * t;
+							if (xMin >= minCorner.x && xMin <= maxCorner.x &&
+								yMin >= minCorner.y && yMin <= maxCorner.y)
+							{
+								intersects = true;
+							}
 						}
 					}
 
 					if (AbsF32(dir.z) > FLOAT_EPS)
 					{
 						f32 t = (maxCorner.z - from.z) / dir.z;
-						f32 xMax = from.x + dir.x * t;
-						f32 yMax = from.y + dir.y * t;
-						if (xMax >= minCorner.x && xMax <= maxCorner.x &&
-							yMax >= minCorner.y && yMax <= maxCorner.y)
+						if (t >= 0.0f)
 						{
-							intersects = true;
+							f32 xMax = from.x + dir.x * t;
+							f32 yMax = from.y + dir.y * t;
+							if (xMax >= minCorner.x && xMax <= maxCorner.x &&
+								yMax >= minCorner.y && yMax <= maxCorner.y)
+							{
+								intersects = true;
+							}
 						}
 					}
 
 					if (intersects)
 					{
+						gameState->selectedEntityIndex = index;
 						DEBUG_OVERLAY_TRACE_VAR(index);
+						break;
+					}
+					else
+					{
+						gameState->selectedEntityIndex = 0;						
 					}
 
 				}
