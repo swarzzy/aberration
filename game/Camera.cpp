@@ -2,6 +2,28 @@
 
 namespace AB
 {
+
+	u32 RaycastFromCursor(Camera* camera, World* world)
+	{
+		u32 hitEntityIndex = 0;
+		// TODO: Why dir is points towards camera direction, not backwards.
+		v3 from = camera->pos;
+		v2 normMousePos;
+		normMousePos.x = 2.0f *
+			(GlobalInput.rawMouseX / g_Platform->windowWidth) - 1.0f;
+		normMousePos.y = 2.0f *
+			(GlobalInput.rawMouseY / g_Platform->windowHeight) - 1.0f;
+
+		v4 mouseClip = V4(normMousePos, 1.0f, 0.0f);
+		v4 mouseView = MulM4V4(camera->invProjectionRaw, mouseClip);
+		mouseView = V4(mouseView.xy, 1.0f, 0.0f);
+		v3 mouseWorld = MulM4V4(camera->invLookAtRaw, mouseView).xyz;
+		mouseWorld *= world->toUnits;
+		mouseWorld = Normalize(mouseWorld);
+		v3 dir = mouseWorld;
+		hitEntityIndex = Raycast(world, camera, from, dir);
+		return hitEntityIndex;
+	}
 	void
 	DrawChunkInstanced(World* world, RenderGroup* renderGroup,
 					   AssetManager* assetManager, WorldPosition origin,
@@ -256,10 +278,15 @@ namespace AB
 			v3 pos = camera->pos * world->unitsToRaw;
 			v3 front = camera->front * world->unitsToRaw;
 
+
 			m4x4 rawLookAt = LookAtLH(pos,
 									  AddV3V3(pos, front),
 									  V3(0.0f, 1.0f, 0.0f));
-		
+
+			camera->lookAtRaw = rawLookAt;
+			// TODO: Transpose instead of inverse?
+			camera->invLookAtRaw = Inverse(rawLookAt);
+			
 			RenderGroupSetCamera(renderGroup,
 								 // Normallization?
 								 front, 
@@ -269,9 +296,13 @@ namespace AB
 
 			renderGroup->projectionMatrix =
 				PerspectiveOpenGLLH(camera->fov,
-							  camera->aspectRatio,
-							  camera->nearPlane * world->unitsToRaw,
-							  camera->farPlane * world->unitsToRaw);
+									camera->aspectRatio,
+									camera->nearPlane * world->unitsToRaw,
+									camera->farPlane * world->unitsToRaw);
+			camera->projectionRaw = renderGroup->projectionMatrix;
+			// TODO: Transpose instead of inverse?
+			camera->invProjectionRaw = Inverse(renderGroup->projectionMatrix);
+
 		}
 		else
 		{
@@ -290,18 +321,28 @@ namespace AB
 			if (GlobalInput.keys[KEY_A].pressedNow)
 			{
 				v3 right = Normalize(Cross(camera->debugFront, { 0, 1, 0 }));
-				camera->debugPos -= right * GlobalAbsDeltaTime
+				camera->debugPos += right * GlobalAbsDeltaTime
 					* camera->debugSpeed;
 			}
 			if (GlobalInput.keys[KEY_D].pressedNow)
 			{
 				v3 right = Normalize(Cross(camera->debugFront, { 0, 1, 0 }));
-				camera->debugPos += right * GlobalAbsDeltaTime
+				camera->debugPos -= right * GlobalAbsDeltaTime
 					* camera->debugSpeed;
 			}
 
-			camera->debugPitch += GlobalInput.mouseFrameOffsetY;
-			camera->debugYaw += GlobalInput.mouseFrameOffsetX;
+			if (GlobalInput.keys[KEY_TAB].pressedNow &&
+				!GlobalInput.keys[KEY_TAB].wasPressed)
+			{
+				camera->debugCursorCaptured = !camera->debugCursorCaptured;
+			}
+
+			if (camera->debugCursorCaptured)
+			{
+				camera->debugPitch += GlobalInput.mouseFrameOffsetY;
+				camera->debugYaw -= GlobalInput.mouseFrameOffsetX;	
+			}
+
 			
 			if (camera->debugPitch > 89.0f)
 				camera->debugPitch = 89.0f;

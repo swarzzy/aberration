@@ -477,6 +477,169 @@ namespace AB
 		return result;
 	}
 
+	u32 // NOTE: LowEntityIndex
+	Raycast(World* world, Camera* camera, v3 from, v3 dir)
+	{
+		// TODO: Just reserve null entity instead of this mess
+		u32 colliderIndex = 0;
+		f32 tMin = 0.0f;
+		for (u32 index = 1; index <= world->highEntityCount; index++)
+		{
+			Entity _entity = GetEntityFromHighIndex(world, index);
+			LowEntity* entity = _entity.low;
+			AB_ASSERT(entity);
+			
+			v2 _entityCamRelPos = GetCamRelPos(world, entity->worldPos,
+											   camera->targetWorldPos);
+			// TODO: Full 3d position
+			v3 entityCamRelPos = V3(_entityCamRelPos.x,
+									world->tileSizeInUnits * 2.0f,
+									_entityCamRelPos.y);
+
+			// TODO: Complete size conversion to full 3d
+			// TODO: bounding volumes
+			v3 minCorner = entityCamRelPos + (-0.5f * entity->size);
+			v3 maxCorner = entityCamRelPos + (0.5f * entity->size);
+
+			f32 tMinForEntity = 0.0f;
+			bool intersects = false;
+
+			if (AbsF32(dir.x) > FLOAT_EPS)
+			{
+				f32 t = (minCorner.x - from.x) / dir.x;
+				if (t >= 0.0f)
+				{
+					f32 yMin = from.y + dir.y * t;
+					f32 zMin = from.z + dir.z * t;
+					if (yMin >= minCorner.y && yMin <= maxCorner.y &&
+						zMin >= minCorner.z && zMin <= maxCorner.z)
+					{
+						if (!intersects || t < tMinForEntity)
+						{
+							tMinForEntity = t;
+						}
+						intersects = true;
+					}
+				}
+			}
+
+			if (AbsF32(dir.x) > FLOAT_EPS)
+			{
+				f32 t = (maxCorner.x - from.x) / dir.x;
+				if (t >= 0.0f)
+				{
+					f32 yMax = from.y + dir.y * t;
+					f32 zMax = from.z + dir.z * t;
+					if (yMax >= minCorner.y && yMax <= maxCorner.y &&
+						zMax >= minCorner.z && zMax <= maxCorner.z)
+					{
+						if (!intersects || t < tMinForEntity)
+						{
+							tMinForEntity = t;
+						}
+
+						intersects = true;
+					}
+				}
+			}
+
+			if (AbsF32(dir.y) > FLOAT_EPS)
+			{
+				f32 t = (minCorner.y - from.y) / dir.y;
+				if (t >= 0.0f)
+				{
+					f32 xMin = from.x + dir.x * t;
+					f32 zMin = from.z + dir.z * t;
+					if (xMin >= minCorner.x && xMin <= maxCorner.x &&
+						zMin >= minCorner.z && zMin <= maxCorner.z)
+					{
+						if (!intersects || t < tMinForEntity)
+						{
+							tMinForEntity = t;
+						}
+
+						intersects = true;
+					}
+				}
+			}
+
+			if (AbsF32(dir.y) > FLOAT_EPS)
+			{
+				f32 t = (maxCorner.y - from.y) / dir.y;
+				if (t >= 0.0f)
+				{
+					f32 xMax = from.x + dir.x * t;
+					f32 zMax = from.z + dir.z * t;
+					if (xMax >= minCorner.x && xMax <= maxCorner.x &&
+						zMax >= minCorner.z && zMax <= maxCorner.z)
+					{
+						if (!intersects || t < tMinForEntity)
+						{
+							tMinForEntity = t;
+						}
+
+						intersects = true;
+					}
+				}
+			}
+
+			if (AbsF32(dir.z) > FLOAT_EPS)
+			{
+				f32 t = (minCorner.z - from.z) / dir.z;
+				if (t >= 0.0f)
+				{
+					f32 xMin = from.x + dir.x * t;
+					f32 yMin = from.y + dir.y * t;
+					if (xMin >= minCorner.x && xMin <= maxCorner.x &&
+						yMin >= minCorner.y && yMin <= maxCorner.y)
+					{
+						if (!intersects || t < tMinForEntity)
+						{
+							tMinForEntity = t;
+						}
+
+						intersects = true;
+					}
+				}
+			}
+
+			if (AbsF32(dir.z) > FLOAT_EPS)
+			{
+				f32 t = (maxCorner.z - from.z) / dir.z;
+				if (t >= 0.0f)
+				{
+					f32 xMax = from.x + dir.x * t;
+					f32 yMax = from.y + dir.y * t;
+					if (xMax >= minCorner.x && xMax <= maxCorner.x &&
+						yMax >= minCorner.y && yMax <= maxCorner.y)
+					{
+						if (!intersects || t < tMinForEntity)
+						{
+							tMinForEntity = t;
+						}
+
+						intersects = true;
+					}
+				}
+			}
+
+			if (intersects)
+			{
+				if (colliderIndex == 0 || tMinForEntity < tMin)
+				{
+					colliderIndex = index;
+					tMin = tMinForEntity;
+				}
+			}
+		}
+		if (colliderIndex)
+		{
+			Entity entity = GetEntityFromHighIndex(world, colliderIndex);
+			colliderIndex = entity.low->lowIndex;
+		}
+		return colliderIndex;
+	}
+
 	// TODO: Think about what's happens if offset is out if chunk bounds
 	u32
 	AddWallEntity(World* world, Chunk* chunk, v2 offset,

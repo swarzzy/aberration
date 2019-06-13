@@ -74,6 +74,12 @@ namespace AB {
 		return result;
 	}
 
+	BBoxAligned GenAABB(Mesh* mesh)
+	{
+		return CreateAABBFromVertices(mesh->num_vertices,
+									  mesh->positions);
+	}
+
 	static uint32 GenAPIVertexBuffer(AssetManager* mgr, byte* mesh_mem_begin, uint64 size, uint32 num_vertices) {
 		uint32 vbo_handle;
 		GLCall(glGenBuffers(1, &vbo_handle));

@@ -711,8 +711,42 @@ namespace AB
 							   assetManager,
 							   RENDER_COMMAND_DRAW_LINE_END,
 							   (void*)(0));
-
+ 
 	}
+
+	void DrawStraightLine(RenderGroup* renderGroup,
+						  AssetManager* assetManager,
+						  v3 begin, v3 end, v3 color, f32 lineWidth)
+	{
+		RenderCommandDrawLineBegin beginCommand = {};
+		beginCommand.color = color;
+		beginCommand.width = lineWidth;
+		beginCommand.type = RENDER_LINE_TYPE_SEGMENTS;
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_DRAW_LINE_BEGIN,
+							   (void*)(&beginCommand));
+
+		RenderCommandPushLineVertex v0Command = {};
+		v0Command.vertex = begin;
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v0Command));
+
+		RenderCommandPushLineVertex v1Command = {};
+		v1Command.vertex = end;
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_PUSH_LINE_VERTEX,
+							   (void*)(&v1Command));
+
+		RenderGroupPushCommand(renderGroup,
+							   assetManager,
+							   RENDER_COMMAND_DRAW_LINE_END,
+							   (void*)(0));				
+	}
+
 
 
 }

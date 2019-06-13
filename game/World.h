@@ -42,6 +42,8 @@ namespace AB
 		WorldPosition worldPos;
 		f32 accelerationAmount;
 		v3 size;
+		//BBoxAligned aabb;
+		//Mesh* mesh;
 		v3 color;
 		f32 friction;
 		u32 highIndex;

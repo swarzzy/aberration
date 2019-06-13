@@ -6,6 +6,7 @@ namespace AB
 	{
 		// In tiles
 		b32 debugMode;
+		b32 debugCursorCaptured;
 		v3 debugPos;
 		v3 debugFront;
 		f32 debugPitch;
@@ -20,6 +21,10 @@ namespace AB
 		f32 latitude;
 		v3 pos;
 		v3 front;
+		m4x4 projectionRaw;
+		m4x4 lookAtRaw;
+		m4x4 invProjectionRaw;
+		m4x4 invLookAtRaw;
 		//v3 target;
 		WorldPosition targetWorldPos;
 		v2 targetWorldVelocity;

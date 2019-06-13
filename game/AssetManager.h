@@ -65,6 +65,7 @@ namespace AB {
 												MemoryArena* tempArena);
 	
 	AB_API BBoxAligned CreateAABBFromVertices(uint32 numVertices, Vector3* vertices);
+	BBoxAligned GenAABB(Mesh* mesh);
 	AB_API int32 AssetCreateTexture(AssetManager* mgr, MemoryArena* memory, byte* bitmap,
 									uint16 w, uint16 h, uint32 bits_per_pixel,
 									const char* name, MapType mapType);

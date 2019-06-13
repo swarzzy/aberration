@@ -195,6 +195,12 @@ namespace hpm
 			Vector3 xyz;
 			f32 _w;
 		};
+		struct
+		{
+			Vector2 xy;
+			f32 _z;
+			f32 _w;
+		};
 		f32 data[4];
 		f128 _packed;
 	};
@@ -662,10 +668,22 @@ namespace hpm
 		return (v2.x - v1.x) * (v2.x - v1.x) + (v2.y - v1.y) * (v2.y - v1.y);
 	}
 
+	inline f32 HPM_CALL Distance(Vector2 v1, Vector2 v2)
+	{
+		return Sqrt((v2.x - v1.x) * (v2.x - v1.x) + (v2.y - v1.y) * (v2.y - v1.y));
+	}
+
+
 	inline f32 HPM_CALL DistanceSq(Vector3 v1, Vector3 v2)
 	{
 		return (v2.x - v1.x) * (v2.x - v1.x) + (v2.y - v1.y) * (v2.y - v1.y) + (v2.z - v1.z) * (v2.z - v1.z);
 	}
+
+	inline f32 HPM_CALL Distance(Vector3 v1, Vector3 v2)
+	{
+		return Sqrt((v2.x - v1.x) * (v2.x - v1.x) + (v2.y - v1.y) * (v2.y - v1.y) + (v2.z - v1.z) * (v2.z - v1.z));
+	}
+
 
 	inline Vector2 HPM_CALL Normalize(Vector2 vector)
 	{
@@ -1087,7 +1105,7 @@ namespace hpm
 	Matrix4 HPM_CALL Inverse(Matrix4 m);
 
 #if defined(HYPERMATH_IMPL)
-	
+	// TODO: Why this takes matrix by value
 	Matrix4 HPM_CALL Inverse(Matrix4 m)
 	{
 		f32 a11_22 = m._33 * m._44 - m._34 * m._43;

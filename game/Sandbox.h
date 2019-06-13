@@ -10,6 +10,9 @@ namespace AB
 		RenderGroup* renderGroup;
 		i32 treeFoliageHandle;
 		i32 treeTrunkHandle;
+		i32 xAxisHandle;
+		i32 yAxisHandle;
+		i32 zAxisHandle;
 		f32 gamma;
 		f32 exposure;
 		Camera camera;

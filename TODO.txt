@@ -1,21 +1,19 @@
--- WGL_ARB_framebuffer_sRGB
--- Stop to crash entire app when EXT_swap_control is not supported
--- Destroy context and delete all stuff in X11 Destroy() implementation
+-- Raycast() optimisations
+(
+https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
+https://tavianator.com/fast-branchless-raybounding-box-intersections/
+https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-generating-camera-rays/generating-camera-rays?http://www.scratchapixel.com/lessons/3d-basic-rendering/3d-viewing-pinhole-camera/how-pinhole-camera-works-part-1?
+https://www.cs.princeton.edu/courses/archive/fall00/cs426/lectures/raycast/raycast.pdf
+)
 
-### Win32Platform ###
--- Fix path to game library in LoadLibrary
+## These are very old TODO's
+-- Stop to crash entire app when EXT_swap_control is not supported
 
 ## PLATFORM
-
 -- Unicode file names
-
 -- Set bytes read to zero at the beginning of DebugReadFile function
 
--- Delete dependencies folder
-
 !!!!!
--- TEST OPENGL ETTENSIONS ON LINUX WITH NVIDIA
--- TEST OPENGL EXTENSIONS ON ATI
 ## Renderer
 -- Bug with colors when failed to load texture
 -- Fix wrong face direction in font renderer
