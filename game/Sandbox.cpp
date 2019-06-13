@@ -114,6 +114,7 @@ namespace AB
 							AddWallEntity(gameState, chunk,
 										  V2(tileX * world->tileSizeInUnits,
 											 tileY * world->tileSizeInUnits),
+										  0.0f,
 										  arena);
 							
 						}
@@ -132,6 +133,7 @@ namespace AB
 								AddWallEntity(world, chunk,
 											  V2(tileX * world->tileSizeInUnits,
 												 tileY * world->tileSizeInUnits),
+											  0.0f,
 											  arena);
 								
 							}
@@ -168,6 +170,7 @@ namespace AB
 		e->worldPos.chunkX = 0;
 		e->worldPos.chunkY = 0;
 		e->worldPos.offset = V2(10.0f, 10.0f);
+		e->worldPos.z = 0.0f;
 		e->accelerationAmount = 20.0f;
 		e->size = V3(3.0f, 3.0f, 3.0f);
 		e->color = V3(1.0f, 0.0f, 0.0f);
@@ -180,6 +183,7 @@ namespace AB
 		e1->worldPos.chunkX = 0;
 		e1->worldPos.chunkY = 0;
 		e1->worldPos.offset = V2(0.0f, 0.0f);
+		e1->worldPos.z = 0.0f;
 		e1->accelerationAmount = 30.0f;
 		e1->size = V3(2.0f, 2.0f, 2.0f);
 		e1->color = V3(0.0f, 1.0f, 0.0f);
@@ -245,17 +249,18 @@ namespace AB
 	DrawEntity(GameState* gameState, AssetManager* assetManager,
 			   Entity entity)
 	{
-		v2 camRelPos = GetCamRelPos(gameState->world, entity.low->worldPos,
+		v3 camRelPos = GetCamRelPos(gameState->world, entity.low->worldPos,
 									gameState->camera.targetWorldPos);
 		v3 pos = V3(0.0f);
 		pos.x = camRelPos.x * gameState->world->unitsToRaw;
 		pos.z = camRelPos.y * gameState->world->unitsToRaw;
-		pos.y = gameState->world->tileSizeRaw;
 
 		v3 scale = V3(0.0f);
 		scale.x = gameState->world->unitsToRaw * 0.5f * entity.low->size.x;
 		scale.z = gameState->world->unitsToRaw * 0.5f * entity.low->size.y;
-		scale.y = gameState->world->unitsToRaw * 0.5f;
+		scale.y = gameState->world->unitsToRaw * 0.5f * entity.low->size.z;
+
+		pos.y = camRelPos.z * gameState->world->unitsToRaw + scale.y;
 
 		v3 color = entity.low->color;
 		bool selected = false;
@@ -272,37 +277,46 @@ namespace AB
 	void
 	DrawTree(GameState* gameState, AssetManager* assetManager, Entity entity)
 	{
-		v2 camRelPos = GetCamRelPos(gameState->world, entity.low->worldPos,
+		v3 camRelPos = GetCamRelPos(gameState->world, entity.low->worldPos,
 									gameState->camera.targetWorldPos);
 		v3 pos = V3(0.0f);
 		pos.x = camRelPos.x * gameState->world->unitsToRaw;
 		pos.z = camRelPos.y * gameState->world->unitsToRaw;
-		pos.y = gameState->world->tileSizeRaw;
 
 		v3 scale = V3(0.0f);
 		scale.x = gameState->world->unitsToRaw * 0.5f * entity.low->size.x;
 		scale.z = gameState->world->unitsToRaw * 0.5f * entity.low->size.y;
 		scale.y = gameState->world->unitsToRaw * 0.5f * entity.low->size.z;
 
+		pos.y = camRelPos.z * gameState->world->unitsToRaw + scale.y;
+
+
 		bool selected = false;
 		if (entity.low->lowIndex == gameState->selectedEntityIndex)
 		{
 			selected = true;
 		}
+#if 1
 #if 0
 		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
 					  gameState->treeFoliageHandle, selected);
 		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
 					  gameState->treeTrunkHandle, selected);
-
+#else
+		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
+					  0, selected);
 		
 #endif
+
+		
+#else
 		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
 					  gameState->xAxisHandle, selected);
 		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
 					  gameState->yAxisHandle, selected);
 		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
 					  gameState->zAxisHandle, selected);
+#endif
 
 
 	}
@@ -322,17 +336,14 @@ namespace AB
 			// detection on chunk bounds
 			// Needs to be rapaced with robust code.
 			WorldPosition beginPos = resultPos;
-			WorldPosition desiredPosP = OffsetWorldPos(world,
-													   beginPos,
-													   delta + colliderSize);
+			WorldPosition desiredPosP =
+				OffsetWorldPos(world, beginPos, V3(delta + colliderSize, 0.0f));
 
-			WorldPosition desiredPosN = OffsetWorldPos(world,
-													   beginPos,
-													   delta - colliderSize);
+			WorldPosition desiredPosN =
+				OffsetWorldPos(world, beginPos, V3(delta - colliderSize, 0.0f));
 
-			WorldPosition desiredPosC = OffsetWorldPos(world,
-													   beginPos,
-													   delta);
+			WorldPosition desiredPosC =
+				OffsetWorldPos(world, beginPos, V3(delta, 0.0f));
 
 
 			i32 minChunkX = MINIMUM(beginPos.chunkX,
@@ -370,7 +381,7 @@ namespace AB
 			f32 tMin = 1.0f;
 			u32 hitEntityIndex = 0;
 			WorldPosition targetPosition =
-				OffsetWorldPos(world, resultPos, delta);
+				OffsetWorldPos(world, resultPos, V3(delta, 0.0f));
 
 			for (i32 chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
 			{
@@ -396,7 +407,7 @@ namespace AB
 								{
 									v2 relOldPos = WorldPosDiff(world,
 																resultPos,
-																testEntity->worldPos);
+																testEntity->worldPos).xy;
 								
 									v2 minCorner = -0.5f * testEntity->size.xy;
 									v2 maxCorner = 0.5f * testEntity->size.xy;
@@ -447,11 +458,11 @@ namespace AB
 				}
 			}
 			
-			resultPos = OffsetWorldPos(world, resultPos, delta * tMin);
+			resultPos = OffsetWorldPos(world, resultPos, V3(delta * tMin, 0.0f));
 			
 			if (hitEntityIndex)
 			{
-				delta = WorldPosDiff(world, targetPosition, resultPos);
+				delta = WorldPosDiff(world, targetPosition, resultPos).xy;
 				entity->velocity -=
 					2.0f * Dot(entity->velocity, wallNormal) * wallNormal;
 				delta *= 1.0f - tMin;
@@ -607,12 +618,12 @@ namespace AB
 		}
 
 		v2 minLine = WorldPosDiff(world, {minChunkX, minChunkY, 0, 0},
-								  camera->targetWorldPos);
+								  camera->targetWorldPos).xy;
 
 		v2 maxLine = WorldPosDiff(world,
 								  {maxChunkX, maxChunkY,
 										  world->chunkSizeUnits, world->chunkSizeUnits},
-								  camera->targetWorldPos);
+								  camera->targetWorldPos).xy;
 
 		DrawAlignedBoxOutline(gameState->renderGroup, assetManager,
 							  V3(minLine.x, 3.0f, minLine.y) * world->unitsToRaw,

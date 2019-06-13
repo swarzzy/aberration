@@ -51,7 +51,7 @@ namespace AB
 						pZ *= world->unitsToRaw;
 
 						v3 color = {};
-						f32 pY = 0.0f;
+						f32 pY = -world->tileRadiusInUnits * world->unitsToRaw;
 						switch (type)
 						{
 						case TERRAIN_TYPE_CLIFF:
@@ -197,13 +197,14 @@ namespace AB
 		WorldPosition newPos = {};
 		v2 newVelocity = {};
 
-		newPos = OffsetWorldPos(world, camera->targetWorldPos, movementDelta);
+		newPos = OffsetWorldPos(world, camera->targetWorldPos,
+								V3(movementDelta, 0.0f));
 		newVelocity = camera->targetWorldVelocity;
 
 		newVelocity = newVelocity +
 			acceleration * GlobalAbsDeltaTime;
 
-		camFrameOffset = WorldPosDiff(world, newPos, camera->targetWorldPos);
+		camFrameOffset = WorldPosDiff(world, newPos, camera->targetWorldPos).xy;
 		camera->targetWorldPos = newPos;
 		camera->targetWorldVelocity = newVelocity;
 

@@ -3,6 +3,8 @@
 
 namespace AB
 {
+	struct Camera;
+	
 	const i32 TILEMAP_SAFE_MARGIN = 16 * 16;
 	const i32 CHUNK_SAFE_MARGIN = 16;
 	const u32 INVALID_CHUNK_COORD = AB_INT32_MAX;
@@ -20,6 +22,8 @@ namespace AB
 		i32 chunkY;
 		// NOTE: Offset in chunk 0..chunkSizeUnits
 		v2 offset;
+		// NOTE: Height in units relative to sea level (which is 0.0)
+		f32 z;
 	};
 
 	enum EntityResidence
@@ -115,4 +119,62 @@ namespace AB
 		LowEntity lowEntities[MAX_LOW_ENTITIES];
 
 	};
+
+	World*
+	CreateWorld(MemoryArena* arena);
+
+	inline LowEntity*
+	GetLowEntity(World* world, u32 lowIndex);
+
+	inline HighEntity*
+	GetHighEntity(World* world, u32 highIndex);
+
+	inline Entity
+	GetEntityFromLowIndex(World* world, u32 lowIndex);
+
+	inline Entity
+	GetEntityFromHighIndex(World* world, u32 highIndex);
+
+	u32
+	_SetEntityToHigh(World* world, u32 lowIndex);
+
+	void
+	_SetEntityToLow(World* world, u32 highIndex);
+
+	inline Chunk*
+	GetChunk(World* world, i32 chunkX, i32 chunkY, MemoryArena* arena = nullptr);
+
+	inline TerrainType
+	GetTerrainTile(Chunk* chunk, u32 tileInChunkX, u32 tileInChunkY);
+
+	inline void
+	SetTerrainTile(Chunk* chunk, u32 tileX, u32 tileY, TerrainType type);
+
+	inline WorldPosition
+	OffsetWorldPos(World* world, WorldPosition oldPos, v3 offset);
+
+	void
+	ChangeEntityPos(World* world, LowEntity* entity,
+					WorldPosition newPos, MemoryArena* arena);
+
+	inline v3
+	WorldPosDiff(World* world, WorldPosition a, WorldPosition b);
+
+	u32
+	AddLowEntity(World* world, Chunk* chunk, EntityType type,
+				 MemoryArena* arena = nullptr);
+
+	inline v3 // NOTE: z is still relative to global sea level
+	GetCamRelPos(World* world, WorldPosition worldPos,
+				 WorldPosition camTargetWorldPos);
+
+	inline v3
+	ConvertWorldToRendererCoord(v3 worldCoord);
+
+	u32 // NOTE: LowEntityIndex
+	Raycast(World* world, Camera* camera, v3 from, v3 dir);
+
+	u32
+	AddWallEntity(World* world, Chunk* chunk, v2 offset, f32 z,
+				  MemoryArena* arena = 0);
 }

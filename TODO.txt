@@ -6,6 +6,8 @@ https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-generating-
 https://www.cs.princeton.edu/courses/archive/fall00/cs426/lectures/raycast/raycast.pdf
 )
 
+-- Make that renderer and world have same coord orientation
+
 ## These are very old TODO's
 -- Stop to crash entire app when EXT_swap_control is not supported
 

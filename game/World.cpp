@@ -181,7 +181,7 @@ namespace AB
 	}
 
 	inline Chunk*
-	GetChunk(World* world, i32 chunkX, i32 chunkY, MemoryArena* arena = nullptr)
+	GetChunk(World* world, i32 chunkX, i32 chunkY, MemoryArena* arena)
 	{
 		Chunk* result = nullptr;
 		// TODO: Check is chunk coord are valid
@@ -268,11 +268,11 @@ namespace AB
 	}
 	
 	inline WorldPosition
-	OffsetWorldPos(World* world, WorldPosition oldPos, v2 offset)
+	OffsetWorldPos(World* world, WorldPosition oldPos, v3 offset)
 	{
 		// TODO: Better checking!
 		WorldPosition newPos = oldPos;
-		newPos.offset += offset;
+		newPos.offset += offset.xy;
 		i32 chunkOffsetX = Floor(newPos.offset.x / world->chunkSizeUnits);
 		i32 chunkOffsetY = Floor(newPos.offset.y / world->chunkSizeUnits);
 		newPos.offset.x -= chunkOffsetX * world->chunkSizeUnits;
@@ -286,6 +286,7 @@ namespace AB
 
 		newPos.chunkX = SafeAddChunkCoord(newPos.chunkX, chunkOffsetX);
 		newPos.chunkY = SafeAddChunkCoord(newPos.chunkY, chunkOffsetY);
+		newPos.z += offset.z;
 
 		return newPos;
 	}
@@ -413,24 +414,26 @@ namespace AB
 		entity->worldPos = newPos;
 	}
 
-	inline v2
+	inline v3
 	WorldPosDiff(World* world, WorldPosition a, WorldPosition b)
 	{
-		v2 result;
+		v3 result;
 		// TODO: Potential integer overflow
 		i32 dX = a.chunkX - b.chunkX;
 		i32 dY = a.chunkY - b.chunkY;
 		f32 dOffX = a.offset.x - b.offset.x;
 		f32 dOffY = a.offset.y - b.offset.y;
-		result = V2(world->chunkSizeUnits * dX + dOffX,
-					world->chunkSizeUnits * dY + dOffY);
+		f32 dZ = a.z - b.z;
+		result = V3(world->chunkSizeUnits * dX + dOffX,
+					world->chunkSizeUnits * dY + dOffY,
+					dZ);
 		return result;
 	}
 
 	// TODO: Pass world instead of gameState
 	u32
 	AddLowEntity(World* world, Chunk* chunk, EntityType type,
-				 MemoryArena* arena = nullptr)
+				 MemoryArena* arena)
 	{
 		AB_ASSERT(world->lowEntityCount < MAX_LOW_ENTITIES);
 		u32 index = 0;
@@ -469,11 +472,23 @@ namespace AB
 		return index;
 	}
 	
-	inline v2
+	inline v3
 	GetCamRelPos(World* world, WorldPosition worldPos,
 				 WorldPosition camTargetWorldPos)
 	{
-		v2 result = WorldPosDiff(world, worldPos, camTargetWorldPos);
+		v3 result = V3(WorldPosDiff(world, worldPos, camTargetWorldPos).xy,
+					   worldPos.z);
+		return result;
+	}
+
+	// TODO: Make that world and renderer have same coords
+	inline v3
+	ConvertWorldToRendererCoord(v3 worldCoord)
+	{
+		v3 result;
+		result.x = worldCoord.x;
+		result.y = worldCoord.z;
+		result.z = worldCoord.y;
 		return result;
 	}
 
@@ -489,18 +504,19 @@ namespace AB
 			LowEntity* entity = _entity.low;
 			AB_ASSERT(entity);
 			
-			v2 _entityCamRelPos = GetCamRelPos(world, entity->worldPos,
+			v3 entityCamRelPos = GetCamRelPos(world, entity->worldPos,
 											   camera->targetWorldPos);
-			// TODO: Full 3d position
-			v3 entityCamRelPos = V3(_entityCamRelPos.x,
-									world->tileSizeInUnits * 2.0f,
-									_entityCamRelPos.y);
 
-			// TODO: Complete size conversion to full 3d
 			// TODO: bounding volumes
 			v3 minCorner = entityCamRelPos + (-0.5f * entity->size);
 			v3 maxCorner = entityCamRelPos + (0.5f * entity->size);
 
+			minCorner.z = entityCamRelPos.z;
+			maxCorner.z = entityCamRelPos.z + entity->size.z;
+
+			minCorner = ConvertWorldToRendererCoord(minCorner);
+			maxCorner = ConvertWorldToRendererCoord(maxCorner);
+			
 			f32 tMinForEntity = 0.0f;
 			bool intersects = false;
 
@@ -642,8 +658,8 @@ namespace AB
 
 	// TODO: Think about what's happens if offset is out if chunk bounds
 	u32
-	AddWallEntity(World* world, Chunk* chunk, v2 offset,
-				  MemoryArena* arena = 0)
+	AddWallEntity(World* world, Chunk* chunk, v2 offset, f32 z,
+				  MemoryArena* arena)
 	{
 		// assert for coord out of chunk bounds
 		u32 index = 0;
@@ -654,7 +670,7 @@ namespace AB
 				index,
 				ENTITY_TYPE_WALL,
 				// TODO: Offsets that out of chunk bounds
-				{chunk->coordX, chunk->coordY, offset},
+				{chunk->coordX, chunk->coordY, offset, z},
 				0.0f,
 				V3(1.0f),
 				V3(1.0f, 0.0f, 1.0f),
