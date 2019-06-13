@@ -38,54 +38,56 @@ namespace AB
 		ENTITY_TYPE_BODY,
 		ENTITY_TYPE_WALL
 	};
-	
+
+	const u32 ENTITY_MAX_MESHES = 4;
 	struct LowEntity
 	{
 		u32 lowIndex;
 		EntityType type;
 		WorldPosition worldPos;
 		f32 accelerationAmount;
-		v3 size;
+		f32 size;
 		//BBoxAligned aabb;
-		//Mesh* mesh;
 		v3 color;
 		f32 friction;
 		u32 highIndex;
 		v2 velocity;
+		u32 meshCount;
+		Mesh* meshes[ENTITY_MAX_MESHES];
 	};
 
 	struct HighEntity
 	{
-		//v2 pos;
+		v3 pos; // readonly
 		u32 lowIndex;
 	};
 
-	struct Entity
-	{
+		struct Entity
+		{
 		HighEntity* high;
 		LowEntity* low;
 	};
 	
-	enum TerrainType
-	{
+		enum TerrainType
+		{
 		TERRAIN_TYPE_EMPTY = 0,
-		TERRAIN_TYPE_GRASS,
-		TERRAIN_TYPE_CLIFF,
-		TERRAIN_TYPE_WATER
-	};
+			TERRAIN_TYPE_GRASS,
+			TERRAIN_TYPE_CLIFF,
+			TERRAIN_TYPE_WATER
+			};
 
-	const u32 ENTITY_BLOCK_CAPACITY = 16;
+		const u32 ENTITY_BLOCK_CAPACITY = 16;
 
-	struct EntityBlock
-	{
+		struct EntityBlock
+		{
 		u32 count;
 		u32 lowEntityIndices[ENTITY_BLOCK_CAPACITY];
 		EntityBlock* nextBlock;
 	};
 
-	// TODO: High chunk list
-	struct Chunk
-	{
+		// TODO: High chunk list
+		struct Chunk
+		{
 		b32 high;
 		i32 coordX;
 		i32 coordY;
@@ -95,8 +97,8 @@ namespace AB
 		Chunk* nextChunk;
 	};
 
-	struct World
-	{
+		struct World
+		{
 		f32 tileSizeInUnits;
 		f32 tileRadiusInUnits;
 		f32 tileSizeRaw;
@@ -120,61 +122,62 @@ namespace AB
 
 	};
 
-	World*
-	CreateWorld(MemoryArena* arena);
+		World*
+		CreateWorld(MemoryArena* arena);
 
-	inline LowEntity*
-	GetLowEntity(World* world, u32 lowIndex);
+		inline LowEntity*
+		GetLowEntity(World* world, u32 lowIndex);
 
-	inline HighEntity*
-	GetHighEntity(World* world, u32 highIndex);
+		inline HighEntity*
+		GetHighEntity(World* world, u32 highIndex);
 
-	inline Entity
-	GetEntityFromLowIndex(World* world, u32 lowIndex);
+		inline Entity
+		GetEntityFromLowIndex(World* world, u32 lowIndex);
 
-	inline Entity
-	GetEntityFromHighIndex(World* world, u32 highIndex);
+		inline Entity
+		GetEntityFromHighIndex(World* world, u32 highIndex);
 
-	u32
-	_SetEntityToHigh(World* world, u32 lowIndex);
+		u32
+		_SetEntityToHigh(World* world, WorldPosition camTargetWorldPos, u32 lowIndex);
 
-	void
-	_SetEntityToLow(World* world, u32 highIndex);
+		void
+		_SetEntityToLow(World* world, u32 highIndex);
 
-	inline Chunk*
-	GetChunk(World* world, i32 chunkX, i32 chunkY, MemoryArena* arena = nullptr);
+		inline Chunk*
+		GetChunk(World* world, i32 chunkX, i32 chunkY, MemoryArena* arena = nullptr);
 
-	inline TerrainType
-	GetTerrainTile(Chunk* chunk, u32 tileInChunkX, u32 tileInChunkY);
+		inline TerrainType
+		GetTerrainTile(Chunk* chunk, u32 tileInChunkX, u32 tileInChunkY);
 
-	inline void
-	SetTerrainTile(Chunk* chunk, u32 tileX, u32 tileY, TerrainType type);
+		inline void
+		SetTerrainTile(Chunk* chunk, u32 tileX, u32 tileY, TerrainType type);
 
-	inline WorldPosition
-	OffsetWorldPos(World* world, WorldPosition oldPos, v3 offset);
+		inline WorldPosition
+		OffsetWorldPos(World* world, WorldPosition oldPos, v3 offset);
 
-	void
-	ChangeEntityPos(World* world, LowEntity* entity,
-					WorldPosition newPos, MemoryArena* arena);
+		void
+		ChangeEntityPos(World* world, LowEntity* entity,
+			WorldPosition newPos, WorldPosition camTragetWorldPos,
+			MemoryArena* arena);
 
-	inline v3
-	WorldPosDiff(World* world, WorldPosition a, WorldPosition b);
+		inline v3
+		WorldPosDiff(World* world, WorldPosition a, WorldPosition b);
 
-	u32
-	AddLowEntity(World* world, Chunk* chunk, EntityType type,
-				 MemoryArena* arena = nullptr);
+		u32
+		AddLowEntity(World* world, Chunk* chunk, EntityType type,
+			MemoryArena* arena = nullptr);
 
-	inline v3 // NOTE: z is still relative to global sea level
-	GetCamRelPos(World* world, WorldPosition worldPos,
-				 WorldPosition camTargetWorldPos);
+		inline v3 // NOTE: z is still relative to global sea level
+		GetCamRelPos(World* world, WorldPosition worldPos,
+			WorldPosition camTargetWorldPos);
 
-	inline v3
-	ConvertWorldToRendererCoord(v3 worldCoord);
+		inline v3
+		FlipYZ(v3 worldCoord);
 
-	u32 // NOTE: LowEntityIndex
-	Raycast(World* world, Camera* camera, v3 from, v3 dir);
+		u32 // NOTE: LowEntityIndex
+		Raycast(World* world, Camera* camera, v3 from, v3 dir);
 
-	u32
-	AddWallEntity(World* world, Chunk* chunk, v2 offset, f32 z,
-				  MemoryArena* arena = 0);
-}
+		u32
+		AddWallEntity(World* world, Chunk* chunk, v2 offset, f32 z,
+			AssetManager* assetManager, MemoryArena* arena = 0);
+	}

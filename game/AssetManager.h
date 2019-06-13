@@ -25,6 +25,7 @@ namespace AB {
 	};
 
 	struct Mesh {
+		i32 index;
 		uint32 api_vb_handle;
 		uint32 api_ib_handle;
 		uint32 num_vertices;
@@ -60,6 +61,7 @@ namespace AB {
 		Mesh meshes[MESH_STORAGE_CAPACITY];
 		Texture textures[TEXTURE_STORAGE_CAPACITY];
 	};
+
 
 	AB_API AssetManager* AssetManagerInitialize(MemoryArena* memory,
 												MemoryArena* tempArena);

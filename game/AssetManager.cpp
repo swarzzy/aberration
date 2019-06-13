@@ -119,7 +119,8 @@ namespace AB {
 		return ibo_handle;
 	}
 
-	int32 AssetCreateMesh(AssetManager* mgr, MemoryArena* memory, uint32 number_of_vertices,
+	int32 AssetCreateMesh(AssetManager* mgr, MemoryArena* memory,
+						  uint32 number_of_vertices,
 						  hpm::Vector3* positions, hpm::Vector2* uvs,
 						  hpm::Vector3* normals, uint32 num_of_indices,
 						  uint32* indices, Material* material)
@@ -214,7 +215,9 @@ namespace AB {
 		} else {
 			AB_CORE_ERROR("Failed to load mesh. Storage is full.");
 		}
-
+		Mesh* mesh = mgr->meshes + free_index;
+		mesh->aabb = GenAABB(mesh);
+		mesh->index = free_index;
 		return free_index;
 	}
 

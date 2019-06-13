@@ -527,14 +527,14 @@ namespace AB
 
 	void DrawDebugMesh(RenderGroup* renderGroup,
 					   AssetManager* assetManager,
-					   v3 position, v3 scale, i32 meshHandle, b32 selected)
+					   v3 position, v3 scale, Mesh* mesh, b32 selected)
 	{
 		RenderCommandDrawMesh command = {};
 		m4x4 world = Identity4();
 		world = Translate(world, position);
 		world = Scale(world, scale);
 		command.transform.worldMatrix = world;
-		command.meshHandle = meshHandle;
+		command.meshHandle = mesh->index;
 		command.highlight = selected;
 		RenderGroupPushCommand(renderGroup,
 							   assetManager,

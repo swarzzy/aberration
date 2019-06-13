@@ -20,7 +20,8 @@ namespace AB
 		v3 mouseWorld = MulM4V4(camera->invLookAtRaw, mouseView).xyz;
 		mouseWorld *= world->toUnits;
 		mouseWorld = Normalize(mouseWorld);
-		v3 dir = mouseWorld;
+		v3 dir = FlipYZ(mouseWorld);
+		from = FlipYZ(from);
 		hitEntityIndex = Raycast(world, camera, from, dir);
 		return hitEntityIndex;
 	}
