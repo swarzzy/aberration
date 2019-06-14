@@ -62,6 +62,13 @@ namespace AB {
 		Texture textures[TEXTURE_STORAGE_CAPACITY];
 	};
 
+	inline Mesh*
+	GetMesh(AssetManager* assetManager, i32 index)
+	{
+		AB_ASSERT(index >=0 && index < MESH_STORAGE_CAPACITY);
+		return assetManager->meshes + index;
+	}
+
 
 	AB_API AssetManager* AssetManagerInitialize(MemoryArena* memory,
 												MemoryArena* tempArena);

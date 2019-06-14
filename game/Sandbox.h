@@ -5,14 +5,27 @@
 namespace AB
 {
 
+	struct Gizmos
+	{
+		Mesh* xAxisMesh;
+		Mesh* yAxisMesh;
+		Mesh* zAxisMesh;
+		u32 selectedIndex;
+		v3 camRelPos;
+		f32 scale;
+		u32 attachedEntityIndex;
+		v3 prevMousePos;
+		u32 activeAxis;
+	};
+	
 	struct GameState
 	{
 		RenderGroup* renderGroup;
 		i32 treeFoliageHandle;
 		i32 treeTrunkHandle;
-		i32 xAxisHandle;
-		i32 yAxisHandle;
-		i32 zAxisHandle;
+		i32 xAxisMeshHandle;
+		i32 yAxisMeshHandle;
+		i32 zAxisMeshHandle;
 		f32 gamma;
 		f32 exposure;
 		Camera camera;
@@ -28,8 +41,7 @@ namespace AB
 #define MOVING_ENTITIES_COUNT 64 // 128 max
 		u32 movingEntities[MOVING_ENTITIES_COUNT];
 		u32 selectedEntityIndex;
-
-
+		Gizmos gizmos;
 		//EntityResidence entityResidence[MAX_LOW_ENTITIES];
 	};
 

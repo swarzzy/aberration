@@ -22,7 +22,7 @@ namespace AB
 		mouseWorld = Normalize(mouseWorld);
 		v3 dir = FlipYZ(mouseWorld);
 		from = FlipYZ(from);
-		hitEntityIndex = Raycast(world, camera, from, dir);
+		hitEntityIndex = Raycast(world, camera, from, dir);			
 		return hitEntityIndex;
 	}
 	void
