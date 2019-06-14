@@ -307,8 +307,8 @@ namespace AB
 
 					Entity e = GetEntityFromLowIndex(world,
 													 gizmos->attachedEntityIndex);
-					MoveEntityUnconditional(world, e.high, currentOffset,
-											&gameState->camera, arena);
+					//MoveEntityUnconditional(world, e.high, currentOffset,
+					//						&gameState->camera, arena);
 
 					
 				

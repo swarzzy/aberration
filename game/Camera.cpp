@@ -6,25 +6,12 @@ namespace AB
 	u32 RaycastFromCursor(Camera* camera, World* world)
 	{
 		u32 hitEntityIndex = 0;
-		// TODO: Why dir is points towards camera direction, not backwards.
-		v3 from = camera->pos;
-		v2 normMousePos;
-		normMousePos.x = 2.0f *
-			(GlobalInput.rawMouseX / g_Platform->windowWidth) - 1.0f;
-		normMousePos.y = 2.0f *
-			(GlobalInput.rawMouseY / g_Platform->windowHeight) - 1.0f;
-
-		v4 mouseClip = V4(normMousePos, 1.0f, 0.0f);
-		v4 mouseView = MulM4V4(camera->invProjectionRaw, mouseClip);
-		mouseView = V4(mouseView.xy, 1.0f, 0.0f);
-		v3 mouseWorld = MulM4V4(camera->invLookAtRaw, mouseView).xyz;
-		mouseWorld *= world->toUnits;
-		mouseWorld = Normalize(mouseWorld);
-		v3 dir = FlipYZ(mouseWorld);
-		from = FlipYZ(from);
+		v3 dir = FlipYZ(camera->mouseRay);
+		v3 from = FlipYZ(camera->pos);
 		hitEntityIndex = Raycast(world, camera, from, dir);			
 		return hitEntityIndex;
 	}
+	
 	void
 	DrawChunkInstanced(World* world, RenderGroup* renderGroup,
 					   AssetManager* assetManager, WorldPosition origin,
@@ -282,7 +269,7 @@ namespace AB
 
 
 			m4x4 rawLookAt = LookAtLH(pos,
-									  AddV3V3(pos, front),
+									  V3(0.0f),//AddV3V3(pos, front),
 									  V3(0.0f, 1.0f, 0.0f));
 
 			camera->lookAtRaw = rawLookAt;
@@ -305,6 +292,19 @@ namespace AB
 			// TODO: Transpose instead of inverse?
 			camera->invProjectionRaw = Inverse(renderGroup->projectionMatrix);
 
+			v2 normMousePos;
+			normMousePos.x = 2.0f *
+				(GlobalInput.rawMouseX / g_Platform->windowWidth) - 1.0f;
+			normMousePos.y = 2.0f *
+				(GlobalInput.rawMouseY / g_Platform->windowHeight) - 1.0f;
+
+			v4 mouseClip = V4(normMousePos, 1.0f, 0.0f);
+			v4 mouseView = MulM4V4(camera->invProjectionRaw, mouseClip);
+			mouseView = V4(mouseView.xy, 1.0f, 0.0f);
+			v3 mouseWorld = MulM4V4(camera->invLookAtRaw, mouseView).xyz;
+			mouseWorld *= world->toUnits;
+			mouseWorld = Normalize(mouseWorld);
+			camera->mouseRay = mouseWorld;
 		}
 		else
 		{

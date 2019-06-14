@@ -20,6 +20,7 @@ namespace AB
 		f32 longitude;
 		f32 latitude;
 		v3 pos;
+		// NOTE: Towards camera look direction NOT backwards
 		v3 front;
 		m4x4 projectionRaw;
 		m4x4 lookAtRaw;
@@ -27,6 +28,8 @@ namespace AB
 		m4x4 invLookAtRaw;
 		//v3 target;
 		WorldPosition targetWorldPos;
+		// NOTE: In units. Left-handed coords
+		v3 mouseRay;
 		v2 targetWorldVelocity;
 		f32 distance;
 		v2 lastMousePos;
