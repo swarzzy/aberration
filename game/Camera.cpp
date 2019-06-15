@@ -255,53 +255,55 @@ namespace AB
 			f32 latitude = ToRadians(camera->latitude);
 			f32 longitude = ToRadians(camera->longitude);
 			f32 polarAngle = PI_32 - latitude;
-
-			f32 z = camera->distance * Sin(polarAngle) * Cos(longitude);
+			
 			f32 x = camera->distance * Sin(polarAngle) * Sin(longitude);
+			f32 z = camera->distance * Sin(polarAngle) * Cos(longitude);
 			f32 y = camera->distance * Cos(polarAngle);
 
 			camera->pos = V3(x, y, z);
 		
 			camera->front = -Normalize(camera->pos);
 
-			v3 pos = camera->pos * world->unitsToRaw;
-			v3 front = camera->front * world->unitsToRaw;
+			camera->lookAt = LookAtLH(camera->pos, V3(0.0f), V3(0.0f, 1.0f, 0.0f));
+			camera->invLookAt = Inverse(camera->lookAt);
 
+			camera->projection = PerspectiveOpenGLLH(camera->fov,
+													 camera->aspectRatio,
+													 camera->nearPlane,
+													 camera->farPlane);
+			camera->invProjection = Inverse(camera->projection);
 
-			m4x4 rawLookAt = LookAtLH(pos,
-									  V3(0.0f),//AddV3V3(pos, front),
-									  V3(0.0f, 1.0f, 0.0f));
+			v3 xAxis = Normalize(Cross(V3(0.0f, 1.0f, 0.0f), camera->front)); 
+			v3 yAxis = Cross(camera->front, xAxis);
 
-			camera->lookAtRaw = rawLookAt;
-			// TODO: Transpose instead of inverse?
-			camera->invLookAtRaw = Inverse(rawLookAt);
+			camera->up = yAxis;
+
+			v3 posRaw = camera->pos * world->unitsToRaw;
+			v3 frontRaw = camera->front * world->unitsToRaw;
 			
+			m4x4 rawLookAt = LookAtLH(posRaw, V3(0.0f), V3(0.0f, 1.0f, 0.0f));
+
 			RenderGroupSetCamera(renderGroup,
 								 // Normallization?
-								 front, 
-								 pos,
+								 frontRaw, 
+								 posRaw,
 								 &rawLookAt);
-
 
 			renderGroup->projectionMatrix =
 				PerspectiveOpenGLLH(camera->fov,
 									camera->aspectRatio,
 									camera->nearPlane * world->unitsToRaw,
 									camera->farPlane * world->unitsToRaw);
-			camera->projectionRaw = renderGroup->projectionMatrix;
-			// TODO: Transpose instead of inverse?
-			camera->invProjectionRaw = Inverse(renderGroup->projectionMatrix);
 
 			v2 normMousePos;
 			normMousePos.x = 2.0f *
 				(GlobalInput.rawMouseX / g_Platform->windowWidth) - 1.0f;
 			normMousePos.y = 2.0f *
 				(GlobalInput.rawMouseY / g_Platform->windowHeight) - 1.0f;
-
 			v4 mouseClip = V4(normMousePos, 1.0f, 0.0f);
-			v4 mouseView = MulM4V4(camera->invProjectionRaw, mouseClip);
+			v4 mouseView = MulM4V4(camera->invProjection, mouseClip);
 			mouseView = V4(mouseView.xy, 1.0f, 0.0f);
-			v3 mouseWorld = MulM4V4(camera->invLookAtRaw, mouseView).xyz;
+			v3 mouseWorld = MulM4V4(camera->invLookAt, mouseView).xyz;
 			mouseWorld *= world->toUnits;
 			mouseWorld = Normalize(mouseWorld);
 			camera->mouseRay = mouseWorld;

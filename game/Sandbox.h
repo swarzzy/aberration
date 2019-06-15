@@ -4,7 +4,15 @@
 
 namespace AB
 {
-		struct GameState
+	enum MouseDragAxis : u32
+	{
+		MOUSE_DRAG_AXIS_NULL,
+		MOUSE_DRAG_AXIS_X,
+		MOUSE_DRAG_AXIS_Y,
+		MOUSE_DRAG_AXIS_Z
+	};
+	
+	struct GameState
 	{
 		RenderGroup* renderGroup;
 		i32 treeFoliageHandle;
@@ -29,6 +37,8 @@ namespace AB
 		LowEntity* selectedEntity;
 		b32 dragActive;
 		v3 prevDragPos;
+		MouseDragAxis dragAxis;
+		f32 yDragSpeed;
 		//EntityResidence entityResidence[MAX_LOW_ENTITIES];
 	};
 

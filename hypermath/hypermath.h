@@ -754,6 +754,21 @@ namespace hpm
 		return result;
 	}
 
+	inline Vector2 Hadamard(Vector2 a, Vector2 b )
+	{
+		return Vector2{a.x * b.x, a.y * b.y};
+	}
+
+	inline Vector3 Hadamard(Vector3 a, Vector3 b)
+	{
+		return Vector3{a.x * b.x, a.y * b.y, a.z * b.z};
+	}
+
+	inline Vector4 Hadamard(Vector4 a, Vector4 b)
+	{
+		return Vector4{a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w};
+	}
+	 
 	inline f32 HPM_CALL Dot(Vector2 left, Vector2 right)
 	{
 		return left.x * right.x + left.y * right.y;

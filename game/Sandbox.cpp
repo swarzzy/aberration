@@ -25,6 +25,8 @@ namespace AB
 		gameState->dirLight.ambient = V3(0.05f);
 		gameState->dirLight.diffuse = V3(1.1f);
 		gameState->dirLightOffset = V3(-10, 38, 17);
+
+		gameState->yDragSpeed = 30.0f;
 		
 		BeginTemporaryMemory(tempArena);
 		gameState->treeFoliageHandle =
@@ -722,6 +724,8 @@ namespace AB
 			!GlobalInput.mouseButtons[MBUTTON_LEFT].wasPressed)
 		{
 			u32 hitIndex = RaycastFromCursor(camera, world);
+			// TODO: IMPORTANT: Check if entity is high.
+			// Only high entities can be selected
 			gameState->selectedEntity = GetLowEntity(world, hitIndex);
 		}
 
@@ -733,6 +737,19 @@ namespace AB
 				if (GetLowEntity(world, RaycastFromCursor(camera, world)) ==
 					gameState->selectedEntity)
 				{
+					if (GlobalInput.keys[KEY_X].pressedNow)
+					{
+						gameState->dragAxis = MOUSE_DRAG_AXIS_X;
+					}
+					if (GlobalInput.keys[KEY_Y].pressedNow)
+					{
+						gameState->dragAxis = MOUSE_DRAG_AXIS_Y;
+					}
+					if (GlobalInput.keys[KEY_Z].pressedNow)
+					{
+						gameState->dragAxis = MOUSE_DRAG_AXIS_Z;
+					}
+
 					gameState->dragActive = true;
 					v3 newPos = {};
 					f32 t = (gameState->selectedEntity->worldPos.z - camera->pos.y)
@@ -742,10 +759,29 @@ namespace AB
 						newPos.x = camera->pos.x + camera->mouseRay.x * t;
 						newPos.z = camera->pos.z + camera->mouseRay.z * t;
 						//f32 offset.y = from.y + dir.y * t;
+						newPos.y = camera->pos.y + camera->mouseRay.y * t;
 					}
-		
+					// NOTE: Hack! Multiplication mouse ray by length of camera
+					// position makes precise enough scaling when zooming
+					// so object almost following curor
+					// TODO: Use distance between camera and object instead.
+					//v3 distanceToEntity
+						//newPos = camera->mouseRay * Length(camera->pos);
+					v3 dragPos = {};
+					switch (gameState->dragAxis)
+					{
+					case MOUSE_DRAG_AXIS_X: {dragPos.x = newPos.x;} break;
+					case MOUSE_DRAG_AXIS_Z: {dragPos.z = newPos.z;} break;
+					case MOUSE_DRAG_AXIS_Y:
+					{
+						newPos = camera->mouseRay * gameState->yDragSpeed;
+						dragPos.y = newPos.y;
+					} break;
+
+					INVALID_DEFAULT_CASE();
+					}
 					// TODO: Consistent basis
-					gameState->prevDragPos = newPos;
+					gameState->prevDragPos = dragPos;
 				}
 			}
 			else if (GlobalInput.mouseButtons[MBUTTON_MIDDLE].pressedNow &&
@@ -758,19 +794,33 @@ namespace AB
 				{
 					newPos.x = camera->pos.x + camera->mouseRay.x * t;
 					newPos.z = camera->pos.z + camera->mouseRay.z * t;
+					newPos.y = camera->pos.y + camera->mouseRay.y * t;
 					//f32 offset.y = from.y + dir.y * t;
 				}
-					
-				v3 offset = newPos - gameState->prevDragPos;
+				v3 dragPos = {};
+				switch (gameState->dragAxis)
+				{
+				case MOUSE_DRAG_AXIS_X: {dragPos.x = newPos.x;} break;
+				case MOUSE_DRAG_AXIS_Z: {dragPos.z = newPos.z;} break;
+				case MOUSE_DRAG_AXIS_Y:
+				{
+					newPos = camera->mouseRay * gameState->yDragSpeed;
+					dragPos.y = newPos.y;
+				} break;
+
+					INVALID_DEFAULT_CASE();
+				}
+				v3 offset = dragPos - gameState->prevDragPos;
 				offset = FlipYZ(offset);
-				offset.z = 0;
+				//offset.z = 0;
 				OffsetEntityPos(world, gameState->selectedEntity,
 								offset, camera->targetWorldPos, arena);
-				gameState->prevDragPos = newPos;
+				gameState->prevDragPos = dragPos;
 			} else if (!GlobalInput.mouseButtons[MBUTTON_MIDDLE].pressedNow &&
 					   GlobalInput.mouseButtons[MBUTTON_MIDDLE].wasPressed)
 			{
 				gameState->dragActive = false;
+				gameState->dragAxis = MOUSE_DRAG_AXIS_NULL;
 			}
 		}
 	

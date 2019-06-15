@@ -22,10 +22,12 @@ namespace AB
 		v3 pos;
 		// NOTE: Towards camera look direction NOT backwards
 		v3 front;
-		m4x4 projectionRaw;
-		m4x4 lookAtRaw;
-		m4x4 invProjectionRaw;
-		m4x4 invLookAtRaw;
+		v3 up;
+		// TODO: Make this in units?
+		m4x4 projection;
+		m4x4 lookAt;
+		m4x4 invProjection;
+		m4x4 invLookAt;
 		//v3 target;
 		WorldPosition targetWorldPos;
 		// NOTE: In units. Left-handed coords
