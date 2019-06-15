@@ -8,317 +8,6 @@
 
 namespace AB
 {
-	
-	void
-	MoveEntity(World* world, HighEntity* highEntity,
-			   v2 acceleration, Camera* camera,
-			   MemoryArena* arena);
-
-	
-	void
-	MoveEntityUnconditional(World* world, HighEntity* highEntity,
-							v3 offset, Camera* camera,
-							MemoryArena* arena);
-	
-	
-	// Gizmos are entities now
-	// NOTE: Call this with temporary memory
-	void InitGizmos(GameState* gameState, MemoryArena* arena,
-					MemoryArena* tempArena,
-					AssetManager* assetManager)
-	{
-		Gizmos* gizmos = &gameState->gizmos;
-		i32 xAxisMeshHandle =
-			AssetCreateMeshAAB(assetManager,
-							   arena,
-							   tempArena,
-							   "../assets/gizmos/xAxis.aab");
-		gizmos->xAxisMesh = GetMesh(assetManager, xAxisMeshHandle);
-
-		i32 yAxisMeshHandle =
-			AssetCreateMeshAAB(assetManager,
-							   arena,
-							   tempArena,
-							   "../assets/gizmos/yAxis.aab");
-		gizmos->yAxisMesh = GetMesh(assetManager, yAxisMeshHandle);
-
-		i32 zAxisMeshHandle =
-			AssetCreateMeshAAB(assetManager,
-							   arena,
-							   tempArena,
-							   "../assets/gizmos/zAxis.aab");
-		gizmos->zAxisMesh = GetMesh(assetManager, zAxisMeshHandle);
-
-		gizmos->scale = 1.0f;		
-	}
-
-	u32 // NOTE: LowEntityIndex
-	RaycastGizmos(GameState* gameState, Camera* camera, v3 from, v3 dir)
-	{
-		World* world = gameState->world;
-		Gizmos* gizmos = &gameState->gizmos;
-		// TODO: Just reserve null entity instead of this mess
-		u32 colliderIndex = 0xffffffff;
-		f32 tMin = 0.0f;
-
-		Entity attachedEntity =
-			GetEntityFromLowIndex(world, gameState->gizmos.attachedEntityIndex);
-		AB_ASSERT(attachedEntity.high);
-		
-		f32 tMinForEntity = 0.0f;
-		
-		for (u32 i = 0; i < 3; i++)
-		{
-			// TODO: Change this @Placeholder to real code
-			Mesh* mesh = nullptr;
-			switch (i)
-			{
-			case 0: {mesh = gameState->gizmos.xAxisMesh;} break;
-			case 1: {mesh = gameState->gizmos.yAxisMesh;} break;
-			case 2: {mesh = gameState->gizmos.zAxisMesh;} break;
-				INVALID_DEFAULT_CASE();
-			}
-			
-			v3 entityCamRelPos = attachedEntity.high->pos;
-
-			bool intersects = false;
-
-			BBoxAligned aabb = mesh->aabb;
-			v3 minCorner = aabb.min * gizmos->scale;
-			v3 maxCorner = aabb.max * gizmos->scale;
-			
-			minCorner = FlipYZ(minCorner);
-			maxCorner = FlipYZ(maxCorner);
-
-			minCorner += entityCamRelPos;
-			maxCorner += entityCamRelPos;
-
-			if (AbsF32(dir.x) > FLOAT_EPS)
-			{
-				f32 t = (minCorner.x - from.x) / dir.x;
-				if (t >= 0.0f)
-				{
-					f32 yMin = from.y + dir.y * t;
-					f32 zMin = from.z + dir.z * t;
-					if (yMin >= minCorner.y && yMin <= maxCorner.y &&
-						zMin >= minCorner.z && zMin <= maxCorner.z)
-					{
-						if (!intersects || t < tMinForEntity)
-						{
-							tMinForEntity = t;
-						}
-						intersects = true;
-					}
-				}
-			}
-
-			if (AbsF32(dir.x) > FLOAT_EPS)
-			{
-				f32 t = (maxCorner.x - from.x) / dir.x;
-				if (t >= 0.0f)
-				{
-					f32 yMax = from.y + dir.y * t;
-					f32 zMax = from.z + dir.z * t;
-					if (yMax >= minCorner.y && yMax <= maxCorner.y &&
-						zMax >= minCorner.z && zMax <= maxCorner.z)
-					{
-						if (!intersects || t < tMinForEntity)
-						{
-							tMinForEntity = t;
-						}
-
-						intersects = true;
-					}
-				}
-			}
-
-			if (AbsF32(dir.y) > FLOAT_EPS)
-			{
-				f32 t = (minCorner.y - from.y) / dir.y;
-				if (t >= 0.0f)
-				{
-					f32 xMin = from.x + dir.x * t;
-					f32 zMin = from.z + dir.z * t;
-					if (xMin >= minCorner.x && xMin <= maxCorner.x &&
-						zMin >= minCorner.z && zMin <= maxCorner.z)
-					{
-						if (!intersects || t < tMinForEntity)
-						{
-							tMinForEntity = t;
-						}
-
-						intersects = true;
-					}
-				}
-			}
-
-			if (AbsF32(dir.y) > FLOAT_EPS)
-			{
-				f32 t = (maxCorner.y - from.y) / dir.y;
-				if (t >= 0.0f)
-				{
-					f32 xMax = from.x + dir.x * t;
-					f32 zMax = from.z + dir.z * t;
-					if (xMax >= minCorner.x && xMax <= maxCorner.x &&
-						zMax >= minCorner.z && zMax <= maxCorner.z)
-					{
-						if (!intersects || t < tMinForEntity)
-						{
-							tMinForEntity = t;
-						}
-
-						intersects = true;
-					}
-				}
-			}
-
-			if (AbsF32(dir.z) > FLOAT_EPS)
-			{
-				f32 t = (minCorner.z - from.z) / dir.z;
-				if (t >= 0.0f)
-				{
-					f32 xMin = from.x + dir.x * t;
-					f32 yMin = from.y + dir.y * t;
-					if (xMin >= minCorner.x && xMin <= maxCorner.x &&
-						yMin >= minCorner.y && yMin <= maxCorner.y)
-					{
-						if (!intersects || t < tMinForEntity)
-						{
-							tMinForEntity = t;
-						}
-
-						intersects = true;
-					}
-				}
-			}
-
-			if (AbsF32(dir.z) > FLOAT_EPS)
-			{
-				f32 t = (maxCorner.z - from.z) / dir.z;
-				if (t >= 0.0f)
-				{
-					f32 xMax = from.x + dir.x * t;
-					f32 yMax = from.y + dir.y * t;
-					if (xMax >= minCorner.x && xMax <= maxCorner.x &&
-						yMax >= minCorner.y && yMax <= maxCorner.y)
-					{
-						if (!intersects || t < tMinForEntity)
-						{
-							tMinForEntity = t;
-						}
-
-						intersects = true;
-					}
-				}
-			}
-
-			if (intersects)
-			{
-				if (colliderIndex == 0xffffffff || tMinForEntity < tMin)
-				{
-					colliderIndex = i;
-					tMin = tMinForEntity;
-				}
-			}
-
-		}
-		return colliderIndex;
-	}
-
-
-	void UpdateGizmos(GameState* gameState, MemoryArena* arena)
-	{
-		Camera* camera = &gameState->camera;
-		Gizmos* gizmos = &gameState->gizmos;
-		World* world = gameState->world;
-		if (gizmos->attachedEntityIndex)
-		{
-			v3 from = camera->pos;
-			v2 normMousePos;
-			normMousePos.x = 2.0f *
-				(GlobalInput.rawMouseX / g_Platform->windowWidth) - 1.0f;
-			normMousePos.y = 2.0f *
-				(GlobalInput.rawMouseY / g_Platform->windowHeight) - 1.0f;
-
-			v4 mouseClip = V4(normMousePos, 1.0f, 0.0f);
-			v4 mouseView = MulM4V4(camera->invProjectionRaw, mouseClip);
-			mouseView = V4(mouseView.xy, 1.0f, 0.0f);
-			v3 mouseWorld = MulM4V4(camera->invLookAtRaw, mouseView).xyz;
-			mouseWorld *= world->toUnits;
-			mouseWorld = Normalize(mouseWorld);
-			v3 dir = FlipYZ(mouseWorld);
-			from = FlipYZ(from);
-			u32 index = 0xffffffff;
-			if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow &&
-				!GlobalInput.mouseButtons[MBUTTON_LEFT].wasPressed)
-			{
-				index = RaycastGizmos(gameState, camera, from, dir);
-				if (index != 0xffffffff)
-				{
-					v3 offset = {};
-
-					f32 t = (-from.y) / dir.y;
-					if (t >= 0.0f)
-					{
-						offset.x = from.x + dir.x * t;
-						offset.z = from.z + dir.z * t;
-						//f32 offset.y = from.y + dir.y * t;
-					}
-
-					if (index == 0)
-					{
-						offset.y = 0.0f;
-						offset.z = 0.0f;
-					}
-					if (index == 2)
-					{
-						offset.x = 0.0f;
-						offset.z = 0.0f;
-					}
-					gizmos->activeAxis = index;
-					gizmos->prevMousePos = V3(0.0f);//offset;
-
-				}
-			} else if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow)
-				{
-					index = gizmos->activeAxis;
-					v3 offset = {};
-
-					f32 t = (-from.y) / dir.y;
-					if (t >= 0.0f)
-					{
-						offset.x = from.x + dir.x * t;
-						offset.z = from.z + dir.z * t;
-						//f32 offset.y = from.y + dir.y * t;
-					}
-
-					if (index == 0)
-					{
-						offset.y = gizmos->prevMousePos.y;
-						offset.z = gizmos->prevMousePos.z;
-					}
-					if (index == 2)
-					{
-						offset.x = gizmos->prevMousePos.x;
-						offset.z = gizmos->prevMousePos.y;
-					}
-					v3 currentOffset = offset - gizmos->prevMousePos;
-					gizmos->prevMousePos = offset;
-
-					Entity e = GetEntityFromLowIndex(world,
-													 gizmos->attachedEntityIndex);
-					//MoveEntityUnconditional(world, e.high, currentOffset,
-					//						&gameState->camera, arena);
-
-					
-				
-				}
-				DEBUG_OVERLAY_TRACE_VAR(index);
-				gizmos->selectedIndex = index;
-		
-				// TODO: Mouse dragging and stuff
-			}
-	}
 
 	void Init(MemoryArena* arena,
 			  MemoryArena* tempArena,
@@ -338,7 +27,6 @@ namespace AB
 		gameState->dirLightOffset = V3(-10, 38, 17);
 		
 		BeginTemporaryMemory(tempArena);
-		InitGizmos(gameState, arena, tempArena, assetManager);
 		gameState->treeFoliageHandle =
 			AssetCreateMeshAAB(assetManager,
 							   arena,
@@ -350,8 +38,26 @@ namespace AB
 							   tempArena,
 							   "../assets/tree_trunk.aab");
 
-		
-		//AB_CORE_ASSERT(gameState->mansionMeshHandle != ASSET_INVALID_HANDLE);
+		u32 xAxisMeshHandle =
+			AssetCreateMeshAAB(assetManager,
+							   arena,
+							   tempArena,
+							   "../assets/gizmos/xAxis.aab");
+
+		u32 yAxisMeshHandle =
+			AssetCreateMeshAAB(assetManager,
+							   arena,
+							   tempArena,
+							   "../assets/gizmos/yAxis.aab");
+
+		u32 zAxisMeshHandle =
+			AssetCreateMeshAAB(assetManager,
+							   arena,
+							   tempArena,
+							   "../assets/gizmos/zAxis.aab");
+		gameState->xAxisMesh = GetMesh(assetManager, xAxisMeshHandle);
+		gameState->yAxisMesh = GetMesh(assetManager, yAxisMeshHandle);
+		gameState->zAxisMesh = GetMesh(assetManager, zAxisMeshHandle);
 		EndTemporaryMemory(tempArena);
 
 		gameState->camera = {};
@@ -566,7 +272,7 @@ namespace AB
 
 		v3 color = entity.low->color;
 		bool selected = false;
-		if (entity.low->lowIndex == gameState->selectedEntityIndex)
+		if (entity.low == gameState->selectedEntity)
 		{
 			selected = true;
 		}
@@ -592,27 +298,21 @@ namespace AB
 		}
 		if (selected)
 		{
-			
-			Gizmos* gizmos = &gameState->gizmos;
-			v3 scale = V3(0.0f);
-			scale.x = gameState->world->unitsToRaw  * gizmos->scale;
-			scale.z = gameState->world->unitsToRaw  * gizmos->scale;
-			scale.y = gameState->world->unitsToRaw  * gizmos->scale;
-
-			bool s1 = gizmos->selectedIndex == 0;
-			bool s2 = gizmos->selectedIndex == 1;
-			bool s3 = gizmos->selectedIndex == 2;
-			DrawDebugMesh(gameState->renderGroup, assetManager, pos,
-						  scale,
-						  gizmos->xAxisMesh, s1);
+			scale.x = gameState->world->unitsToRaw  * 1.0f;
+			scale.z = gameState->world->unitsToRaw  * 1.0f;
+			scale.y = gameState->world->unitsToRaw  * 1.0f;
 
 			DrawDebugMesh(gameState->renderGroup, assetManager, pos,
 						  scale,
-						  gizmos->yAxisMesh, s2);
+						  gameState->xAxisMesh, false);
 
 			DrawDebugMesh(gameState->renderGroup, assetManager, pos,
 						  scale,
-						  gizmos->zAxisMesh, s3);
+						  gameState->yAxisMesh, false);
+
+			DrawDebugMesh(gameState->renderGroup, assetManager, pos,
+						  scale,
+						  gameState->zAxisMesh, false);
 		}
 	}
 
@@ -851,21 +551,6 @@ namespace AB
 									   camera->targetWorldPos);
 	}
 
-	
-	void
-	MoveEntityUnconditional(World* world, HighEntity* highEntity,
-							v3 offset, Camera* camera,
-							MemoryArena* arena)
-	{
-		Entity entity = GetEntityFromLowIndex(world, highEntity->lowIndex);
-		LowEntity* low = entity.low;
-		WorldPosition newPos = OffsetWorldPos(world, low->worldPos, offset);
-		ChangeEntityPos(world, low, newPos, camera->targetWorldPos, arena);
-		highEntity->pos = GetCamRelPos(world, low->worldPos,
-									   camera->targetWorldPos);
-	}
-
-
 	void SetChunkToLow(World* world, Chunk* chunk)
 	{
 		if (chunk->high)
@@ -1002,7 +687,7 @@ namespace AB
 		DEBUG_OVERLAY_TRACE_VAR(world->lowEntityCount);
 		DEBUG_OVERLAY_TRACE_VAR(world->highEntityCount);
 	}
-
+	
 	void Render(MemoryArena* arena,
 				GameState* gameState,
 				AssetManager* assetManager,
@@ -1014,11 +699,11 @@ namespace AB
 
 		DEBUG_OVERLAY_TRACE_VAR(world->nonResidentEntityBlocksCount);
 		DEBUG_OVERLAY_TRACE_VAR(world->freeEntityBlockCount);
-		DEBUG_OVERLAY_TRACE_VAR(gameState->selectedEntityIndex);
+		//DEBUG_OVERLAY_TRACE_VAR(gameState->selectedEntity);
 		{
 
 			MoveCamera(gameState, camera, world, assetManager, arena);
-			UpdateGizmos(gameState, arena);
+			//UpdateGizmos(gameState, arena);
 			for (u32 index = 1; index <= world->highEntityCount; index++)
 			{
 				Entity entity = GetEntityFromHighIndex(world, index);
@@ -1031,16 +716,64 @@ namespace AB
 				DrawEntity(gameState, assetManager, entity, false);
 
 			}
+		}
+		
+		if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow &&
+			!GlobalInput.mouseButtons[MBUTTON_LEFT].wasPressed)
+		{
+			u32 hitIndex = RaycastFromCursor(camera, world);
+			gameState->selectedEntity = GetLowEntity(world, hitIndex);
+		}
 
-			if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow &&
-				!GlobalInput.mouseButtons[MBUTTON_LEFT].wasPressed)
+		if (gameState->selectedEntity)
+		{
+			if (GlobalInput.mouseButtons[MBUTTON_MIDDLE].pressedNow &&
+				!GlobalInput.mouseButtons[MBUTTON_MIDDLE].wasPressed)
 			{
-				gameState->selectedEntityIndex = RaycastFromCursor(camera, world);
-				gameState->gizmos.attachedEntityIndex =
-										 gameState->selectedEntityIndex;
-				//gameState->gizmos.enabled = gameState->gizmos.attachedEntityIndex;
+				if (GetLowEntity(world, RaycastFromCursor(camera, world)) ==
+					gameState->selectedEntity)
+				{
+					gameState->dragActive = true;
+					v3 newPos = {};
+					f32 t = (gameState->selectedEntity->worldPos.z - camera->pos.y)
+						/ camera->mouseRay.y;
+					if (t >= 0.0f)
+					{
+						newPos.x = camera->pos.x + camera->mouseRay.x * t;
+						newPos.z = camera->pos.z + camera->mouseRay.z * t;
+						//f32 offset.y = from.y + dir.y * t;
+					}
+		
+					// TODO: Consistent basis
+					gameState->prevDragPos = newPos;
+				}
+			}
+			else if (GlobalInput.mouseButtons[MBUTTON_MIDDLE].pressedNow &&
+					 gameState->dragActive)
+			{
+				v3 newPos = {};
+				f32 t = (gameState->selectedEntity->worldPos.z - camera->pos.y)
+					/ camera->mouseRay.y;
+				if (t >= 0.0f)
+				{
+					newPos.x = camera->pos.x + camera->mouseRay.x * t;
+					newPos.z = camera->pos.z + camera->mouseRay.z * t;
+					//f32 offset.y = from.y + dir.y * t;
+				}
+					
+				v3 offset = newPos - gameState->prevDragPos;
+				offset = FlipYZ(offset);
+				offset.z = 0;
+				OffsetEntityPos(world, gameState->selectedEntity,
+								offset, camera->targetWorldPos, arena);
+				gameState->prevDragPos = newPos;
+			} else if (!GlobalInput.mouseButtons[MBUTTON_MIDDLE].pressedNow &&
+					   GlobalInput.mouseButtons[MBUTTON_MIDDLE].wasPressed)
+			{
+				gameState->dragActive = false;
 			}
 		}
+	
 
 		//SetEntityToHigh(gameState, gameState->entity);
 		//SetEntityToHigh(gameState, gameState->entity1);

@@ -306,6 +306,20 @@ namespace AB
 		return block;
 	}
 
+	inline bool
+	IsNormalized(World* world, WorldPosition* pos)
+	{
+		// NOTE: <= ???
+		return (pos->offset.x <= world->chunkSizeUnits &&
+				pos->offset.y <= world->chunkSizeUnits);
+	}
+
+	inline WorldPosition
+	NormalizeWorldPos(World* world, WorldPosition* pos)
+	{
+		return OffsetWorldPos(world, *pos, V3(0.0f));
+	}
+
 	// TODO @Important: It may take some extra blocks of memory
 	// Because entities are spreading across half-filled resident blocks.
 	// When entity goes from half-filled block to full it need extra block.
@@ -317,6 +331,12 @@ namespace AB
 					MemoryArena* arena)
 	{
 		WorldPosition oldPos = entity->worldPos;
+		AB_ASSERT(IsNormalized(world, &oldPos));
+		if (!IsNormalized(world, &newPos))
+		{
+			newPos = NormalizeWorldPos(world, &newPos);
+		}
+		
 		if(oldPos.chunkX == newPos.chunkX && oldPos.chunkY == newPos.chunkY)
 		{
 			// NOTE: In same chunk
@@ -405,9 +425,25 @@ namespace AB
 				_SetEntityToHigh(world, camTargetWorldPos, entity->lowIndex);
 			}
 		}
-	
+
+		HighEntity* high = GetHighEntity(world, entity->highIndex);
+		if (high)
+		{
+			high->pos = GetCamRelPos(world, entity->worldPos,
+									 camTargetWorldPos);
+		}
 		entity->worldPos = newPos;
 	}
+
+	inline void
+	OffsetEntityPos(World* world, LowEntity* entity,
+					v3 offset, WorldPosition camTargetWorldPos,
+					MemoryArena* arena)
+	{
+		WorldPosition newPos = OffsetWorldPos(world, entity->worldPos, offset);
+		ChangeEntityPos(world, entity, newPos, camTargetWorldPos, arena);
+	}
+
 
 	inline v3
 	WorldPosDiff(World* world, WorldPosition a, WorldPosition b)

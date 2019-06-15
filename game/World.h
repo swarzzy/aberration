@@ -36,7 +36,8 @@ namespace AB
 	enum EntityType
 	{
 		ENTITY_TYPE_BODY,
-		ENTITY_TYPE_WALL
+		ENTITY_TYPE_WALL,
+		ENTITY_TYPE_GIZMOS
 	};
 
 	const u32 ENTITY_MAX_MESHES = 4;
@@ -155,10 +156,21 @@ namespace AB
 		inline WorldPosition
 		OffsetWorldPos(World* world, WorldPosition oldPos, v3 offset);
 
+		inline bool
+		IsNormalized(World* world, WorldPosition* pos);
+
+		inline WorldPosition
+		NormalizeWorldPos(World* world, WorldPosition* pos);
+
 		void
 		ChangeEntityPos(World* world, LowEntity* entity,
-			WorldPosition newPos, WorldPosition camTragetWorldPos,
-			MemoryArena* arena);
+						WorldPosition newPos, WorldPosition camTragetWorldPos,
+						MemoryArena* arena);
+
+		inline void
+		OffsetEntityPos(World* world, LowEntity* entity,
+						v3 offset, WorldPosition camTargetWorldPos,
+						MemoryArena* arena);
 
 		inline v3
 		WorldPosDiff(World* world, WorldPosition a, WorldPosition b);
