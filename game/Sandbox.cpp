@@ -318,55 +318,6 @@ namespace AB
 		}
 	}
 
-#if 0	
-	void
-	DrawTree(GameState* gameState, AssetManager* assetManager, Entity entity)
-	{
-		v3 camRelPos = GetCamRelPos(gameState->world, entity.low->worldPos,
-									gameState->camera.targetWorldPos);
-		v3 pos = V3(0.0f);
-		pos.x = camRelPos.x * gameState->world->unitsToRaw;
-		pos.z = camRelPos.y * gameState->world->unitsToRaw;
-
-		v3 scale = V3(0.0f);
-		scale.x = gameState->world->unitsToRaw * 0.5f * entity.low->size;
-		scale.z = gameState->world->unitsToRaw * 0.5f * entity.low->size;
-		scale.y = gameState->world->unitsToRaw * 0.5f * entity.low->size;
-
-		pos.y = camRelPos.z * gameState->world->unitsToRaw + scale.y;
-
-
-		bool selected = false;
-		if (entity.low->lowIndex == gameState->selectedEntityIndex)
-		{
-			selected = true;
-		}
-#if 1
-#if 0
-		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
-					  gameState->treeFoliageHandle, selected);
-		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
-					  gameState->treeTrunkHandle, selected);
-#else
-		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
-					  0, selected);
-		
-#endif
-
-		
-#else
-		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
-					  gameState->xAxisHandle, selected);
-		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
-					  gameState->yAxisHandle, selected);
-		DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
-					  gameState->zAxisHandle, selected);
-#endif
-
-
-	}
-#endif
-
 	WorldPosition
 	EntityApplyMovement(World* world, LowEntity* entity, v2 delta)
 	{
@@ -619,7 +570,7 @@ namespace AB
 		v2 entityFrameOffset = -MoveCameraTarget(&gameState->camera, world);
 		UpdateCamera(camera, gameState->renderGroup, world);
 
-		for (u32 i = 1; i <= world->highEntityCount; i++)
+		for (u32 i = 1; i < world->highEntityCount; i++)
 		{
 			world->highEntities[i].pos += V3(entityFrameOffset, 0.0f);
 		}
@@ -706,7 +657,7 @@ namespace AB
 
 			MoveCamera(gameState, camera, world, assetManager, arena);
 			//UpdateGizmos(gameState, arena);
-			for (u32 index = 1; index <= world->highEntityCount; index++)
+			for (u32 index = 1; index < world->highEntityCount; index++)
 			{
 				Entity entity = GetEntityFromHighIndex(world, index);
 

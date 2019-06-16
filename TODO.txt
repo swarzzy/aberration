@@ -6,7 +6,31 @@ https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-generating-
 https://www.cs.princeton.edu/courses/archive/fall00/cs426/lectures/raycast/raycast.pdf
 )
 
+-- Reserve low entity instead of doing that mess woth low entities count schecking by count in loops can be usual.
+
+-- Pass normalized mouse coords to the game from platform layer
+
+** Quad trees in chunks
+
+** Proportional integral derivative control for camera zoom
+
+** _PLAYER_CONTROLLED_ enitity type...
+
+-- Gizmos
+
+##RENDERING:
+-- Fixed size line vertex buffer. Use glBindBufferRange to fill it.
+-- Terrain rendering
+	** Generate meshes from tilemaps in chunks and render then with offset
+	relative to camera targetWorldPos.
+-- Water rendering
+-- Line rendering
+-- BRDF
+-- Shadows
+-- Fog and that noise based ambient _light-fog-filler_
+
 -- Make that renderer and world have same coord orientation
+
 
 ## These are very old TODO's
 -- Stop to crash entire app when EXT_swap_control is not supported

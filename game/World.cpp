@@ -66,6 +66,9 @@ namespace AB
 			world->chunkTable[i].coordY = INVALID_CHUNK_COORD;
 		}
 
+		// NOTE: Reserving for null entity
+		world->lowEntityCount = 1;
+		world->highEntityCount = 1;
 		return world;
 	}
 
@@ -134,16 +137,16 @@ namespace AB
 		{
 			if (world->highEntityCount < MAX_HIGH_ENTITIES)
 			{
-				world->highEntityCount++;				
-
+				u32 index = world->highEntityCount;
 				HighEntity* high =
-					world->highEntities + world->highEntityCount;
+					world->highEntities + index;
 
 				high->pos = GetCamRelPos(world, low->worldPos, camTargetWorldPos);
 
 				high->lowIndex = lowIndex;
-				low->highIndex = world->highEntityCount;
-				result = world->highEntityCount;
+				low->highIndex = index;
+				result = index;
+				world->highEntityCount++;				
 			}
 			else
 			{
@@ -160,7 +163,7 @@ namespace AB
 		HighEntity* high = GetHighEntity(world, highIndex);
 		LowEntity* low = GetLowEntity(world, high->lowIndex);
 
-		u32 lastEntityIndex = world->highEntityCount;
+		u32 lastEntityIndex = world->highEntityCount - 1;
 		u32 currentEntityIndex = low->highIndex;
 		
 		low->highIndex = 0;
@@ -470,12 +473,11 @@ namespace AB
 		u32 index = 0;
 		if (chunk->firstEntityBlock.count < ENTITY_BLOCK_CAPACITY)
 		{
-			world->lowEntityCount++;
 			index = world->lowEntityCount;
+			world->lowEntityCount++;
 			world->lowEntities[index] = {};
 			world->lowEntities[index].type = type;
 			world->lowEntities[index].lowIndex = index;
-		
 		
 			chunk->firstEntityBlock.lowEntityIndices[chunk->firstEntityBlock.count]
 				= index;
@@ -530,7 +532,7 @@ namespace AB
 		// TODO: Just reserve null entity instead of this mess
 		u32 colliderIndex = 0;
 		f32 tMin = 0.0f;
-		for (u32 index = 1; index <= world->highEntityCount; index++)
+		for (u32 index = 1; index < world->highEntityCount; index++)
 		{
 			Entity _entity = GetEntityFromHighIndex(world, index);
 			LowEntity* entity = _entity.low;
