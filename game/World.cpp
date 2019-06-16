@@ -76,7 +76,7 @@ namespace AB
 	GetLowEntity(World* world, u32 lowIndex)
 	{
 		LowEntity* result = nullptr;
-		if (lowIndex > 0 && lowIndex <= world->lowEntityCount)
+		if (lowIndex > 0 && lowIndex < world->lowEntityCount)
 		{
 			result = world->lowEntities + lowIndex;
 		}
@@ -87,7 +87,7 @@ namespace AB
 	GetHighEntity(World* world, u32 highIndex)
 	{
 		HighEntity* result = nullptr;
-		if (highIndex > 0 && highIndex <= world->highEntityCount)
+		if (highIndex > 0 && highIndex < world->highEntityCount)
 		{
 			result = world->highEntities + highIndex;
 		}
@@ -99,13 +99,13 @@ namespace AB
 	GetEntityFromLowIndex(World* world, u32 lowIndex)
 	{
 		Entity result = {};
-		if (lowIndex > 0 && lowIndex <= world->lowEntityCount)
+		if (lowIndex > 0 && lowIndex < world->lowEntityCount)
 		{
 			result.low = world->lowEntities + lowIndex;
 			
 			u32 highIndex = result.low->highIndex;
 			
-			if (highIndex > 0 && highIndex <= world->highEntityCount)
+			if (highIndex > 0 && highIndex < world->highEntityCount)
 			{
 				result.high = world->highEntities + highIndex;
 			}
@@ -118,7 +118,7 @@ namespace AB
 	GetEntityFromHighIndex(World* world, u32 highIndex)
 	{
 		Entity result = {};
-		if (highIndex > 0 && highIndex <= world->highEntityCount)
+		if (highIndex > 0 && highIndex < world->highEntityCount)
 		{
 			result.high = world->highEntities + highIndex;
 			result.low = world->lowEntities + result.high->lowIndex;
@@ -238,32 +238,68 @@ namespace AB
 		return result;
 	}
 	
-	inline TerrainType
+	inline TerrainTile*
 	GetTerrainTile(Chunk* chunk, u32 tileInChunkX, u32 tileInChunkY)
 	{
-		TerrainType result = TERRAIN_TYPE_EMPTY;
+		TerrainTile* result = nullptr;
 		
 		AB_ASSERT(tileInChunkX < WORLD_CHUNK_DIM_TILES);
 		AB_ASSERT(tileInChunkY < WORLD_CHUNK_DIM_TILES);
 		
 		if (chunk)
 		{
-			result = chunk->terrainTiles[tileInChunkY * WORLD_CHUNK_DIM_TILES
-										 + tileInChunkX];
+			result = chunk->terrainTiles + (tileInChunkY * WORLD_CHUNK_DIM_TILES
+											+ tileInChunkX);
 		}
 		
 		return result;
 	}
-	
-	inline void
-	SetTerrainTile(Chunk* chunk, u32 tileX, u32 tileY, TerrainType type)
-	{
-		AB_ASSERT(tileX < WORLD_CHUNK_DIM_TILES);
-		AB_ASSERT(tileY < WORLD_CHUNK_DIM_TILES);
 
-		chunk->terrainTiles[tileY * WORLD_CHUNK_DIM_TILES + tileX] = type;		
+	inline TerrainTile*
+	GetTerrainTile(World* world, Chunk* chunk, v2 chunkRelOffset)
+	{
+		TileCoord coord = ChunkRelOffsetToTileCoord(world, chunkRelOffset);
+		TerrainTile* result = GetTerrainTile(chunk, coord.x, coord.y);
+		return result;
 	}
-	
+
+	inline TileCoord
+	ChunkRelOffsetToTileCoord(World* world, v2 chunkRelOffset)
+	{
+		AB_ASSERT(chunkRelOffset.x <=
+				  WORLD_CHUNK_DIM_TILES * world->tileSizeInUnits);
+		AB_ASSERT(chunkRelOffset.y <=
+				  WORLD_CHUNK_DIM_TILES * world->tileSizeInUnits);
+		// TODO: @Cleanup
+#if 0
+		if (chunkRelOffset.x > 0.5f)
+		{
+			chunkRelOffset.x += 0.5f;
+		}
+		if (chunkRelOffset.y > 0.5f)
+		{
+			chunkRelOffset.y += 0.5f;
+		}
+#endif
+
+
+		TileCoord result;
+		result.x = Floor(chunkRelOffset.x / world->tileSizeInUnits);
+		result.y = Floor(chunkRelOffset.y / world->tileSizeInUnits);
+#if 0
+		if (result.x > WORLD_CHUNK_DIM_TILES - 1)
+		{
+			result.x = WORLD_CHUNK_DIM_TILES - 1;
+		}
+		if (result.y > WORLD_CHUNK_DIM_TILES - 1)
+		{
+			result.y = WORLD_CHUNK_DIM_TILES - 1;
+		}
+#endif
+
+		return result;
+	}
+
 	inline WorldPosition
 	OffsetWorldPos(World* world, WorldPosition oldPos, v3 offset)
 	{
@@ -474,7 +510,6 @@ namespace AB
 		if (chunk->firstEntityBlock.count < ENTITY_BLOCK_CAPACITY)
 		{
 			index = world->lowEntityCount;
-			world->lowEntityCount++;
 			world->lowEntities[index] = {};
 			world->lowEntities[index].type = type;
 			world->lowEntities[index].lowIndex = index;
@@ -482,6 +517,8 @@ namespace AB
 			chunk->firstEntityBlock.lowEntityIndices[chunk->firstEntityBlock.count]
 				= index;
 			chunk->firstEntityBlock.count++;
+			world->lowEntityCount++;
+
 		}
 		else
 		{
@@ -493,13 +530,14 @@ namespace AB
 				chunk->firstEntityBlock.nextBlock = emptyBlock;
 				chunk->firstEntityBlock.count++;
 
-				world->lowEntityCount++;
 				index = world->lowEntityCount;
 				world->lowEntities[index] = {};
 				world->lowEntities[index].type = type;
 				world->lowEntities[index].lowIndex = index;
 		
 				chunk->firstEntityBlock.lowEntityIndices[0] = index;
+				world->lowEntityCount++;
+
 			}
 		}
 
@@ -526,8 +564,135 @@ namespace AB
 		return result;
 	}
 
-	u32 // NOTE: LowEntityIndex
-	Raycast(World* world, Camera* camera, v3 from, v3 dir)
+	RaycastResult RayAABBIntersection(v3 rayFrom, v3 rayDir, v3 boxMin, v3 boxMax)
+	{
+		f32 tMin = 0.0f;
+		bool hit = false;
+		if (AbsF32(rayDir.x) > FLOAT_EPS)
+		{
+			f32 t = (boxMin.x - rayFrom.x) / rayDir.x;
+			if (t >= 0.0f)
+			{
+				f32 yMin = rayFrom.y + rayDir.y * t;
+				f32 zMin = rayFrom.z + rayDir.z * t;
+				if (yMin >= boxMin.y && yMin <= boxMax.y &&
+					zMin >= boxMin.z && zMin <= boxMax.z)
+				{
+					if (!hit || t < tMin)
+					{
+						tMin = t;
+					}
+					hit = true;
+				}
+			}
+		}
+
+		if (AbsF32(rayDir.x) > FLOAT_EPS)
+		{
+			f32 t = (boxMax.x - rayFrom.x) / rayDir.x;
+			if (t >= 0.0f)
+			{
+				f32 yMax = rayFrom.y + rayDir.y * t;
+				f32 zMax = rayFrom.z + rayDir.z * t;
+				if (yMax >= boxMin.y && yMax <= boxMax.y &&
+					zMax >= boxMin.z && zMax <= boxMax.z)
+				{
+					if (!hit || t < tMin)
+					{
+						tMin = t;
+					}
+
+					hit = true;
+				}
+			}
+		}
+
+		if (AbsF32(rayDir.y) > FLOAT_EPS)
+		{
+			f32 t = (boxMin.y - rayFrom.y) / rayDir.y;
+			if (t >= 0.0f)
+			{
+				f32 xMin = rayFrom.x + rayDir.x * t;
+				f32 zMin = rayFrom.z + rayDir.z * t;
+				if (xMin >= boxMin.x && xMin <= boxMax.x &&
+					zMin >= boxMin.z && zMin <= boxMax.z)
+				{
+					if (!hit || t < tMin)
+					{
+						tMin = t;
+					}
+
+					hit = true;
+				}
+			}
+		}
+
+		if (AbsF32(rayDir.y) > FLOAT_EPS)
+		{
+			f32 t = (boxMax.y - rayFrom.y) / rayDir.y;
+			if (t >= 0.0f)
+			{
+				f32 xMax = rayFrom.x + rayDir.x * t;
+				f32 zMax = rayFrom.z + rayDir.z * t;
+				if (xMax >= boxMin.x && xMax <= boxMax.x &&
+					zMax >= boxMin.z && zMax <= boxMax.z)
+				{
+					if (!hit || t < tMin)
+					{
+						tMin = t;
+					}
+
+					hit = true;
+				}
+			}
+		}
+
+		if (AbsF32(rayDir.z) > FLOAT_EPS)
+		{
+			f32 t = (boxMin.z - rayFrom.z) / rayDir.z;
+			if (t >= 0.0f)
+			{
+				f32 xMin = rayFrom.x + rayDir.x * t;
+				f32 yMin = rayFrom.y + rayDir.y * t;
+				if (xMin >= boxMin.x && xMin <= boxMax.x &&
+					yMin >= boxMin.y && yMin <= boxMax.y)
+				{
+					if (!hit || t < tMin)
+					{
+						tMin = t;
+					}
+
+					hit = true;
+				}
+			}
+		}
+
+		if (AbsF32(rayDir.z) > FLOAT_EPS)
+		{
+			f32 t = (boxMax.z - rayFrom.z) / rayDir.z;
+			if (t >= 0.0f)
+			{
+				f32 xMax = rayFrom.x + rayDir.x * t;
+				f32 yMax = rayFrom.y + rayDir.y * t;
+				if (xMax >= boxMin.x && xMax <= boxMax.x &&
+					yMax >= boxMin.y && yMax <= boxMax.y)
+				{
+					if (!hit || t < tMin)
+					{
+						tMin = t;
+					}
+
+					hit = true;
+				}
+			}
+		}
+		
+		return {hit, tMin};
+	}
+
+
+	static u32 // NOTE: LowEntityIndex
+	RaycastEntities(World* world, Camera* camera, v3 from, v3 dir)
 	{
 		// TODO: Just reserve null entity instead of this mess
 		u32 colliderIndex = 0;
@@ -555,135 +720,22 @@ namespace AB
 				minCorner += entityCamRelPos;
 				maxCorner += entityCamRelPos;
 
-				if (AbsF32(dir.x) > FLOAT_EPS)
+				RaycastResult result = RayAABBIntersection(from, dir,
+														   minCorner, maxCorner);
+				if (result.hit)
 				{
-					f32 t = (minCorner.x - from.x) / dir.x;
-					if (t >= 0.0f)
+					if (!intersects || tMinForEntity < result.tMin)
 					{
-						f32 yMin = from.y + dir.y * t;
-						f32 zMin = from.z + dir.z * t;
-						if (yMin >= minCorner.y && yMin <= maxCorner.y &&
-							zMin >= minCorner.z && zMin <= maxCorner.z)
-						{
-							if (!intersects || t < tMinForEntity)
-							{
-								tMinForEntity = t;
-							}
-							intersects = true;
-						}
+						intersects = true;
+						tMinForEntity = result.tMin;
 					}
 				}
-
-				if (AbsF32(dir.x) > FLOAT_EPS)
-				{
-					f32 t = (maxCorner.x - from.x) / dir.x;
-					if (t >= 0.0f)
-					{
-						f32 yMax = from.y + dir.y * t;
-						f32 zMax = from.z + dir.z * t;
-						if (yMax >= minCorner.y && yMax <= maxCorner.y &&
-							zMax >= minCorner.z && zMax <= maxCorner.z)
-						{
-							if (!intersects || t < tMinForEntity)
-							{
-								tMinForEntity = t;
-							}
-
-							intersects = true;
-						}
-					}
-				}
-
-				if (AbsF32(dir.y) > FLOAT_EPS)
-				{
-					f32 t = (minCorner.y - from.y) / dir.y;
-					if (t >= 0.0f)
-					{
-						f32 xMin = from.x + dir.x * t;
-						f32 zMin = from.z + dir.z * t;
-						if (xMin >= minCorner.x && xMin <= maxCorner.x &&
-							zMin >= minCorner.z && zMin <= maxCorner.z)
-						{
-							if (!intersects || t < tMinForEntity)
-							{
-								tMinForEntity = t;
-							}
-
-							intersects = true;
-						}
-					}
-				}
-
-				if (AbsF32(dir.y) > FLOAT_EPS)
-				{
-					f32 t = (maxCorner.y - from.y) / dir.y;
-					if (t >= 0.0f)
-					{
-						f32 xMax = from.x + dir.x * t;
-						f32 zMax = from.z + dir.z * t;
-						if (xMax >= minCorner.x && xMax <= maxCorner.x &&
-							zMax >= minCorner.z && zMax <= maxCorner.z)
-						{
-							if (!intersects || t < tMinForEntity)
-							{
-								tMinForEntity = t;
-							}
-
-							intersects = true;
-						}
-					}
-				}
-
-				if (AbsF32(dir.z) > FLOAT_EPS)
-				{
-					f32 t = (minCorner.z - from.z) / dir.z;
-					if (t >= 0.0f)
-					{
-						f32 xMin = from.x + dir.x * t;
-						f32 yMin = from.y + dir.y * t;
-						if (xMin >= minCorner.x && xMin <= maxCorner.x &&
-							yMin >= minCorner.y && yMin <= maxCorner.y)
-						{
-							if (!intersects || t < tMinForEntity)
-							{
-								tMinForEntity = t;
-							}
-
-							intersects = true;
-						}
-					}
-				}
-
-				if (AbsF32(dir.z) > FLOAT_EPS)
-				{
-					f32 t = (maxCorner.z - from.z) / dir.z;
-					if (t >= 0.0f)
-					{
-						f32 xMax = from.x + dir.x * t;
-						f32 yMax = from.y + dir.y * t;
-						if (xMax >= minCorner.x && xMax <= maxCorner.x &&
-							yMax >= minCorner.y && yMax <= maxCorner.y)
-						{
-							if (!intersects || t < tMinForEntity)
-							{
-								tMinForEntity = t;
-							}
-
-							intersects = true;
-						}
-					}
-				}
-
-				if (intersects)
-				{
-					if (colliderIndex == 0 || tMinForEntity < tMin)
-					{
-						colliderIndex = index;
-						tMin = tMinForEntity;
-					}
-				}
-
 			}
+			if (intersects)
+			{
+				colliderIndex = index;
+			}
+
 		}
 		if (colliderIndex)
 		{
@@ -691,6 +743,128 @@ namespace AB
 			colliderIndex = entity.low->lowIndex;
 		}
 		return colliderIndex;
+	}
+
+
+	TilemapRaycastResult
+	TilemapRaycast(World* world, Camera* camera, v3 from, v3 dir)
+	{
+		// TODO: Just reserve null entity instead of this mess
+		TilemapRaycastResult result = {};
+		for (u32 chunkIndex = 0; chunkIndex < world->highChunkCount; chunkIndex++)
+		{
+			Chunk* chunk = world->highChunks[chunkIndex];
+			for (u32 tileY = 0; tileY < WORLD_CHUNK_DIM_TILES; tileY++)
+			{
+				for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
+				{
+					TerrainTile* tile = GetTerrainTile(chunk, tileX, tileY);
+					WorldPosition tileWorldPos;
+					tileWorldPos.chunkX = chunk->coordX;
+					tileWorldPos.chunkY = chunk->coordY;
+					
+					tileWorldPos.offset.x = tileX * world->tileSizeInUnits;
+					tileWorldPos.offset.x += world->tileSizeInUnits * 0.5f;
+					
+					tileWorldPos.offset.y = tileY * world->tileSizeInUnits;
+					tileWorldPos.offset.y += world->tileSizeInUnits * 0.5f;
+
+					v3 tileCamRelPos = GetCamRelPos(world, tileWorldPos,
+													camera->targetWorldPos);
+					v3 minCorner = tileCamRelPos - world->tileSizeInUnits * 0.5f;
+					v3 maxCorner = tileCamRelPos + world->tileSizeInUnits * 0.5f;
+					minCorner.z = tile->height - world->tileSizeInUnits;
+					maxCorner.z = tile->height;
+					
+					RaycastResult r =
+						RayAABBIntersection(from, dir, minCorner, maxCorner);
+					
+					if (r.hit)
+					{
+						if (!result.hit || r.tMin < result.tMin)
+						{
+							result.hit = true;
+							result.tMin = r.tMin;
+							result.pos.chunkX = chunk->coordX;
+							result.pos.chunkY = chunk->coordY;
+							result.pos.tileX = tileX;
+							result.pos.tileY = tileY;
+						}
+					}
+					
+				}
+			}
+		}
+		return result;
+	}
+
+
+	u32 // NOTE: LowEntityIndex
+	Raycast(World* world, Camera* camera, v3 from, v3 dir)
+	{
+		return RaycastEntities(world, camera, from, dir);
+	}
+
+
+	void
+	SetChunkToLow(World* world, Chunk* chunk)
+	{
+		if (chunk->high)
+		{
+			EntityBlock* block = &chunk->firstEntityBlock;
+			do
+			{
+				for (u32 i = 0; i < block->count; i++)
+				{
+					u32 index = block->lowEntityIndices[i];
+					LowEntity* entity = GetLowEntity(world, index);
+					AB_ASSERT(entity->highIndex);
+					_SetEntityToLow(world, entity->highIndex);
+					AB_ASSERT(!entity->highIndex);
+				}
+
+				block = block->nextBlock;
+			}
+			while(block);
+			for (u32 i = 0; i < world->highChunkCount; i++)
+			{
+				Chunk* highPtr = world->highChunks[i];
+				if (highPtr == chunk)
+				{
+					world->highChunks[i] =
+						world->highChunks[world->highChunkCount - 1];
+					world->highChunkCount--;
+					break;
+				}
+			}
+			chunk->high = false;
+		}
+	}
+
+	void
+	SetChunkToHigh(World* world, Chunk* chunk, WorldPosition camTargetWorldPos)
+	{
+		if (!chunk->high)
+		{
+			EntityBlock* block = &chunk->firstEntityBlock;
+			do
+			{
+				for (u32 i = 0; i < block->count; i++)
+				{
+					u32 index = block->lowEntityIndices[i];
+					LowEntity* entity = GetLowEntity(world, index);
+					AB_ASSERT(!entity->highIndex);
+					_SetEntityToHigh(world, camTargetWorldPos, index);
+				}
+
+				block = block->nextBlock;
+			}
+			while(block);
+			AB_ASSERT(world->highChunkCount < MAX_HIGH_CHUNKS);
+			world->highChunks[world->highChunkCount] = chunk;
+			world->highChunkCount++;
+			chunk->high = true;
+		}
 	}
 
 	// TODO: Think about what's happens if offset is out if chunk bounds

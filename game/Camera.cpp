@@ -15,7 +15,7 @@ namespace AB
 	void
 	DrawChunkInstanced(World* world, RenderGroup* renderGroup,
 					   AssetManager* assetManager, WorldPosition origin,
-					   Chunk* chunk)
+					   Chunk* chunk, u32 selectedTileX, u32 selectedTileY)
 	{
 		if (chunk)
 		{
@@ -29,35 +29,46 @@ namespace AB
 			{
 				for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 				{
-					TerrainType type = GetTerrainTile(chunk, tileX, tileY);
-					if (type)
+					TerrainTile* tile = GetTerrainTile(chunk, tileX, tileY);
+					if (tile)
 					{
 						f32 pX = offset.x + tileX * world->tileSizeInUnits;
 						f32 pZ = offset.y + tileY * world->tileSizeInUnits;
+						pX += world->tileSizeInUnits * 0.5f;
+						pZ += world->tileSizeInUnits * 0.5f;				
 
 						pX *= world->unitsToRaw;
 						pZ *= world->unitsToRaw;
 
 						v3 color = {};
-						f32 pY = -world->tileRadiusInUnits * world->unitsToRaw;
-						switch (type)
+						f32 pY = tile->height - world->tileRadiusInUnits;
+						pY *= world->unitsToRaw;
+
+						if (selectedTileX == tileX &&
+							selectedTileY == tileY)
 						{
-						case TERRAIN_TYPE_CLIFF:
-						{
-							color = V3(0.7f, 0.7f, 0.7f);
-							pY = 2.0f;
-						} break;
-						case TERRAIN_TYPE_GRASS:
-						{
-							color = V3(0.1f, 0.7f, 0.2f);
-						} break;
-						case TERRAIN_TYPE_WATER:
-						{
-							color = V3(0.0f, 0.0f, 0.8f);
-							pY = -1.0f;
-						} break;
-						INVALID_DEFAULT_CASE();
+							color = V3(0.8f, 0.0f, 0.0f);
 						}
+						else
+						{
+							switch (tile->type)
+							{
+							case TERRAIN_TYPE_CLIFF:
+							{
+								color = V3(0.7f, 0.7f, 0.7f);
+							} break;
+							case TERRAIN_TYPE_GRASS:
+							{
+								color = V3(0.1f, 0.7f, 0.2f);
+							} break;
+							case TERRAIN_TYPE_WATER:
+							{
+								color = V3(0.0f, 0.0f, 0.8f);
+							} break;
+							INVALID_DEFAULT_CASE();
+							}							
+						}
+
 
 						DrawDebugCubeInstanced(renderGroup,
 											   assetManager,
@@ -74,7 +85,7 @@ namespace AB
 	void
 	DrawWorldInstanced(World* world, RenderGroup* renderGroup,
 					   AssetManager* assetManager,
-					   WorldPosition origin)
+					   WorldPosition origin, TileWorldPos* selectedTile)
 	{
 		// TODO: Pass this area as parameters	
 		i32 beginX = origin.chunkX - 1;
@@ -83,10 +94,10 @@ namespace AB
 		i32 endX = origin.chunkX + 2;
 		i32 endY = origin.chunkY + 2;
 
-		DEBUG_OVERLAY_TRACE_VAR(beginX);
-		DEBUG_OVERLAY_TRACE_VAR(beginY);
-		DEBUG_OVERLAY_TRACE_VAR(endX);
-		DEBUG_OVERLAY_TRACE_VAR(endY);
+		DEBUG_OVERLAY_TRACE(beginX);
+		DEBUG_OVERLAY_TRACE(beginY);
+		DEBUG_OVERLAY_TRACE(endX);
+		DEBUG_OVERLAY_TRACE(endY);
 		
 		RenderCommandBeginDebugCubeInctancing begCommand = {};
 		begCommand.blendMode = BLEND_MODE_OPAQUE;
@@ -100,10 +111,19 @@ namespace AB
 		{
 			for (i32 x = beginX; x < endX; x++)
 			{
+				u32 selectedTileX = INVALID_TILE_COORD;
+				u32 selectedTileY = INVALID_TILE_COORD;
+				if (selectedTile &&
+					selectedTile->chunkX == x &&
+					selectedTile->chunkY == y)
+				{
+					selectedTileX = selectedTile->tileX;
+					selectedTileY = selectedTile->tileY;
+				}
 				Chunk* chunk = GetChunk(world, x, y);
 				DrawChunkInstanced(world, renderGroup,
 								   assetManager, origin,
-								   chunk);
+								   chunk, selectedTileX, selectedTileY);
 			}
 		}
 

@@ -108,21 +108,9 @@ namespace AB
 				{
 					for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 					{
-#if 0
-						if ((tileX == 0 || tileY == 0))
-						{
-							SetTerrainTile(chunk, tileX, tileY,
-										   TERRAIN_TYPE_WATER);
-							AddWallEntity(gameState, chunk,
-										  V2(tileX * world->tileSizeInUnits,
-											 tileY * world->tileSizeInUnits),
-										  0.0f,
-										  arena);
-							
-						}
-						else
-#endif
-						{
+						TerrainTile* tile = GetTerrainTile(chunk,
+														   tileX, tileY);
+						tile->height = rand() % 10 / 15.0f;
 							if ((x == -4 && tileX == 0) ||
 								(x == 3 &&
 								 tileX == WORLD_CHUNK_DIM_TILES - 1) ||
@@ -130,8 +118,10 @@ namespace AB
 								(y == 3 &&
 								 tileY == WORLD_CHUNK_DIM_TILES - 1))
 							{
-								SetTerrainTile(chunk, tileX, tileY,
-											   TERRAIN_TYPE_CLIFF);
+								TerrainTile* tile = GetTerrainTile(chunk,
+																   tileX, tileY);
+								AB_ASSERT(tile);
+								tile->type = TERRAIN_TYPE_CLIFF;
 								AddWallEntity(world, chunk,
 											  V2(tileX * world->tileSizeInUnits,
 												 tileY * world->tileSizeInUnits),
@@ -142,10 +132,11 @@ namespace AB
 							}
 							else
 							{
-								SetTerrainTile(chunk, tileX, tileY,
-											   TERRAIN_TYPE_GRASS);
+								TerrainTile* tile = GetTerrainTile(chunk,
+																   tileX, tileY);
+								AB_ASSERT(tile);
+								tile->type = TERRAIN_TYPE_GRASS;
 							}
-						}
 
 					}
 				}
@@ -158,7 +149,9 @@ namespace AB
 			{
 				for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 				{
-					SetTerrainTile(chunk, tileX, tileY, TERRAIN_TYPE_WATER);
+					TerrainTile* tile = GetTerrainTile(chunk, tileX, tileY);
+					AB_ASSERT(tile);
+					tile->type = TERRAIN_TYPE_WATER;
 				}
 			}
 
@@ -175,10 +168,15 @@ namespace AB
 		e->worldPos.offset = V2(10.0f, 10.0f);
 		e->worldPos.z = 0.0f;
 		e->accelerationAmount = 20.0f;
-		e->size = 3.0f;
+		e->size = 0.5f;
+#if 0
 		e->meshes[0] = assetManager->meshes + gameState->treeFoliageHandle;
 		e->meshes[1] = assetManager->meshes + gameState->treeTrunkHandle;
 		e->meshCount = 2;
+#endif
+		e->meshes[0] = GetMesh(assetManager, 0);
+		e->meshCount = 1;
+		
 		e->color = V3(1.0f, 0.0f, 0.0f);
 		e->friction = 3.0f;
 		e->velocity = V2(0.0f, 0.1f);
@@ -269,9 +267,11 @@ namespace AB
 		scale.x = gameState->world->unitsToRaw  * entity.low->size;
 		scale.z = gameState->world->unitsToRaw  * entity.low->size;
 		scale.y = gameState->world->unitsToRaw  * entity.low->size;
-
+		// TODO: Mesh aligment, tilemap footprints n' stuff
 		pos.y = camRelPos.z * gameState->world->unitsToRaw;
 
+		//pos.x -= scale.x * 0.5f;
+		//pos.z -= scale.z * 0.5f;
 		v3 color = entity.low->color;
 		bool selected = false;
 		if (entity.low == gameState->selectedEntity)
@@ -319,7 +319,7 @@ namespace AB
 	}
 
 	WorldPosition
-	EntityApplyMovement(World* world, LowEntity* entity, v2 delta)
+	DoCollisionDetection(World* world, LowEntity* entity, v2 delta)
 	{
 		WorldPosition resultPos = entity->worldPos;
 		// TODO: bounding boxes
@@ -475,9 +475,9 @@ namespace AB
 
 	
 	void
-	MoveEntity(World* world, HighEntity* highEntity,
-			   v2 acceleration, Camera* camera,
-			   MemoryArena* arena)
+	DoEntityPhysicalMovement(World* world, HighEntity* highEntity,
+							 v2 acceleration, Camera* camera,
+							 MemoryArena* arena)
 	{
 		LowEntity* entity = GetLowEntity(world, highEntity->lowIndex);
 		f32 speed = entity->accelerationAmount;
@@ -492,75 +492,30 @@ namespace AB
 			entity->velocity *
 			GlobalGameDeltaTime;
 
-		auto newPos = EntityApplyMovement(world, entity,  movementDelta);
+		auto newPos = DoCollisionDetection(world, entity,  movementDelta);
 
 		entity->velocity += acceleration * GlobalGameDeltaTime;
+		Chunk* oldChunk = GetChunk(world, entity->worldPos.chunkX,
+								   entity->worldPos.chunkY, nullptr);
+		Chunk* newChunk = GetChunk(world, newPos.chunkX,
+								   newPos.chunkY, nullptr);
 
-		// TODO: Move it to more appropriate place maybe.
-		// This stuff should happens once at the end of update loop _maybe_
+		AB_ASSERT(oldChunk);
+		AB_ASSERT(newChunk);
 		
+		TerrainTile* oldTile = GetTerrainTile(world, oldChunk,
+											  entity->worldPos.offset);
+		TerrainTile* newTile = GetTerrainTile(world, newChunk,
+											  newPos.offset);
+		AB_ASSERT(oldTile);
+		AB_ASSERT(newTile);
+
+		f32 heightDiff = newTile->height - oldTile->height;
+		newPos.z += heightDiff;
+
 		ChangeEntityPos(world, entity, newPos, camera->targetWorldPos, arena);
 		highEntity->pos = GetCamRelPos(world, entity->worldPos,
 									   camera->targetWorldPos);
-	}
-
-	void SetChunkToLow(World* world, Chunk* chunk)
-	{
-		if (chunk->high)
-		{
-			EntityBlock* block = &chunk->firstEntityBlock;
-			do
-			{
-				for (u32 i = 0; i < block->count; i++)
-				{
-					u32 index = block->lowEntityIndices[i];
-					LowEntity* entity = GetLowEntity(world, index);
-					AB_ASSERT(entity->highIndex);
-					_SetEntityToLow(world, entity->highIndex);
-				}
-
-				block = block->nextBlock;
-			}
-			while(block);
-			for (u32 i = 0; i < world->highChunkCount; i++)
-			{
-				Chunk* highPtr = world->highChunks[i];
-				if (highPtr == chunk)
-				{
-					world->highChunks[i] =
-						world->highChunks[world->highChunkCount - 1];
-					world->highChunkCount--;
-					break;
-				}
-			}
-			chunk->high = false;
-		}
-	}
-
-	void
-	SetChunkToHigh(World* world, Chunk* chunk, WorldPosition camTargetWorldPos)
-	{
-		if (!chunk->high)
-		{
-			EntityBlock* block = &chunk->firstEntityBlock;
-			do
-			{
-				for (u32 i = 0; i < block->count; i++)
-				{
-					u32 index = block->lowEntityIndices[i];
-					LowEntity* entity = GetLowEntity(world, index);
-					AB_ASSERT(!entity->highIndex);
-					_SetEntityToHigh(world, camTargetWorldPos, index);
-				}
-
-				block = block->nextBlock;
-			}
-			while(block);
-			AB_ASSERT(world->highChunkCount < MAX_HIGH_CHUNKS);
-			world->highChunks[world->highChunkCount] = chunk;
-			world->highChunkCount++;
-			chunk->high = true;
-		}
 	}
 
 	void
@@ -587,10 +542,10 @@ namespace AB
 		i32 maxChunkY = SafeAddChunkCoord(camera->targetWorldPos.chunkY,
 										  highAreaChunkSpanY); 
 
-		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.chunkX);
-		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.chunkY);
-		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.offset.x);
-		DEBUG_OVERLAY_TRACE_VAR(camera->targetWorldPos.offset.y);
+		DEBUG_OVERLAY_TRACE(camera->targetWorldPos.chunkX);
+		DEBUG_OVERLAY_TRACE(camera->targetWorldPos.chunkY);
+		DEBUG_OVERLAY_TRACE(camera->targetWorldPos.offset.x);
+		DEBUG_OVERLAY_TRACE(camera->targetWorldPos.offset.y);
 
 		for (u32 i = 0; i < world->highChunkCount;)
 		{
@@ -637,8 +592,8 @@ namespace AB
 							  V3(maxLine.x, 10.0f, maxLine.y) * world->unitsToRaw,
 							  V3(0.8, 0.0, 0.0), 2.0f);
 
-		DEBUG_OVERLAY_TRACE_VAR(world->lowEntityCount);
-		DEBUG_OVERLAY_TRACE_VAR(world->highEntityCount);
+		DEBUG_OVERLAY_TRACE(world->lowEntityCount);
+		DEBUG_OVERLAY_TRACE(world->highEntityCount);
 	}
 	
 	void Render(MemoryArena* arena,
@@ -650,8 +605,8 @@ namespace AB
 		World* world = gameState->world;
 		Camera* camera = &gameState->camera;
 
-		DEBUG_OVERLAY_TRACE_VAR(world->nonResidentEntityBlocksCount);
-		DEBUG_OVERLAY_TRACE_VAR(world->freeEntityBlockCount);
+		DEBUG_OVERLAY_TRACE(world->nonResidentEntityBlocksCount);
+		DEBUG_OVERLAY_TRACE(world->freeEntityBlockCount);
 		//DEBUG_OVERLAY_TRACE_VAR(gameState->selectedEntity);
 		{
 
@@ -663,18 +618,28 @@ namespace AB
 
 				if (entity.low->type == ENTITY_TYPE_BODY)
 				{
-					MoveEntity(world, entity.high , V2(0.0f), camera, arena);
+					DoEntityPhysicalMovement(world, entity.high , V2(0.0f),
+											 camera, arena);
 				}
 				
 				DrawEntity(gameState, assetManager, entity, false);
 
 			}
 		}
+
+		DEBUG_OVERLAY_TRACE(gameState->selectedTile.chunkX);
+		DEBUG_OVERLAY_TRACE(gameState->selectedTile.chunkY);
+		DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileX);
+		DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileX);
 		
 		if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow &&
 			!GlobalInput.mouseButtons[MBUTTON_LEFT].wasPressed)
 		{
 			u32 hitIndex = RaycastFromCursor(camera, world);
+			auto[hit, tMin, pos] = TilemapRaycast(world, camera,
+												  camera->posWorld,
+												  camera->mouseRayWorld);
+			gameState->selectedTile = pos;
 			// TODO: IMPORTANT: Check if entity is high.
 			// Only high entities can be selected
 			gameState->selectedEntity = GetLowEntity(world, hitIndex);
@@ -800,11 +765,16 @@ namespace AB
 		
 			acceleration = Normalize(acceleration);
 
-			MoveEntity(world, entity.high, acceleration, camera, arena);
-			DEBUG_OVERLAY_TRACE_VAR(entity.low->worldPos.chunkX);
-			DEBUG_OVERLAY_TRACE_VAR(entity.low->worldPos.chunkY);
-			DEBUG_OVERLAY_TRACE_VAR(entity.low->worldPos.offset.x);
-			DEBUG_OVERLAY_TRACE_VAR(entity.low->worldPos.offset.y);
+			DoEntityPhysicalMovement(world, entity.high,
+									 acceleration, camera, arena);
+			DEBUG_OVERLAY_TRACE(entity.low->worldPos.chunkX);
+			DEBUG_OVERLAY_TRACE(entity.low->worldPos.chunkY);
+			DEBUG_OVERLAY_TRACE(entity.low->worldPos.offset.x);
+			DEBUG_OVERLAY_TRACE(entity.low->worldPos.offset.y);
+			TileCoord tileCoord = ChunkRelOffsetToTileCoord(world,
+												  entity.low->worldPos.offset);
+			DEBUG_OVERLAY_TRACE(tileCoord.x);
+			DEBUG_OVERLAY_TRACE(tileCoord.y);
 		}
 
 		if (entity1.high)
@@ -835,16 +805,18 @@ namespace AB
 			}
 		
 			acceleration = Normalize(acceleration);
-			MoveEntity(world, entity1.high, acceleration, camera, arena);
-			DEBUG_OVERLAY_TRACE_VAR(entity1.low->worldPos.chunkX);
-			DEBUG_OVERLAY_TRACE_VAR(entity1.low->worldPos.chunkY);
-			DEBUG_OVERLAY_TRACE_VAR(entity1.low->worldPos.offset.x);
-			DEBUG_OVERLAY_TRACE_VAR(entity1.low->worldPos.offset.y);
+			DoEntityPhysicalMovement(world, entity1.high,
+									 acceleration, camera, arena);
+			DEBUG_OVERLAY_TRACE(entity1.low->worldPos.chunkX);
+			DEBUG_OVERLAY_TRACE(entity1.low->worldPos.chunkY);
+			DEBUG_OVERLAY_TRACE(entity1.low->worldPos.offset.x);
+			DEBUG_OVERLAY_TRACE(entity1.low->worldPos.offset.y);
 		}
 		
 		
 		DrawWorldInstanced(world, gameState->renderGroup, assetManager,
-						   gameState->camera.targetWorldPos);
+						   gameState->camera.targetWorldPos,
+						   &gameState->selectedTile);
 
 		//gameState->camera.target = V3(pX, 0, pY);
 		//gameState->dirLight.target = V3(pX, 0, pY);
