@@ -6,8 +6,8 @@ namespace AB
 	u32 RaycastFromCursor(Camera* camera, World* world)
 	{
 		u32 hitEntityIndex = 0;
-		v3 dir = FlipYZ(camera->mouseRay);
-		v3 from = FlipYZ(camera->pos);
+		v3 dir = camera->mouseRayWorld;
+		v3 from = camera->posWorld;
 		hitEntityIndex = Raycast(world, camera, from, dir);			
 		return hitEntityIndex;
 	}
@@ -264,6 +264,9 @@ namespace AB
 		
 			camera->front = -Normalize(camera->pos);
 
+			camera->posWorld = FlipYZ(camera->pos);
+			camera->frontWorld = FlipYZ(camera->front);
+
 			camera->lookAt = LookAtLH(camera->pos, V3(0.0f), V3(0.0f, 1.0f, 0.0f));
 			camera->invLookAt = Inverse(camera->lookAt);
 
@@ -307,6 +310,7 @@ namespace AB
 			mouseWorld *= world->toUnits;
 			mouseWorld = Normalize(mouseWorld);
 			camera->mouseRay = mouseWorld;
+			camera->mouseRayWorld = FlipYZ(mouseWorld);
 		}
 		else
 		{

@@ -752,30 +752,22 @@ namespace AB
 
 					gameState->dragActive = true;
 					v3 newPos = {};
-					f32 t = (gameState->selectedEntity->worldPos.z - camera->pos.y)
-						/ camera->mouseRay.y;
+					f32 t = (gameState->selectedEntity->worldPos.z - camera->posWorld.z) / camera->mouseRayWorld.z;
 					if (t >= 0.0f)
 					{
-						newPos.x = camera->pos.x + camera->mouseRay.x * t;
-						newPos.z = camera->pos.z + camera->mouseRay.z * t;
-						//f32 offset.y = from.y + dir.y * t;
-						newPos.y = camera->pos.y + camera->mouseRay.y * t;
+						newPos.x = camera->posWorld.x + camera->mouseRayWorld.x * t;
+						newPos.z = camera->posWorld.z + camera->mouseRayWorld.z * t;
+						newPos.y = camera->posWorld.y + camera->mouseRayWorld.y * t;
 					}
-					// NOTE: Hack! Multiplication mouse ray by length of camera
-					// position makes precise enough scaling when zooming
-					// so object almost following curor
-					// TODO: Use distance between camera and object instead.
-					//v3 distanceToEntity
-						//newPos = camera->mouseRay * Length(camera->pos);
 					v3 dragPos = {};
 					switch (gameState->dragAxis)
 					{
 					case MOUSE_DRAG_AXIS_X: {dragPos.x = newPos.x;} break;
-					case MOUSE_DRAG_AXIS_Z: {dragPos.z = newPos.z;} break;
-					case MOUSE_DRAG_AXIS_Y:
+					case MOUSE_DRAG_AXIS_Y: {dragPos.y = newPos.y;} break;
+					case MOUSE_DRAG_AXIS_Z:
 					{
-						newPos = camera->mouseRay * gameState->yDragSpeed;
-						dragPos.y = newPos.y;
+						newPos = camera->mouseRayWorld * gameState->yDragSpeed;
+						dragPos.z = newPos.z;
 					} break;
 
 					INVALID_DEFAULT_CASE();
@@ -788,31 +780,28 @@ namespace AB
 					 gameState->dragActive)
 			{
 				v3 newPos = {};
-				f32 t = (gameState->selectedEntity->worldPos.z - camera->pos.y)
-					/ camera->mouseRay.y;
+				f32 t = (gameState->selectedEntity->worldPos.z - camera->posWorld.z) / camera->mouseRayWorld.z;
 				if (t >= 0.0f)
 				{
-					newPos.x = camera->pos.x + camera->mouseRay.x * t;
-					newPos.z = camera->pos.z + camera->mouseRay.z * t;
-					newPos.y = camera->pos.y + camera->mouseRay.y * t;
+					newPos.x = camera->posWorld.x + camera->mouseRayWorld.x * t;
+					newPos.z = camera->posWorld.z + camera->mouseRayWorld.z * t;
+					newPos.y = camera->posWorld.y + camera->mouseRayWorld.y * t;
 					//f32 offset.y = from.y + dir.y * t;
 				}
 				v3 dragPos = {};
 				switch (gameState->dragAxis)
 				{
 				case MOUSE_DRAG_AXIS_X: {dragPos.x = newPos.x;} break;
-				case MOUSE_DRAG_AXIS_Z: {dragPos.z = newPos.z;} break;
-				case MOUSE_DRAG_AXIS_Y:
+				case MOUSE_DRAG_AXIS_Y: {dragPos.y = newPos.y;} break;
+				case MOUSE_DRAG_AXIS_Z:
 				{
-					newPos = camera->mouseRay * gameState->yDragSpeed;
-					dragPos.y = newPos.y;
+					newPos = camera->mouseRayWorld * gameState->yDragSpeed;
+					dragPos.z = newPos.z;
 				} break;
 
 					INVALID_DEFAULT_CASE();
 				}
 				v3 offset = dragPos - gameState->prevDragPos;
-				offset = FlipYZ(offset);
-				//offset.z = 0;
 				OffsetEntityPos(world, gameState->selectedEntity,
 								offset, camera->targetWorldPos, arena);
 				gameState->prevDragPos = dragPos;

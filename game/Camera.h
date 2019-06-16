@@ -29,7 +29,11 @@ namespace AB
 		m4x4 invProjection;
 		m4x4 invLookAt;
 		//v3 target;
+		// NOTE: This is world coordinates in z-is-up space
 		WorldPosition targetWorldPos;
+		v3 posWorld;
+		v3 frontWorld;
+		v3 mouseRayWorld;
 		// NOTE: In units. Left-handed coords
 		v3 mouseRay;
 		v2 targetWorldVelocity;
