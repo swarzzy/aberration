@@ -11,6 +11,12 @@ namespace AB
 		MOUSE_DRAG_AXIS_Y,
 		MOUSE_DRAG_AXIS_Z
 	};
+
+	enum SelectionMode
+	{
+		SELECTION_MODE_ENTITY = 0,
+		SELECTION_MODE_TILEMAP
+	};
 	
 	struct GameState
 	{
@@ -41,6 +47,7 @@ namespace AB
 		f32 yDragSpeed;
 		//EntityResidence entityResidence[MAX_LOW_ENTITIES];
 		TileWorldPos selectedTile;
+		SelectionMode selectionMode;
 	};
 
 	void Init(MemoryArena* arena,

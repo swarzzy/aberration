@@ -111,32 +111,32 @@ namespace AB
 						TerrainTile* tile = GetTerrainTile(chunk,
 														   tileX, tileY);
 						tile->height = rand() % 10 / 15.0f;
-							if ((x == -4 && tileX == 0) ||
-								(x == 3 &&
-								 tileX == WORLD_CHUNK_DIM_TILES - 1) ||
-								(y == -4 && tileY == 0) ||
-								(y == 3 &&
-								 tileY == WORLD_CHUNK_DIM_TILES - 1))
-							{
-								TerrainTile* tile = GetTerrainTile(chunk,
-																   tileX, tileY);
-								AB_ASSERT(tile);
-								tile->type = TERRAIN_TYPE_CLIFF;
-								AddWallEntity(world, chunk,
-											  V2(tileX * world->tileSizeInUnits,
-												 tileY * world->tileSizeInUnits),
-											  0.0f,
-											  assetManager,
-											  arena);
+						if ((x == -4 && tileX == 0) ||
+							(x == 3 &&
+							 tileX == WORLD_CHUNK_DIM_TILES - 1) ||
+							(y == -4 && tileY == 0) ||
+							(y == 3 &&
+							 tileY == WORLD_CHUNK_DIM_TILES - 1))
+						{
+							TerrainTile* tile = GetTerrainTile(chunk,
+															   tileX, tileY);
+							AB_ASSERT(tile);
+							tile->type = TERRAIN_TYPE_CLIFF;
+							AddWallEntity(world, chunk,
+										  V2(tileX * world->tileSizeInUnits,
+											 tileY * world->tileSizeInUnits),
+										  0.0f,
+										  assetManager,
+										  arena);
 								
-							}
-							else
-							{
-								TerrainTile* tile = GetTerrainTile(chunk,
-																   tileX, tileY);
-								AB_ASSERT(tile);
-								tile->type = TERRAIN_TYPE_GRASS;
-							}
+						}
+						else
+						{
+							TerrainTile* tile = GetTerrainTile(chunk,
+															   tileX, tileY);
+							AB_ASSERT(tile);
+							tile->type = TERRAIN_TYPE_GRASS;
+						}
 
 					}
 				}
@@ -541,11 +541,12 @@ namespace AB
 										  highAreaChunkSpanX);
 		i32 maxChunkY = SafeAddChunkCoord(camera->targetWorldPos.chunkY,
 										  highAreaChunkSpanY); 
-
+#if 0
 		DEBUG_OVERLAY_TRACE(camera->targetWorldPos.chunkX);
 		DEBUG_OVERLAY_TRACE(camera->targetWorldPos.chunkY);
 		DEBUG_OVERLAY_TRACE(camera->targetWorldPos.offset.x);
 		DEBUG_OVERLAY_TRACE(camera->targetWorldPos.offset.y);
+#endif
 
 		for (u32 i = 0; i < world->highChunkCount;)
 		{
@@ -627,22 +628,51 @@ namespace AB
 			}
 		}
 
-		DEBUG_OVERLAY_TRACE(gameState->selectedTile.chunkX);
-		DEBUG_OVERLAY_TRACE(gameState->selectedTile.chunkY);
-		DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileX);
-		DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileX);
+		//DEBUG_OVERLAY_TRACE(gameState->selectedTile.chunkX);
+		//DEBUG_OVERLAY_TRACE(gameState->selectedTile.chunkY);
+		//DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileX);
+		//DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileX);
+
+		if (GlobalInput.keys[KEY_T].pressedNow &&
+			!GlobalInput.keys[KEY_T].wasPressed)
+		{
+			if (gameState->selectionMode == SELECTION_MODE_ENTITY)
+			{
+				gameState->selectionMode = SELECTION_MODE_TILEMAP;
+			}
+			else if (gameState->selectionMode == SELECTION_MODE_TILEMAP)
+			{
+				gameState->selectionMode = SELECTION_MODE_ENTITY;				
+			}
+			gameState->selectedEntity = nullptr;
+			gameState->selectedTile = InvalidTileWorldPos();
+		}
+
 		
 		if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow &&
 			!GlobalInput.mouseButtons[MBUTTON_LEFT].wasPressed)
 		{
-			u32 hitIndex = RaycastFromCursor(camera, world);
-			auto[hit, tMin, pos] = TilemapRaycast(world, camera,
-												  camera->posWorld,
-												  camera->mouseRayWorld);
-			gameState->selectedTile = pos;
-			// TODO: IMPORTANT: Check if entity is high.
-			// Only high entities can be selected
-			gameState->selectedEntity = GetLowEntity(world, hitIndex);
+			if (gameState->selectionMode == SELECTION_MODE_ENTITY)
+			{
+				u32 hitIndex = RaycastFromCursor(camera, world);
+				// TODO: IMPORTANT: Check if entity is high.
+				// Only high entities can be selected
+
+				gameState->selectedEntity = GetLowEntity(world, hitIndex);
+				gameState->selectedTile = InvalidTileWorldPos();
+			}
+			else if (gameState->selectionMode == SELECTION_MODE_TILEMAP)
+			{
+				auto[hit, tMin, pos] = TilemapRaycast(world, camera,
+													  camera->posWorld,
+													  camera->mouseRayWorld);
+				gameState->selectedTile = pos;
+				gameState->selectedEntity = nullptr;
+			}
+			else
+			{
+				INVALID_CODE_PATH();
+			}
 		}
 
 		if (gameState->selectedEntity)
@@ -715,7 +745,7 @@ namespace AB
 					dragPos.z = newPos.z;
 				} break;
 
-					INVALID_DEFAULT_CASE();
+				INVALID_DEFAULT_CASE();
 				}
 				v3 offset = dragPos - gameState->prevDragPos;
 				OffsetEntityPos(world, gameState->selectedEntity,
@@ -726,6 +756,29 @@ namespace AB
 			{
 				gameState->dragActive = false;
 				gameState->dragAxis = MOUSE_DRAG_AXIS_NULL;
+			}
+		}
+#if 0
+		{
+			g_StaticStorage->debugRenderer
+				Renderer2DFillRectangle
+				}
+#endif
+
+		DEBUG_OVERLAY_STRING("");
+		DEBUG_OVERLAY_STRING(gameState->selectionMode == SELECTION_MODE_ENTITY ? "ENTITIES" : "TILEMAP");
+		if (gameState->selectionMode == SELECTION_MODE_TILEMAP)
+		{
+			if (IsValid(gameState->selectedTile))
+			{
+				DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileX);
+				DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileY);
+				TerrainTile* tile = GetTerrainTile(world, gameState->selectedTile);
+				AB_ASSERT(tile);
+				f32 aa = 0;
+				DEBUG_OVERLAY_PUSH_SLIDER("Tile height", &tile->height,
+										  -20.0f, 20.0f);
+				DEBUG_OVERLAY_PUSH_SLIDER("Tile type", (u32*)(&tile->type), 0, 3);
 			}
 		}
 	
@@ -767,14 +820,14 @@ namespace AB
 
 			DoEntityPhysicalMovement(world, entity.high,
 									 acceleration, camera, arena);
-			DEBUG_OVERLAY_TRACE(entity.low->worldPos.chunkX);
-			DEBUG_OVERLAY_TRACE(entity.low->worldPos.chunkY);
-			DEBUG_OVERLAY_TRACE(entity.low->worldPos.offset.x);
-			DEBUG_OVERLAY_TRACE(entity.low->worldPos.offset.y);
+			//DEBUG_OVERLAY_TRACE(entity.low->worldPos.chunkX);
+			//DEBUG_OVERLAY_TRACE(entity.low->worldPos.chunkY);
+			//DEBUG_OVERLAY_TRACE(entity.low->worldPos.offset.x);
+			//DEBUG_OVERLAY_TRACE(entity.low->worldPos.offset.y);
 			TileCoord tileCoord = ChunkRelOffsetToTileCoord(world,
 												  entity.low->worldPos.offset);
-			DEBUG_OVERLAY_TRACE(tileCoord.x);
-			DEBUG_OVERLAY_TRACE(tileCoord.y);
+			//DEBUG_OVERLAY_TRACE(tileCoord.x);
+			//DEBUG_OVERLAY_TRACE(tileCoord.y);
 		}
 
 		if (entity1.high)
@@ -807,10 +860,10 @@ namespace AB
 			acceleration = Normalize(acceleration);
 			DoEntityPhysicalMovement(world, entity1.high,
 									 acceleration, camera, arena);
-			DEBUG_OVERLAY_TRACE(entity1.low->worldPos.chunkX);
-			DEBUG_OVERLAY_TRACE(entity1.low->worldPos.chunkY);
-			DEBUG_OVERLAY_TRACE(entity1.low->worldPos.offset.x);
-			DEBUG_OVERLAY_TRACE(entity1.low->worldPos.offset.y);
+			//DEBUG_OVERLAY_TRACE(entity1.low->worldPos.chunkX);
+			//DEBUG_OVERLAY_TRACE(entity1.low->worldPos.chunkY);
+			//DEBUG_OVERLAY_TRACE(entity1.low->worldPos.offset.x);
+			//DEBUG_OVERLAY_TRACE(entity1.low->worldPos.offset.y);
 		}
 		
 		

@@ -48,7 +48,7 @@ namespace AB
 	void DebugOverlayPushToggle(DebugOverlay* overlay, const char* title,
 								b32* val);
 
-#define DEBUG_OVERLAY_PUSH_STR(str) DebugOverlayPushString(g_StaticStorage->debugOverlay, str)
+#define DEBUG_OVERLAY_STRING(str) DebugOverlayPushString(g_StaticStorage->debugOverlay, str)
 #define DEBUG_OVERLAY_PUSH_VAR(title, var) DebugOverlayPushVar(g_StaticStorage->debugOverlay, title, var)
 #define DEBUG_OVERLAY_PUSH_TOGGLE(title, varPtr) DebugOverlayPushToggle(g_StaticStorage->debugOverlay, title, varPtr)
 #define DEBUG_OVERLAY_PUSH_SLIDER(title, val, min, max) DebugOverlayPushSlider(g_StaticStorage->debugOverlay, title, val, min, max)

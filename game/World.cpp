@@ -256,10 +256,47 @@ namespace AB
 	}
 
 	inline TerrainTile*
+	GetTerrainTile(World* world, TileWorldPos coord)
+	{
+		TerrainTile* result = nullptr;
+		Chunk* chunk = GetChunk(world, coord.chunkX, coord.chunkY);
+		if (chunk)
+		{
+			result = GetTerrainTile(chunk, coord.tileX, coord.tileY);
+		}
+		return result;
+	}
+
+	inline TerrainTile*
 	GetTerrainTile(World* world, Chunk* chunk, v2 chunkRelOffset)
 	{
 		TileCoord coord = ChunkRelOffsetToTileCoord(world, chunkRelOffset);
 		TerrainTile* result = GetTerrainTile(chunk, coord.x, coord.y);
+		return result;
+	}
+
+	inline TileWorldPos
+	InvalidTileWorldPos()
+	{
+		TileWorldPos result;
+		result.chunkX = INVALID_CHUNK_COORD;
+		result.chunkY = INVALID_CHUNK_COORD;
+		result.tileX = INVALID_TILE_COORD;
+		result.tileY = INVALID_TILE_COORD;
+		return result;
+	}
+
+	inline bool
+	IsValid(TileWorldPos pos)
+	{
+		bool result = false;
+		result = (pos.chunkX > CHUNK_COORD_MIN_BOUNDARY) &&
+			(pos.chunkX < CHUNK_COORD_MAX_BOUNDARY);
+		result = (pos.chunkY > CHUNK_COORD_MIN_BOUNDARY) &&
+			(pos.chunkY < CHUNK_COORD_MAX_BOUNDARY);
+		result = (pos.tileX < WORLD_CHUNK_DIM_TILES);
+		result = (pos.tileY < WORLD_CHUNK_DIM_TILES);
+
 		return result;
 	}
 

@@ -7,6 +7,8 @@ namespace AB
 	
 	const i32 TILEMAP_SAFE_MARGIN = 16 * 16;
 	const i32 CHUNK_SAFE_MARGIN = 16;
+	const i32 CHUNK_COORD_MIN_BOUNDARY = AB_INT32_MIN + CHUNK_SAFE_MARGIN;
+	const i32 CHUNK_COORD_MAX_BOUNDARY = AB_INT32_MAX - CHUNK_SAFE_MARGIN;
 	const i32 INVALID_CHUNK_COORD = AB_INT32_MAX;
 	const u32 INVALID_TILE_COORD = AB_UINT32_MAX;
 	const u32 CHUNK_TABLE_SIZE = 4096;
@@ -87,7 +89,7 @@ namespace AB
 		LowEntity* low;
 	};
 	
-	enum TerrainType
+	enum TerrainType : u32
 	{
 		TERRAIN_TYPE_EMPTY = 0,
 		TERRAIN_TYPE_GRASS,
@@ -190,7 +192,16 @@ namespace AB
 		GetTerrainTile(Chunk* chunk, u32 tileInChunkX, u32 tileInChunkY);
 
 	inline TerrainTile*
+		GetTerrainTile(World* world, TileWorldPos coord);
+
+	inline TerrainTile*
 		GetTerrainTile(World* world, Chunk* chunk, v2 chunkRelOffset);
+
+	inline TileWorldPos
+		InvalidTileWorldPos();
+
+	inline bool
+		IsValid(TileWorldPos pos);
 
 	inline TileCoord
 		ChunkRelOffsetToTileCoord(World* world, v2 chunkRelOffset);

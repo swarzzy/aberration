@@ -94,11 +94,6 @@ namespace AB
 		i32 endX = origin.chunkX + 2;
 		i32 endY = origin.chunkY + 2;
 
-		DEBUG_OVERLAY_TRACE(beginX);
-		DEBUG_OVERLAY_TRACE(beginY);
-		DEBUG_OVERLAY_TRACE(endX);
-		DEBUG_OVERLAY_TRACE(endY);
-		
 		RenderCommandBeginDebugCubeInctancing begCommand = {};
 		begCommand.blendMode = BLEND_MODE_OPAQUE;
 
