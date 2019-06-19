@@ -12,11 +12,6 @@ namespace AB {
 
 	Application* g_Application = nullptr;
 
-	inline static void _WindowGetSize(u32* width, u32* height)
-	{
-		WindowGetSize(g_Application->window, width, height);
-	}
-
 	inline static void _WindowSetMousePosition(u32 x, u32 y)
 	{
 		WindowSetMousePosition(g_Application->window, x, y);
@@ -57,7 +52,7 @@ namespace AB {
 		app->state.gl = glResult.funcTable;
 		app->state.gl = glResult.funcTable;
 		
-		app->state.functions.WindowGetSize = _WindowGetSize;
+		//app->state.functions.WindowGetSize = _WindowGetSize;
 		app->state.functions.PlatformSetCursorPosition = _WindowSetMousePosition;
 		app->state.functions.WindowActive = _WindowActive;
 

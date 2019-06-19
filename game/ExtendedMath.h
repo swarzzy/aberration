@@ -55,7 +55,13 @@ namespace AB
 		};
 	};
 
-	
+	inline Rectangle RectLeftCornerDim(v2 leftCorner, v2 dim)
+	{
+		Rectangle result;
+		result.min = leftCorner;
+		result.max = leftCorner + dim;
+		return result;
+	}
 
 	BBoxAligned RealignBBoxAligned(BBoxAligned aabb);
 	Frustum FrustumFromProjRH(const m4x4* perspMtx);

@@ -648,55 +648,84 @@ namespace AB
 			gameState->selectedTile = InvalidTileWorldPos();
 		}
 
-		
-		if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow &&
-			!GlobalInput.mouseButtons[MBUTTON_LEFT].wasPressed)
+		if (gameState->selectionEnabled)
 		{
-			if (gameState->selectionMode == SELECTION_MODE_ENTITY)
+			if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow &&
+				!GlobalInput.mouseButtons[MBUTTON_LEFT].wasPressed)
 			{
-				u32 hitIndex = RaycastFromCursor(camera, world);
-				// TODO: IMPORTANT: Check if entity is high.
-				// Only high entities can be selected
-
-				gameState->selectedEntity = GetLowEntity(world, hitIndex);
-				gameState->selectedTile = InvalidTileWorldPos();
-			}
-			else if (gameState->selectionMode == SELECTION_MODE_TILEMAP)
-			{
-				auto[hit, tMin, pos] = TilemapRaycast(world, camera,
-													  camera->posWorld,
-													  camera->mouseRayWorld);
-				gameState->selectedTile = pos;
-				gameState->selectedEntity = nullptr;
-			}
-			else
-			{
-				INVALID_CODE_PATH();
-			}
-		}
-
-		if (gameState->selectedEntity)
-		{
-			if (GlobalInput.mouseButtons[MBUTTON_MIDDLE].pressedNow &&
-				!GlobalInput.mouseButtons[MBUTTON_MIDDLE].wasPressed)
-			{
-				if (GetLowEntity(world, RaycastFromCursor(camera, world)) ==
-					gameState->selectedEntity)
+				if (gameState->selectionMode == SELECTION_MODE_ENTITY)
 				{
-					if (GlobalInput.keys[KEY_X].pressedNow)
-					{
-						gameState->dragAxis = MOUSE_DRAG_AXIS_X;
-					}
-					if (GlobalInput.keys[KEY_Y].pressedNow)
-					{
-						gameState->dragAxis = MOUSE_DRAG_AXIS_Y;
-					}
-					if (GlobalInput.keys[KEY_Z].pressedNow)
-					{
-						gameState->dragAxis = MOUSE_DRAG_AXIS_Z;
-					}
+					u32 hitIndex = RaycastFromCursor(camera, world);
+					// TODO: IMPORTANT: Check if entity is high.
+					// Only high entities can be selected
 
-					gameState->dragActive = true;
+					gameState->selectedEntity = GetLowEntity(world, hitIndex);
+					gameState->selectedTile = InvalidTileWorldPos();
+				}
+				else if (gameState->selectionMode == SELECTION_MODE_TILEMAP)
+				{
+					auto[hit, tMin, pos] = TilemapRaycast(world, camera,
+														  camera->posWorld,
+														  camera->mouseRayWorld);
+					gameState->selectedTile = pos;
+					gameState->selectedEntity = nullptr;
+				}
+				else
+				{
+					INVALID_CODE_PATH();
+				}
+			}
+
+			if (gameState->selectedEntity)
+			{
+				if (GlobalInput.mouseButtons[MBUTTON_MIDDLE].pressedNow &&
+					!GlobalInput.mouseButtons[MBUTTON_MIDDLE].wasPressed)
+				{
+					if (GetLowEntity(world, RaycastFromCursor(camera, world)) ==
+						gameState->selectedEntity)
+					{
+						if (GlobalInput.keys[KEY_X].pressedNow)
+						{
+							gameState->dragAxis = MOUSE_DRAG_AXIS_X;
+						}
+						if (GlobalInput.keys[KEY_Y].pressedNow)
+						{
+							gameState->dragAxis = MOUSE_DRAG_AXIS_Y;
+						}
+						if (GlobalInput.keys[KEY_Z].pressedNow)
+						{
+							gameState->dragAxis = MOUSE_DRAG_AXIS_Z;
+						}
+
+						gameState->dragActive = true;
+						v3 newPos = {};
+						f32 t = (gameState->selectedEntity->worldPos.z - camera->posWorld.z) / camera->mouseRayWorld.z;
+						if (t >= 0.0f)
+						{
+							newPos.x = camera->posWorld.x + camera->mouseRayWorld.x * t;
+							newPos.z = camera->posWorld.z + camera->mouseRayWorld.z * t;
+							newPos.y = camera->posWorld.y + camera->mouseRayWorld.y * t;
+						}
+						v3 dragPos = {};
+						switch (gameState->dragAxis)
+						{
+						case MOUSE_DRAG_AXIS_X: {dragPos.x = newPos.x;} break;
+						case MOUSE_DRAG_AXIS_Y: {dragPos.y = newPos.y;} break;
+						case MOUSE_DRAG_AXIS_Z:
+						{
+							newPos = camera->mouseRayWorld * gameState->yDragSpeed;
+							dragPos.z = newPos.z;
+						} break;
+
+						INVALID_DEFAULT_CASE();
+						}
+						// TODO: Consistent basis
+						gameState->prevDragPos = dragPos;
+					}
+				}
+				else if (GlobalInput.mouseButtons[MBUTTON_MIDDLE].pressedNow &&
+						 gameState->dragActive)
+				{
 					v3 newPos = {};
 					f32 t = (gameState->selectedEntity->worldPos.z - camera->posWorld.z) / camera->mouseRayWorld.z;
 					if (t >= 0.0f)
@@ -704,6 +733,7 @@ namespace AB
 						newPos.x = camera->posWorld.x + camera->mouseRayWorld.x * t;
 						newPos.z = camera->posWorld.z + camera->mouseRayWorld.z * t;
 						newPos.y = camera->posWorld.y + camera->mouseRayWorld.y * t;
+						//f32 offset.y = from.y + dir.y * t;
 					}
 					v3 dragPos = {};
 					switch (gameState->dragAxis)
@@ -718,52 +748,48 @@ namespace AB
 
 					INVALID_DEFAULT_CASE();
 					}
-					// TODO: Consistent basis
+					v3 offset = dragPos - gameState->prevDragPos;
+					OffsetEntityPos(world, gameState->selectedEntity,
+									offset, camera->targetWorldPos, arena);
 					gameState->prevDragPos = dragPos;
-				}
-			}
-			else if (GlobalInput.mouseButtons[MBUTTON_MIDDLE].pressedNow &&
-					 gameState->dragActive)
-			{
-				v3 newPos = {};
-				f32 t = (gameState->selectedEntity->worldPos.z - camera->posWorld.z) / camera->mouseRayWorld.z;
-				if (t >= 0.0f)
+				} else if (!GlobalInput.mouseButtons[MBUTTON_MIDDLE].pressedNow &&
+						   GlobalInput.mouseButtons[MBUTTON_MIDDLE].wasPressed)
 				{
-					newPos.x = camera->posWorld.x + camera->mouseRayWorld.x * t;
-					newPos.z = camera->posWorld.z + camera->mouseRayWorld.z * t;
-					newPos.y = camera->posWorld.y + camera->mouseRayWorld.y * t;
-					//f32 offset.y = from.y + dir.y * t;
+					gameState->dragActive = false;
+					gameState->dragAxis = MOUSE_DRAG_AXIS_NULL;
 				}
-				v3 dragPos = {};
-				switch (gameState->dragAxis)
-				{
-				case MOUSE_DRAG_AXIS_X: {dragPos.x = newPos.x;} break;
-				case MOUSE_DRAG_AXIS_Y: {dragPos.y = newPos.y;} break;
-				case MOUSE_DRAG_AXIS_Z:
-				{
-					newPos = camera->mouseRayWorld * gameState->yDragSpeed;
-					dragPos.z = newPos.z;
-				} break;
-
-				INVALID_DEFAULT_CASE();
-				}
-				v3 offset = dragPos - gameState->prevDragPos;
-				OffsetEntityPos(world, gameState->selectedEntity,
-								offset, camera->targetWorldPos, arena);
-				gameState->prevDragPos = dragPos;
-			} else if (!GlobalInput.mouseButtons[MBUTTON_MIDDLE].pressedNow &&
-					   GlobalInput.mouseButtons[MBUTTON_MIDDLE].wasPressed)
-			{
-				gameState->dragActive = false;
-				gameState->dragAxis = MOUSE_DRAG_AXIS_NULL;
 			}
 		}
-#if 0
 		{
-			g_StaticStorage->debugRenderer
-				Renderer2DFillRectangle
-				}
-#endif
+			auto renderer = g_StaticStorage->debugRenderer;
+			Rectangle windowBox = RectLeftCornerDim(V2(22.0f, 298.0f),
+													V2(205.0f, 254.0f));
+			v2 mousePos = V2(GlobalInput.mouseX, GlobalInput.mouseY);
+			mousePos.x *= PlatformGlobals.windowWidth;
+			mousePos.y *= PlatformGlobals.windowHeight;
+			Renderer2DFillRectangleColor(renderer, mousePos, 1, 0.0f,
+										 0.0f, V2(5.0f, 5.0f), 0xff171a39);
+
+			if (Contains(windowBox, mousePos))
+			{
+				gameState->selectionEnabled = false;
+			}
+			else
+			{
+				gameState->selectionEnabled = true;				
+			}
+			
+			Renderer2DFillRectangleColor(renderer, V2(25.0f, 300.0f), 1, 0.0f,
+										 0.0f, V2(200.0f, 250.0f), 0xff171a39);
+			Renderer2DFillRectangleColor(renderer, V2(22.0f, 298.0f), 0, 0.0f,
+										 0.0f, V2(205.0f, 254.0f), 0xff111111);
+			Renderer2DFillRectangleColor(renderer, V2(25.0f, 510.0f), 2, 0.0f,
+										 0.0f, V2(200.0f, 40.0f), 0xff4dbf00);
+			Renderer2DDebugDrawString(renderer, V2(38.0f, 540.0f), 24,
+									  0xffffffff, "Tile properties");
+
+
+		}
 
 		DEBUG_OVERLAY_STRING("");
 		DEBUG_OVERLAY_STRING(gameState->selectionMode == SELECTION_MODE_ENTITY ? "ENTITIES" : "TILEMAP");

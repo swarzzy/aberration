@@ -36,6 +36,7 @@ namespace AB
 #define GlobalGameDeltaTime g_Platform->gameDeltaTime
 // NOTE: Why clang inserts the dot by itself
 #define GlobalInput g_Platform->input
+#define PlatformGlobals (*g_Platform)
 #if defined(_MSC_VER)
 #define PLATFORM_FUNCTION(func) g_Platform->functions.##func
 #else
@@ -44,7 +45,7 @@ namespace AB
 	
 
 #define DebugReadFilePermanent PLATFORM_FUNCTION(DebugReadFilePermanent)
-#define WindowGetSize PLATFORM_FUNCTION(WindowGetSize)
+//#define WindowGetSize PLATFORM_FUNCTION(WindowGetSize)
 #define DebugGetFileSize PLATFORM_FUNCTION(DebugGetFileSize)
 #define DebugReadFile PLATFORM_FUNCTION(DebugReadFile)
 #define DebugReadTextFile PLATFORM_FUNCTION(DebugReadTextFile)
@@ -235,7 +236,7 @@ void GameInit(AB::MemoryArena* arena,
 
 	g_StaticStorage->debugRenderer = Renderer2DInitialize(arena,
 														  g_StaticStorage->tempArena,
-														  1366, 768);
+														  1280, 720);
 	DebugOverlay* debugOverlay = CreateDebugOverlay(arena,
 													g_StaticStorage->debugRenderer,
 													V2(1366, 768));

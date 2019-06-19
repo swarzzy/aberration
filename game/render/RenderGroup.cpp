@@ -440,6 +440,11 @@ namespace AB
 		group->camera.lookAt = *lookAt;
 	}
 
+	void RenderGroupSetProjection(RenderGroup* group, m4x4* projection)
+	{
+		group->projectionMatrix = *projection;
+	}
+
 
 	void RenderGroupResetQueue(RenderGroup* group)
 	{

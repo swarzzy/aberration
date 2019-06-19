@@ -249,6 +249,12 @@ namespace hpm
 		return Vector2{x, y};
 	}
 
+	inline Vector2 V2FromU32(u32 x, u32 y)
+	{
+		return Vector2{(f32)x, (f32)y};
+	}
+
+
 	inline Vector2 V2(f32 val)
 	{
 		return Vector2{val, val};

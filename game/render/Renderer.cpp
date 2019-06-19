@@ -945,6 +945,7 @@ out vec4 out_FragColor;
 
 		m4x4 viewProj = MulM4M4(renderGroup->projectionMatrix,
 								renderGroup->camera.lookAt);
+		//viewProj = Scale(viewProj, V3(1.0f / renderGroup->unitScale));
 		v3* viewPos = &renderGroup->camera.position;
 		
 		GLuint viewProjLoc;
@@ -1024,8 +1025,6 @@ out vec4 out_FragColor;
 
 				GLCall(glUseProgram(renderer->impl->lineShaderHandle));
 
-				m4x4 viewProj = MulM4M4(renderGroup->projectionMatrix,
-										renderGroup->camera.lookAt);
 				v3* viewPos = &renderGroup->camera.position;
 		
 				GLuint viewProjLoc;
@@ -1120,8 +1119,6 @@ out vec4 out_FragColor;
 					//							  mesh, dcData);
 					GLCall(glUseProgram(renderer->impl->debugInstancingShaderHandle));
 
-					m4x4 viewProj = MulM4M4(renderGroup->projectionMatrix,
-											renderGroup->camera.lookAt);
 					v3* viewPos = &renderGroup->camera.position;
 		
 					GLuint viewProjLoc;
@@ -1219,8 +1216,6 @@ out vec4 out_FragColor;
 						{
 							GLCall(glUseProgram(renderer->impl->lineShaderHandle));
 
-							m4x4 viewProj = MulM4M4(renderGroup->projectionMatrix,
-													renderGroup->camera.lookAt);
 							v3* viewPos = &renderGroup->camera.position;
 		
 							GLuint viewProjLoc;
@@ -1431,8 +1426,8 @@ out vec4 out_FragColor;
 								 renderer->config.renderResolutionH,
 								 GL_COLOR_BUFFER_BIT, GL_LINEAR));
 		BindFramebuffer(DEFAULT_FB_HANDLE, FB_TARGET_DRAW);
-		u32 w, h;
-		WindowGetSize(&w, &h);
+		u32 w = PlatformGlobals.windowWidth;
+		u32 h = PlatformGlobals.windowHeight;
 		glViewport(0, 0, w, h);
 		PostFXPass(renderer);
 	}

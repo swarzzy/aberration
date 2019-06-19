@@ -53,7 +53,7 @@ namespace AB
 		world = (World*)PushSize(arena, sizeof(World), alignof(World));
 		SetZeroScalar(World, world);
 		
-		world->tileSizeRaw = 3.0f;
+		world->tileSizeRaw = 1.0f;
 		world->tileSizeInUnits = 1.0f;
 		world->tileRadiusInUnits = 0.5f;
 		world->chunkSizeUnits = world->tileSizeInUnits * WORLD_CHUNK_DIM_TILES;

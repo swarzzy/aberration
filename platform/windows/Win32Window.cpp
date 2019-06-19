@@ -383,13 +383,20 @@ namespace AB {
 				}
 				int32 mousePositionX = GET_X_LPARAM(lParam);
 				int32 mousePositionY = GET_Y_LPARAM(lParam);
+				
 				mousePositionY = window->height - mousePositionY;
+
+				f32 normalizedMouseX = (f32)mousePositionX / (f32)window->width;
+				f32 normalizedMouseY = (f32)mousePositionY / (f32)window->height;
+				
 				window->inputStatePtr->mouseFrameOffsetX =
-					mousePositionX - window->inputStatePtr->rawMouseX;
+					normalizedMouseX - window->inputStatePtr->mouseX;
+				
 				window->inputStatePtr->mouseFrameOffsetY =
-					mousePositionY - window->inputStatePtr->rawMouseY;
-				window->inputStatePtr->rawMouseX = (f32)mousePositionX;
-				window->inputStatePtr->rawMouseY = (f32)mousePositionY;
+					normalizedMouseY - window->inputStatePtr->mouseY;
+				
+				window->inputStatePtr->mouseX = normalizedMouseX;
+				window->inputStatePtr->mouseY = normalizedMouseY;
 				
 			} break;
 

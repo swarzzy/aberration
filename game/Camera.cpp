@@ -228,8 +228,9 @@ namespace AB
 			if (GlobalInput.mouseButtons[MBUTTON_RIGHT].pressedNow)
 			{
  				v2 mousePos;
-				mousePos.x = GlobalInput.mouseFrameOffsetX;
-				mousePos.y = GlobalInput.mouseFrameOffsetY;
+				f32 speed = 1000.0f;
+				mousePos.x = GlobalInput.mouseFrameOffsetX * speed;
+				mousePos.y = GlobalInput.mouseFrameOffsetY * speed;
 				camera->lastMousePos.x += mousePos.x;
 				camera->lastMousePos.y -= mousePos.y;
 			}
@@ -306,7 +307,6 @@ namespace AB
 								 frontRaw, 
 								 posRaw,
 								 &rawLookAt);
-
 			renderGroup->projectionMatrix =
 				PerspectiveOpenGLLH(camera->fov,
 									camera->aspectRatio,
@@ -314,10 +314,8 @@ namespace AB
 									camera->farPlane * world->unitsToRaw);
 
 			v2 normMousePos;
-			normMousePos.x = 2.0f *
-				(GlobalInput.rawMouseX / g_Platform->windowWidth) - 1.0f;
-			normMousePos.y = 2.0f *
-				(GlobalInput.rawMouseY / g_Platform->windowHeight) - 1.0f;
+			normMousePos.x = 2.0f *	GlobalInput.mouseX - 1.0f;
+			normMousePos.y = 2.0f *	GlobalInput.mouseY - 1.0f;
 			v4 mouseClip = V4(normMousePos, 1.0f, 0.0f);
 			v4 mouseView = MulM4V4(camera->invProjection, mouseClip);
 			mouseView = V4(mouseView.xy, 1.0f, 0.0f);

@@ -209,6 +209,8 @@ namespace AB
 	void RenderGroupSetCamera(RenderGroup* group, v3 front, v3 position,
 							  m4x4* lookAt);
 
+	void RenderGroupSetProjection(RenderGroup* group, m4x4* projection);
+
 	typedef b32(RenderGroupCommandQueueSortPred)(u64 a, u64 b);
 
 	CommandQueueEntry* RenderGroupSortCommandQueue(CommandQueueEntry* bufferA,

@@ -29,7 +29,7 @@ namespace AB
 										  sizeof(DebugOverlay),
 										  alignof(DebugOverlay));
 		AB_CORE_ASSERT(overlay, "Allocation failed.");
-		overlay->overlayBeginPos = { 10, renderCanvasSize.y - 40 };
+		overlay->overlayBeginPos = { 10, renderCanvasSize.y - 100 };
 		overlay->renderer = renderer;
 		return overlay;
 	}

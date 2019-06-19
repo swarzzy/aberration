@@ -528,15 +528,11 @@ namespace AB {
 
 	hpm::Vector2 Renderer2DGetMousePositionOnCanvas(Renderer2DProperties* renderer)
 	{
-		uint32 w = 0;
-		uint32 h = 0;
-		WindowGetSize(&w, &h);
 		hpm::Vector2 mousePos;
-		mousePos.x = GlobalInput.rawMouseX;
-		mousePos.y = GlobalInput.rawMouseY;
-		AB_CORE_ASSERT(w && h, "Screen size is zero!");
-		float32 xMouseInCanvasSpace = (float32)mousePos.x * (float32)renderer->viewSpaceDim.x / w;
-		float32 yMouseInCanvasSpace = (float32)mousePos.y * (float32)renderer->viewSpaceDim.y / h;
+		mousePos.x = GlobalInput.mouseX;
+		mousePos.y = GlobalInput.mouseY;
+		float32 xMouseInCanvasSpace = mousePos.x * (float32)renderer->viewSpaceDim.x;
+		float32 yMouseInCanvasSpace = mousePos.y * (float32)renderer->viewSpaceDim.y;
 		return { xMouseInCanvasSpace, yMouseInCanvasSpace };
 	}
 
@@ -584,17 +580,11 @@ namespace AB {
 										  uint16 depth, float32 angle,
 										  float32 anchor, color32 color) {
 		// TODO: THIS is temporary
-		uint32 w;
-		uint32 h;
-		WindowGetSize(&w, &h);
-		uint32 xMouse = 0;
-		uint32 yMouse = 0;
 		hpm::Vector2 mousePos;
-		mousePos.x = GlobalInput.rawMouseX;
-		mousePos.y = GlobalInput.rawMouseY;
-		AB_CORE_ASSERT(w && h, "Screen size is zero!");
-		float32 xMouseInCanvasSpace = (float32)mousePos.x * (float32)renderer->viewSpaceDim.x / w;
-		float32 yMouseInCanvasSpace = (float32)mousePos.y * (float32)renderer->viewSpaceDim.y / h;
+		mousePos.x = GlobalInput.mouseX;
+		mousePos.y = GlobalInput.mouseY;
+		float32 xMouseInCanvasSpace = mousePos.x * (float32)renderer->viewSpaceDim.x;
+		float32 yMouseInCanvasSpace = mousePos.y * (float32)renderer->viewSpaceDim.y;
 		bool32 intersects = false;
 		if (xMouseInCanvasSpace > min.x && xMouseInCanvasSpace < min.x + max.x &&
 			yMouseInCanvasSpace > min.y && yMouseInCanvasSpace < min.y + max.y)

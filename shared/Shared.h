@@ -208,7 +208,7 @@ namespace AB
 
 	constexpr u16 DATETIME_STRING_SIZE = 9; // hh:mm:ss\0
 
-	typedef void(WindowGetSizeFn)(u32* w, u32* h);
+	//typedef void(WindowGetSizeFn)(u32* w, u32* h);
 	typedef void(WindowSetMousePositionFn)(u32 x, u32 y);
 	typedef b32(WindowActiveFn)(void);
 	typedef i32(ConsolePrintFn)(const void* data, u32 count);
@@ -232,7 +232,7 @@ namespace AB
 		
 	struct PlatformFuncTable
 	{
-		WindowGetSizeFn* WindowGetSize;
+		//WindowGetSizeFn* WindowGetSize;
 		WindowSetMousePositionFn* PlatformSetCursorPosition;
 		WindowActiveFn* WindowActive;
 		ConsolePrintFn* ConsolePrint;
@@ -264,12 +264,12 @@ namespace AB
 		MButtonState mouseButtons[MOUSE_BUTTONS_COUNT];
 		b32 mouseInWindow;
 		b32 activeApp;
-		f32 rawMouseX;
-		f32 rawMouseY;
-		//f32 prevFrameRawMouseX;
-		//f32 prevFrameRawMouseY;
+		// NOTE: All mouse position values are normalized
+		f32 mouseX;
+		f32 mouseY;
 		f32 mouseFrameOffsetX;
 		f32 mouseFrameOffsetY;
+		// NOTE: Not normalized
 		i32 scrollOffset;
 		//i32 prevFrameScrollOffset;
 		i32 scrollFrameOffset;
