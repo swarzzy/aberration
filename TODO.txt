@@ -16,7 +16,11 @@ https://www.cs.princeton.edu/courses/archive/fall00/cs426/lectures/raycast/rayca
 
 ** _PLAYER_CONTROLLED_ enitity type...
 
+-- Unicode support in platfform layer (fs pathes too)
+
 -- Gizmos
+
+-- wctomb(stdlib) implementation
 
 ##RENDERING:
 -- Fixed size line vertex buffer. Use glBindBufferRange to fill it.

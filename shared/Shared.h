@@ -256,10 +256,12 @@ namespace AB
 		b32 pressedNow;
 		b32 wasPressed;
 	};
-	
+
+	const u32 PLATFORM_TEXT_INPUT_BUFFER_SIZE = 64;
 	struct InputState
 	{
-		// NOTE: Is b8 good choise?
+		u32 textBufferCount;
+		char textBuffer[PLATFORM_TEXT_INPUT_BUFFER_SIZE];
 		KeyState keys[KEYBOARD_KEYS_COUNT];
 		MButtonState mouseButtons[MOUSE_BUTTONS_COUNT];
 		b32 mouseInWindow;

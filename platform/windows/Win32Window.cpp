@@ -498,6 +498,28 @@ namespace AB {
 				window->inputStatePtr->keys[key].pressedNow = state;
 			} break;
 
+			case WM_CHAR:
+			{
+				u32 textBufferCount = window->inputStatePtr->textBufferCount;
+				char* textBuffer =
+					window->inputStatePtr->textBuffer + textBufferCount;
+				// NOTE: Reserve last character because wcstombs
+				// null terminates strings
+				u32 textBufferFree =
+					PLATFORM_TEXT_INPUT_BUFFER_SIZE - textBufferCount - 1;
+				// TODO: wcstombs implementation
+				if (textBufferFree)
+				{
+					size_t ret = wcstombs(textBuffer, (wchar_t*)(&wParam),
+										  textBufferFree);
+					if (ret != (size_t)(-1))
+					{
+						window->inputStatePtr->textBufferCount += (u32)ret;
+					}
+				}
+			} break;
+
+
 				// ^^^^ KEYBOARD INPUT
 
 			case WM_ACTIVATEAPP: {

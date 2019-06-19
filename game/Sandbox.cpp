@@ -596,12 +596,85 @@ namespace AB
 		DEBUG_OVERLAY_TRACE(world->lowEntityCount);
 		DEBUG_OVERLAY_TRACE(world->highEntityCount);
 	}
+
+	inline bool
+	KeyJustPressed(KeyCode key)
+	{
+		bool result = GlobalInput.keys[key].pressedNow &&
+			!GlobalInput.keys[key].wasPressed;
+		return result;
+	}
 	
 	void Render(MemoryArena* arena,
 				GameState* gameState,
 				AssetManager* assetManager,
 				Renderer* renderer)
 	{
+		DEBUG_OVERLAY_TRACE(gameState->stringEnd);
+		DEBUG_OVERLAY_TRACE(gameState->stringAt);
+		if (KeyJustPressed(KEY_LEFT))
+		{
+			if (gameState->stringAt > 0)
+			{
+				gameState->stringAt--;
+			}
+		}
+
+		if (KeyJustPressed(KEY_RIGHT))
+		{
+			if (gameState->stringAt < gameState->stringEnd)
+			{
+				gameState->stringAt++;
+				AB_ASSERT(gameState->stringAt <= (STRING_SIZE));
+			}
+		}
+
+		for (u32 i = 0; i < GlobalInput.textBufferCount; i++)
+		{			
+			char c = GlobalInput.textBuffer[i];
+			if (c == '\b')
+			{
+				if (gameState->stringAt > 0 &&
+					gameState->stringEnd > 0)
+				{
+					gameState->stringAt--;
+					for (u32 i = gameState->stringAt;
+						 i < gameState->stringEnd;
+						 i++)
+					{
+						gameState->string[i] = gameState->string[i + 1];
+					}
+					gameState->string[gameState->stringEnd - 1] = '\0';
+					gameState->stringEnd--;
+				}
+			}
+			else
+			{
+				if (gameState->stringEnd < STRING_SIZE - 1 &&
+					gameState->stringAt < STRING_SIZE - 1)
+				{
+					if (gameState->string[gameState->stringAt] != '\0')
+					{
+						if (gameState->stringEnd < STRING_SIZE - 1)
+						{
+							for (u32 i = gameState->stringEnd + 1;
+								 i > gameState->stringAt;
+								i--)
+							{
+								gameState->string[i] = gameState->string[i - 1];
+							}
+							
+						}
+					}
+
+					gameState->string[gameState->stringAt] = c;
+					gameState->stringAt++;
+					gameState->stringEnd++;
+				}
+			}
+		}
+		
+		DEBUG_OVERLAY_STRING(gameState->string);
 		DEBUG_OVERLAY_SLIDER(g_Platform->gameSpeed, 0.0f, 10.0f);
 		World* world = gameState->world;
 		Camera* camera = &gameState->camera;

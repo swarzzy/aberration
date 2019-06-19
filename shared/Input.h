@@ -14,7 +14,7 @@ namespace AB
 
 	const u32 KEYBOARD_KEYS_COUNT = 256;
 
-	enum KeyboardKey : u8
+	enum KeyCode : u8
 	{
 		KEY_INVALIDKEY = 0x00,
 		// Currently works only Ctrl for both left and right keys
@@ -140,7 +140,6 @@ namespace AB
 		KEY_CLEAR,
 		KEY_SHIFT,
 	};
-	typedef KeyboardKey Key;	
 	// TODO: ToString for keys
 	/*AB_API String ToString(KeyboardKey key) {
 		switch (key) {

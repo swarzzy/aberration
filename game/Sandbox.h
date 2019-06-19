@@ -17,9 +17,15 @@ namespace AB
 		SELECTION_MODE_ENTITY = 0,
 		SELECTION_MODE_TILEMAP
 	};
-	
+
+	const u32 STRING_SIZE = 32;
 	struct GameState
 	{
+		u32 stringEnd;
+		u32 stringAt;
+		byte* debug0;
+		char string[STRING_SIZE];
+		byte debug;
 		RenderGroup* renderGroup;
 		i32 treeFoliageHandle;
 		i32 treeTrunkHandle;

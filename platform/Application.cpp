@@ -141,6 +141,8 @@ namespace AB {
 			inputState->scrollFrameOffset = 0;
 			inputState->mouseFrameOffsetX = 0;
 			inputState->mouseFrameOffsetY = 0;
+
+			inputState->textBufferCount = 0;
 			
 			int64 current_time = AB::GetCurrentRawTime();
 			app->state.frameTime = current_time - app->state.runningTime;
