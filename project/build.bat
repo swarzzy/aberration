@@ -30,7 +30,7 @@ del %BinOutDir%*.pdb >NUL 2>&1
 
 cl /MP /W3 /Fo%ObjOutDir% /DGAME_CODE %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% game\Game.cpp /link %AppLinkerFlags% /OUT:%BinOutDir%\Game.dll /PDB:%BinOutDir%\Game_%PdbTimestamp%.pdb
 
-cl /MP /W3 /Fo%ObjOutDir% /DPLATFORM_CODE %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% platform\Platform.cpp /link %LinkerFlags%
+cl /MP /W3 /Fo%ObjOutDir% /DPLATFORM_CODE %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% platform\windows\Win32Platform.cpp /link %LinkerFlags%
 
 IF %BuildTools%==TRUE (
 	cl /MP /W3 /Fo%ObjOutDir% %CommonDefines% %IncludeDirs% %CommonCompilerFlags% %ConfigCompilerFlags% tools\AssetBuilder\AssetBuilder.cpp /link /OUT:%BinOutDir%\AssetBuilder.exe /PDB:%BinOutDir%\AssetBuilder.pdb

@@ -1,5 +1,5 @@
-#include "../CodeLoader.h"
-#include "../Common.h"
+#include "Win32CodeLoader.h"
+#include "Win32Common.h"
 
 #include <Windows.h>
 
@@ -21,76 +21,53 @@ namespace AB
 		
 	}
 	
-	struct GameCodeImpl
-	{
-		HMODULE libHandle;	
-	};
-
-	GameCode* AllocateGameCodeStruct(MemoryArena* memoryArena)
-	{
-		GameCode* gameCode;
-		gameCode = (GameCode*)PushSize(memoryArena,
-									   sizeof(GameCode),
-									   alignof(GameCode));
-		AB_CORE_ASSERT(gameCode, "Allocation failed");
-		gameCode->impl = (GameCodeImpl*)PushSize(memoryArena,
-												 sizeof(GameCodeImpl),
-												 alignof(GameCodeImpl));
-		AB_CORE_ASSERT(gameCode->impl, "Allocation failed");
-
-		gameCode->GameUpdateAndRender = GameUpdateAndRenderDummy;
-		return gameCode;
-	}
-
-	void UnloadGameCode(GameCode* gameCode, WindowProperties* window)
+	void UnloadGameCode(Application* app)
 	{
 		char tmpLibPath[MAX_GAME_LIB_PATH];
 		// TODO: Use strcat instead of FormatString.
 		FormatString(tmpLibPath, MAX_GAME_LIB_PATH, "%s%s",
-					 gameCode->libDir, TEMP_GAME_CODE_DLL_NAME);
+					 app->libDir, TEMP_GAME_CODE_DLL_NAME);
 		
 		//char stubPath[MAX_GAME_LIB_PATH];
-		//FormatString(stubPath, MAX_GAME_LIB_PATH, "%s%s", gameCode->libDir, "foo");
-		FreeLibrary(gameCode->impl->libHandle);
+		//FormatString(stubPath, MAX_GAME_LIB_PATH, "%s%s", app->libDir, "foo");
+		FreeLibrary(app->libHandle);
 
-		gameCode->GameUpdateAndRender = GameUpdateAndRenderDummy;
+		app->GameUpdateAndRender = GameUpdateAndRenderDummy;
 		//MoveFile(tmpLibPath, stubPath);
 		DeleteFile(tmpLibPath);
 	}
 	
-	b32 UpdateGameCode(GameCode* gameCode, WindowProperties* window)
+	b32 UpdateGameCode(Application* app)
 	{
 		b32 updated = false;
 		WIN32_FIND_DATA findData;
-		HANDLE findHandle = FindFirstFile(gameCode->libFullPath, &findData);
+		HANDLE findHandle = FindFirstFile(app->libFullPath, &findData);
 		if (findHandle != INVALID_HANDLE_VALUE)
 		{
 			FindClose(findHandle);
 			FILETIME fileTime = findData.ftLastWriteTime;
 			u64 writeTime = ((u64)0 | fileTime.dwLowDateTime) | ((u64)0 | fileTime.dwHighDateTime) << 32;
-			if (writeTime != gameCode->libLastChangeTime)
+			if (writeTime != app->libLastChangeTime)
 			{
-				UnloadGameCode(gameCode, window);
+				UnloadGameCode(app);
 
 				char buff[MAX_GAME_LIB_PATH];
 				FormatString(buff, MAX_GAME_LIB_PATH, "%s%s",
-							 gameCode->libDir, TEMP_GAME_CODE_DLL_NAME);
-				auto result = CopyFile(gameCode->libFullPath, buff, FALSE);
+							 app->libDir, TEMP_GAME_CODE_DLL_NAME);
+				auto result = CopyFile(app->libFullPath, buff, FALSE);
 				if (result)
 				{
-					gameCode->impl->libHandle = LoadLibrary(buff);//
-					if (gameCode->impl->libHandle)
+					app->libHandle = LoadLibrary(buff);
+					if (app->libHandle)
 					{
-						GameUpdateAndRenderFn* gameUpdateAndRender = 
-							(GameUpdateAndRenderFn*)GetProcAddress(gameCode->impl->libHandle,
-																   "GameUpdateAndRender");
+						GameUpdateAndRenderFn* gameUpdateAndRender = (GameUpdateAndRenderFn*)GetProcAddress(app->libHandle, "GameUpdateAndRender");
 						
 						if (gameUpdateAndRender)
 						{
-							gameCode->GameUpdateAndRender =
+							app->GameUpdateAndRender =
 								gameUpdateAndRender;
 							updated = true;
-							gameCode->libLastChangeTime = writeTime;
+							app->libLastChangeTime = writeTime;
 						}
 						else
 						{

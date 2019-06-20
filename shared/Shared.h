@@ -51,7 +51,7 @@ typedef byte				b8;
 #define AB_INT32_MIN 	(-(i32)(2147483648))
 #define AB_INT32_MAX 	((i32)(2147483647))
 
-#define restrict __restrict
+//#define restrict __restrict
 
 #if defined(AB_PLATFORM_WINDOWS)
 #define GAME_CODE_ENTRY __declspec(dllexport)
@@ -208,9 +208,7 @@ namespace AB
 
 	constexpr u16 DATETIME_STRING_SIZE = 9; // hh:mm:ss\0
 
-	//typedef void(WindowGetSizeFn)(u32* w, u32* h);
 	typedef void(WindowSetMousePositionFn)(u32 x, u32 y);
-	typedef b32(WindowActiveFn)(void);
 	typedef i32(ConsolePrintFn)(const void* data, u32 count);
 	typedef i32(ConsoleSetColorFn)(ConsoleColor textColor, ConsoleColor backColor);
 	typedef void*(DebugReadFilePermanentFn)(MemoryArena* memory,
@@ -232,9 +230,7 @@ namespace AB
 		
 	struct PlatformFuncTable
 	{
-		//WindowGetSizeFn* WindowGetSize;
 		WindowSetMousePositionFn* PlatformSetCursorPosition;
-		WindowActiveFn* WindowActive;
 		ConsolePrintFn* ConsolePrint;
 		ConsoleSetColorFn* ConsoleSetColor;
 		DebugReadFilePermanentFn* DebugReadFilePermanent;

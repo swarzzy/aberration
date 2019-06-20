@@ -7,22 +7,13 @@ namespace AB
 
 	struct MemoryArena;
 	struct PlatformState;
+	struct Application;
 	
 	typedef void(GameUpdateAndRenderFn)(MemoryArena*, PlatformState*,
 										GameUpdateAndRenderReason);
 	
-	struct GameCode
-	{
-		GameUpdateAndRenderFn* GameUpdateAndRender;
-		u64 libLastChangeTime;
-		char libFullPath[MAX_GAME_LIB_PATH];
-		char libDir[MAX_GAME_LIB_PATH];
-		struct GameCodeImpl* impl;
-	};
-
-	GameCode* AllocateGameCodeStruct(MemoryArena* memoryArena);
-	b32 UpdateGameCode(GameCode* gameCode, WindowProperties* window);
-	void UnloadGameCode(GameCode* gameCode, WindowProperties* window);
+	b32 UpdateGameCode(Application* app);
+	void UnloadGameCode(Application* app);
 	b32 GetExecutablePath(char* buffer,
 						  u32 bufferSizeBytes, u32* bytesWritten);
 	void SetupDirs(char* execPath, u32 execPathSize, char* execDir,

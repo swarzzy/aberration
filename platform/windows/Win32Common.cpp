@@ -1,4 +1,4 @@
-#include "../Common.h"
+#include "Win32Common.h"
 #include "Log.h"
 
 #include <windows.h>

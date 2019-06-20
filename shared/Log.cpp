@@ -37,7 +37,8 @@ namespace AB {
 		}
 	}
 
-	static void OutCharConsole(char** at, uint32* destSize, char ch) {
+	static void OutCharConsole(char** at, uint32* destSize, char ch)
+	{
 		if (ch) {
 			ConsolePrint((void*)(&ch), 1);
 		}
