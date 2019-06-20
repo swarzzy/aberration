@@ -284,13 +284,17 @@ namespace AB
 			camera->frontWorld = FlipYZ(camera->front);
 
 			camera->lookAt = LookAtLH(camera->pos, V3(0.0f), V3(0.0f, 1.0f, 0.0f));
-			camera->invLookAt = Inverse(camera->lookAt);
+			camera->invLookAt = camera->lookAt;
+			bool inverted = Inverse(&camera->invLookAt);
+			AB_ASSERT(inverted);
 
 			camera->projection = PerspectiveOpenGLLH(camera->fov,
 													 camera->aspectRatio,
 													 camera->nearPlane,
 													 camera->farPlane);
-			camera->invProjection = Inverse(camera->projection);
+			camera->invProjection = camera->projection;
+			inverted = Inverse(&camera->invProjection);
+			AB_ASSERT(inverted);
 
 			v3 xAxis = Normalize(Cross(V3(0.0f, 1.0f, 0.0f), camera->front)); 
 			v3 yAxis = Cross(camera->front, xAxis);

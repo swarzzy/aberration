@@ -13,7 +13,7 @@ project/ctime -begin build/ab_ctime.ctm
 IncludeDirs="-Ishared -Ihypermath"
 CommonDefines="-DAB_CONFIG_DEBUG -DAB_PLATFORM_WINDOWS -D_CRT_SECURE_NO_WARNINGS" 
 #LibDefines="-DAB_BUILD_DLL -DWIN32_LEAN_AND_MEAN"
-CommonCompilerFlags="-std=c++17 -ffast-math -fno-rtti -fno-exceptions -static-libgcc -static-libstdc++ -fno-strict-aliasing -Werror"
+CommonCompilerFlags="-std=c++17 -ffast-math -fno-rtti -fno-exceptions -static-libgcc -static-libstdc++ -fno-strict-aliasing -Werror -Wno-switch"
 DebugCompilerFlags="-O0 -fno-inline-functions -g"
 ReleaseCompilerFlags="-O2 -finline-functions -g"
 PlatformLinkerFlags="-lgdi32 -lopengl32"
@@ -21,7 +21,7 @@ GameLinkerFlags=""
 
 ConfigCompilerFlags=$DebugCompilerFlags
 
-clang++ -save-temps=obj -DPLATFORM_CODE -o $BinOutDir/aberration.exe $CommonDefines $IncludeDirs $CommonCompilerFlags $ConfigCompilerFlags platform/Platform.cpp $PlatformLinkerFlags
+clang++ -save-temps=obj -DPLATFORM_CODE -o $BinOutDir/aberration.exe $CommonDefines $IncludeDirs $CommonCompilerFlags $ConfigCompilerFlags platform/windows/Win32Platform.cpp $PlatformLinkerFlags
 
 clang++ -save-temps=obj -DGAME_CODE -o $BinOutDir/Game.dll $CommonDefines $IncludeDirs $CommonCompilerFlags $ConfigCompilerFlags game/Game.cpp -shared  $AppLinkerFlags
 
