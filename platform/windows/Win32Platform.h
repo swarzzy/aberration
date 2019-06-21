@@ -37,9 +37,11 @@ namespace AB
 		
 		char windowTitle[32];
 		bool32 running;
-		HWND Win32WindowHandle;
-		HDC Win32WindowDC;
+		bool32 fullscreen;
+		HWND win32WindowHandle;
+		HDC win32WindowDC;
 		HGLRC OpenGLRC;
+		WINDOWPLACEMENT wpPrev;
 
 		TRACKMOUSEEVENT Win32MouseTrackEvent;
 
@@ -69,6 +71,8 @@ namespace AB
 	
 	void
 		WindowPollEvents(Application* app);
+	void
+		WindowToggleFullscreen(Application* app, bool enable);
 	void
 		WindowShowCursor(Application* app, bool32 show);
 	void

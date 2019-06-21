@@ -840,6 +840,8 @@ namespace AB
 			v2 mousePos = V2(GlobalInput.mouseX, GlobalInput.mouseY);
 			mousePos.x *= PlatformGlobals.windowWidth;
 			mousePos.y *= PlatformGlobals.windowHeight;
+			DEBUG_OVERLAY_TRACE(PlatformGlobals.windowWidth);
+			DEBUG_OVERLAY_TRACE(PlatformGlobals.windowHeight);			
 			Renderer2DFillRectangleColor(renderer, mousePos, 1, 0.0f,
 										 0.0f, V2(5.0f, 5.0f), 0xff171a39);
 

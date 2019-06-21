@@ -54,12 +54,46 @@ namespace AB
 		input->mouseButtons[button].pressedNow = state;
 	}
 
+	// NOTE: Based on Raymond Chen example
+	// https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
+	void WindowToggleFullscreen(Application* app, bool enable)
+	{
+		DWORD style = GetWindowLong(app->win32WindowHandle, GWL_STYLE);
+		if ((style & WS_OVERLAPPEDWINDOW) && enable)
+		{
+			app->fullscreen = true;
+			MONITORINFO mInfo = { sizeof(MONITORINFO) };
+			if (GetWindowPlacement(app->win32WindowHandle, &app->wpPrev) &&
+				GetMonitorInfo(MonitorFromWindow(app->win32WindowHandle,
+												 MONITOR_DEFAULTTOPRIMARY), &mInfo))
+			{
+				SetWindowLong(app->win32WindowHandle, GWL_STYLE,
+							  style & ~WS_OVERLAPPEDWINDOW);
+				SetWindowPos(app->win32WindowHandle, HWND_TOP,
+							 mInfo.rcMonitor.left, mInfo.rcMonitor.top,
+							 mInfo.rcMonitor.right - mInfo.rcMonitor.left,
+							 mInfo.rcMonitor.bottom - mInfo.rcMonitor.top,
+							 SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+			}
+		}
+		else if (!enable)
+		{
+			app->fullscreen = false;
+			SetWindowLong(app->win32WindowHandle, GWL_STYLE,
+						  style | WS_OVERLAPPEDWINDOW);
+			SetWindowPlacement(app->win32WindowHandle, &app->wpPrev);
+			SetWindowPos(app->win32WindowHandle, nullptr, 0, 0, 0, 0,
+						 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+						 SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+		}
+	}
+
 	void WindowPollEvents(Application* app)
 	{
 	   	MSG message;
 		BOOL result;
 		while (app->running &&
-			   (result = PeekMessage(&message, app->Win32WindowHandle,
+			   (result = PeekMessage(&message, app->win32WindowHandle,
 									 0, 0, PM_REMOVE)) != 0)
 		{
 			if (result == -1)
@@ -81,7 +115,7 @@ namespace AB
 		{
 			yFlipped = app->state.windowHeight - y;
 			POINT pt = { (LONG)x, (LONG)yFlipped };
-			if (ClientToScreen(app->Win32WindowHandle, &pt))
+			if (ClientToScreen(app->win32WindowHandle, &pt))
 			{
 				SetCursorPos(pt.x, pt.y);
 			}
@@ -96,6 +130,7 @@ namespace AB
 
 	void Win32Initialize(Application* app)
 	{
+		app->wpPrev = {sizeof(WINDOWPLACEMENT)};
 		auto instance = GetModuleHandle(0);
 
 		WNDCLASS windowClass = {};
@@ -222,19 +257,19 @@ namespace AB
 		resultMC = wglMakeCurrent(actualWindowDC, actualGLRC);
 		AB_CORE_ASSERT(resultMC, "Failed to initialize OpenGL extended context");
 
-		app->Win32WindowHandle = actualWindowHandle;
-		app->Win32WindowDC = actualWindowDC;
+		app->win32WindowHandle = actualWindowHandle;
+		app->win32WindowDC = actualWindowDC;
 		app->OpenGLRC = actualGLRC;
 
 		app->Win32MouseTrackEvent.cbSize = sizeof(TRACKMOUSEEVENT);
 		app->Win32MouseTrackEvent.dwFlags = TME_LEAVE;
 		app->Win32MouseTrackEvent.dwHoverTime = HOVER_DEFAULT;
-		app->Win32MouseTrackEvent.hwndTrack = app->Win32WindowHandle;
+		app->Win32MouseTrackEvent.hwndTrack = app->win32WindowHandle;
 		TrackMouseEvent(&app->Win32MouseTrackEvent);
 
 		Win32InitKeyTable(app->keyTable);
 
-		SetFocus(app->Win32WindowHandle);
+		SetFocus(app->win32WindowHandle);
 	}
 
 	static LRESULT CALLBACK
@@ -278,7 +313,7 @@ namespace AB
 			case WM_CLOSE:
 			{
 				app->running = false;
-				ShowWindow(app->Win32WindowHandle, SW_HIDE);
+				ShowWindow(app->win32WindowHandle, SW_HIDE);
 			} break;
 
 			// NOTE: MOUSE INPUT
@@ -394,6 +429,12 @@ namespace AB
 				app->state.input.keys[key].wasPressed =
 					app->state.input.keys[key].pressedNow;
 				app->state.input.keys[key].pressedNow = state;
+				// TODO: Temorary
+				if (app->state.input.keys[KEY_L].pressedNow &&
+					!app->state.input.keys[KEY_L].wasPressed)
+				{
+					WindowToggleFullscreen(app, !app->fullscreen);
+				}
 			} break;
 
 			case WM_SYSKEYUP:
@@ -624,10 +665,11 @@ namespace AB
 	MemoryArena* AllocateArena(uptr size)
 	{
 		uptr headerSize = sizeof(MemoryArena);
-		// TODO: Clang (it works on clang actually)
-		void* mem = _aligned_malloc(size + headerSize, 128);
+		void* mem = VirtualAlloc(0, size + headerSize,
+								 MEM_RESERVE | MEM_COMMIT,
+								 PAGE_READWRITE);
 		AB_CORE_ASSERT(mem, "Allocation failed");
-		memset(mem, 0, size + headerSize);
+		AB_CORE_ASSERT((uptr)mem % 128 == 0, "Memory aligment violation");
 		MemoryArena header = {};
 		header.free = size;
 		header.offset = 0;
@@ -724,7 +766,7 @@ namespace AB
 			app->GameUpdateAndRender(app->gameMemory, &app->state,
 									 GUR_REASON_RENDER);
 
-			SwapBuffers(app->Win32WindowDC);
+			SwapBuffers(app->win32WindowDC);
 
 			// NOTE: Cache hell!!!
 			for (u32 keyIndex = 0; keyIndex < KEYBOARD_KEYS_COUNT; keyIndex ++)

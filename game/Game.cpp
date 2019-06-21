@@ -236,7 +236,7 @@ void GameInit(AB::MemoryArena* arena,
 
 	g_StaticStorage->debugRenderer = Renderer2DInitialize(arena,
 														  g_StaticStorage->tempArena,
-														  1280, 720);
+														  1366, 768);
 	DebugOverlay* debugOverlay = CreateDebugOverlay(arena,
 													g_StaticStorage->debugRenderer,
 													V2(1366, 768));
@@ -247,8 +247,8 @@ void GameInit(AB::MemoryArena* arena,
 
 	RendererConfig config;
 	config.numSamples = 4;
-	config.renderResolutionW = 1280;
-	config.renderResolutionH = 720;
+	config.renderResolutionW = 1366;
+	config.renderResolutionH = 768;
 	config.shadowMapRes = 2048;
 
 	g_StaticStorage->renderer = AllocateRenderer(arena,
