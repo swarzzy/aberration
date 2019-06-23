@@ -29,9 +29,7 @@ namespace AB
 		i32 chunkX;
 		i32 chunkY;
 		// NOTE: Offset in chunk 0..chunkSizeUnits
-		v2 offset;
-		// NOTE: Height in units relative to sea level (which is 0.0)
-		f32 z;
+		v3 offset;
 	};
 
 	struct TileWorldPos
@@ -40,11 +38,12 @@ namespace AB
 		i32 chunkY;
 		u32 tileX;
 		u32 tileY;
+		u32 tileZ;
 	};
 
 	struct TileCoord
 	{
-		u32 x, y;
+		u32 x, y, z;
 	};
 
 	enum EntityResidence
@@ -100,7 +99,6 @@ namespace AB
 	struct TerrainTile
 	{
 	   	TerrainType type;
-		f32 height;
 	};
 
 	struct EntityBlock
@@ -111,13 +109,15 @@ namespace AB
 	};
 
 	// TODO: High chunk list
+	const u32 WORLD_CHUNK_TILE_COUNT = WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES;
 	struct Chunk
 	{
 		b32 high;
 		i32 coordX;
 		i32 coordY;
+		i32 coordZ;
 		
-		TerrainTile terrainTiles[WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES];
+		TerrainTile terrainTiles[WORLD_CHUNK_TILE_COUNT];
 		EntityBlock firstEntityBlock;
 		Chunk* nextChunk;
 	};
@@ -133,7 +133,7 @@ namespace AB
 
 		u32 chunkCount;
 
-		Chunk chunkTable[CHUNK_TABLE_SIZE];
+		Chunk* chunkTable[CHUNK_TABLE_SIZE];
 		u32 nonResidentEntityBlocksCount;
 		u32 freeEntityBlockCount;
 		EntityBlock* firstFreeBlock;
@@ -189,13 +189,13 @@ namespace AB
 				 MemoryArena* arena = nullptr);
 
 	inline TerrainTile*
-		GetTerrainTile(Chunk* chunk, u32 tileInChunkX, u32 tileInChunkY);
+		GetTerrainTile(Chunk* chunk, u32 tileInChunkX, u32 tileInChunkY, u32 tileInChunkZ);
 
 	inline TerrainTile*
 		GetTerrainTile(World* world, TileWorldPos coord);
 
 	inline TerrainTile*
-		GetTerrainTile(World* world, Chunk* chunk, v2 chunkRelOffset);
+		GetTerrainTile(World* world, Chunk* chunk, v3 chunkRelOffset);
 
 	inline TileWorldPos
 		InvalidTileWorldPos();
@@ -204,7 +204,7 @@ namespace AB
 		IsValid(TileWorldPos pos);
 
 	inline TileCoord
-		ChunkRelOffsetToTileCoord(World* world, v2 chunkRelOffset);
+		ChunkRelOffsetToTileCoord(World* world, v3 chunkRelOffset);
 	
 	inline WorldPosition
 		OffsetWorldPos(World* world, WorldPosition oldPos, v3 offset);
@@ -256,6 +256,6 @@ namespace AB
 					   WorldPosition camTargetWorldPos);
 
 	u32
-		AddWallEntity(World* world, Chunk* chunk, v2 offset, f32 z,
+		AddWallEntity(World* world, Chunk* chunk, v2 offset,
 					  AssetManager* assetManager, MemoryArena* arena = 0);
 }

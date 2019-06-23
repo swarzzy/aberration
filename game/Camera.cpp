@@ -25,59 +25,71 @@ namespace AB
 			offset.y = (chunk->coordY - origin.chunkY) * world->chunkSizeUnits;
 			offset.y -= origin.offset.y;
 
-			for (u32 tileY = 0; tileY < WORLD_CHUNK_DIM_TILES; tileY++)
+			u32 tilesDrawn = 0;
+			for (u32 tileZ = 0; tileZ < WORLD_CHUNK_DIM_TILES; tileZ++)
 			{
-				for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
+				for (u32 tileY = 0; tileY < WORLD_CHUNK_DIM_TILES; tileY++)
 				{
-					TerrainTile* tile = GetTerrainTile(chunk, tileX, tileY);
-					if (tile)
+					for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 					{
-						f32 pX = offset.x + tileX * world->tileSizeInUnits;
-						f32 pZ = offset.y + tileY * world->tileSizeInUnits;
-						pX += world->tileSizeInUnits * 0.5f;
-						pZ += world->tileSizeInUnits * 0.5f;				
-
-						pX *= world->unitsToRaw;
-						pZ *= world->unitsToRaw;
-
-						v3 color = {};
-						f32 pY = tile->height - world->tileRadiusInUnits;
-						pY *= world->unitsToRaw;
-
-						if (selectedTileX == tileX &&
-							selectedTileY == tileY)
+						TerrainTile* tile = GetTerrainTile(chunk, tileX,
+														   tileY, tileZ);
+						TerrainTile* tileUpper = GetTerrainTile(chunk, tileX,
+																tileY, tileZ + 1);
+						if ((!tileUpper || !tileUpper->type) &&
+							tile &&
+							tile->type)
 						{
-							color = V3(0.8f, 0.0f, 0.0f);
-						}
-						else
-						{
-							switch (tile->type)
+							tilesDrawn++;
+							f32 pX = offset.x + tileX * world->tileSizeInUnits;
+							f32 pZ = offset.y + tileY * world->tileSizeInUnits;
+							//pX += world->tileSizeInUnits * 0.5f;
+							//pZ += world->tileSizeInUnits * 0.5f;				
+
+							pX *= world->unitsToRaw;
+							pZ *= world->unitsToRaw;
+
+							v3 color = {};
+							f32 pY = tileZ * world->tileSizeInUnits;
+							//pY -= world->tileRadiusInUnits;
+							pY *= world->unitsToRaw;
+
+							if (selectedTileX == tileX &&
+								selectedTileY == tileY)
 							{
-							case TERRAIN_TYPE_CLIFF:
+								color = V3(0.8f, 0.0f, 0.0f);
+							}
+							else
 							{
-								color = V3(0.7f, 0.7f, 0.7f);
-							} break;
-							case TERRAIN_TYPE_GRASS:
-							{
-								color = V3(0.1f, 0.7f, 0.2f);
-							} break;
-							case TERRAIN_TYPE_WATER:
-							{
-								color = V3(0.0f, 0.0f, 0.8f);
-							} break;
-							INVALID_DEFAULT_CASE();
-							}							
-						}
+								switch (tile->type)
+								{
+								case TERRAIN_TYPE_CLIFF:
+								{
+									color = V3(0.7f, 0.7f, 0.7f);
+								} break;
+								case TERRAIN_TYPE_GRASS:
+								{
+									color = V3(0.1f, 0.7f, 0.2f);
+								} break;
+								case TERRAIN_TYPE_WATER:
+								{
+									color = V3(0.0f, 0.0f, 0.8f);
+								} break;
+								INVALID_DEFAULT_CASE();
+								}							
+							}
 
 
-						DrawDebugCubeInstanced(renderGroup,
-											   assetManager,
-											   V3(pX, pY, pZ),
-											   world->tileSizeRaw * 0.5f,
-											   color);		
+							DrawDebugCubeInstanced(renderGroup,
+												   assetManager,
+												   V3(pX, pY, pZ),
+												   world->tileSizeRaw * 0.5f,
+												   color);		
+						}
 					}
 				}
 			}
+			DEBUG_OVERLAY_TRACE(tilesDrawn);
 		}
 	}
 
@@ -249,7 +261,7 @@ namespace AB
 			i32 frameScrollOffset = GlobalInput.scrollFrameOffset;
 			camera->targetDistance -=
 				frameScrollOffset * scrollSpeed;
-
+#if 0
 			if (camera->targetDistance < 5.0f)
 			{
 				camera->targetDistance = 5.0f;
@@ -258,7 +270,7 @@ namespace AB
 			{
 				camera->targetDistance = 50.0f;
 			}
-
+#endif
 			camera->latitude = Lerp(camera->latitude, camera->lastMousePos.y,
 									camera->latSmoothness);
 
@@ -286,7 +298,7 @@ namespace AB
 			camera->lookAt = LookAtLH(camera->pos, V3(0.0f), V3(0.0f, 1.0f, 0.0f));
 			camera->invLookAt = camera->lookAt;
 			bool inverted = Inverse(&camera->invLookAt);
-			AB_ASSERT(inverted);
+			//AB_ASSERT(inverted);
 
 			camera->projection = PerspectiveOpenGLLH(camera->fov,
 													 camera->aspectRatio,

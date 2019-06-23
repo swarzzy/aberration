@@ -108,9 +108,14 @@ namespace AB
 				{
 					for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 					{
+						// TODO: Z!!!
 						TerrainTile* tile = GetTerrainTile(chunk,
-														   tileX, tileY);
-						tile->height = rand() % 10 / 15.0f;
+														   tileX, tileY, 0);
+						TerrainTile* tile1 = GetTerrainTile(chunk,
+														   tileX, tileY, 1);
+			
+						AB_ASSERT(tile);
+						//tile->height = rand() % 10 / 15.0f;
 						if ((x == -4 && tileX == 0) ||
 							(x == 3 &&
 							 tileX == WORLD_CHUNK_DIM_TILES - 1) ||
@@ -118,25 +123,19 @@ namespace AB
 							(y == 3 &&
 							 tileY == WORLD_CHUNK_DIM_TILES - 1))
 						{
-							TerrainTile* tile = GetTerrainTile(chunk,
-															   tileX, tileY);
-							AB_ASSERT(tile);
 							tile->type = TERRAIN_TYPE_CLIFF;
 							AddWallEntity(world, chunk,
-										  V2(tileX * world->tileSizeInUnits,
-											 tileY * world->tileSizeInUnits),
-										  0.0f,
+										  V3(tileX * world->tileSizeInUnits,
+											 tileY * world->tileSizeInUnits, 0.0f),
 										  assetManager,
 										  arena);
 								
 						}
 						else
 						{
-							TerrainTile* tile = GetTerrainTile(chunk,
-															   tileX, tileY);
-							AB_ASSERT(tile);
 							tile->type = TERRAIN_TYPE_GRASS;
 						}
+						tile1->type = TERRAIN_TYPE_WATER;
 
 					}
 				}
@@ -149,7 +148,7 @@ namespace AB
 			{
 				for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 				{
-					TerrainTile* tile = GetTerrainTile(chunk, tileX, tileY);
+					TerrainTile* tile = GetTerrainTile(chunk, tileX, tileY, 0);
 					AB_ASSERT(tile);
 					tile->type = TERRAIN_TYPE_WATER;
 				}
@@ -165,8 +164,7 @@ namespace AB
 		LowEntity* e = GetLowEntity(world, gameState->entity);
 		e->worldPos.chunkX = 0;
 		e->worldPos.chunkY = 0;
-		e->worldPos.offset = V2(10.0f, 10.0f);
-		e->worldPos.z = 0.0f;
+		e->worldPos.offset = V3(10.0f, 10.0f, 0.0f);
 		e->accelerationAmount = 20.0f;
 		e->size = 0.5f;
 #if 0
@@ -186,8 +184,7 @@ namespace AB
 		LowEntity* e1 = GetLowEntity(world, gameState->entity1);
 		e1->worldPos.chunkX = 0;
 		e1->worldPos.chunkY = 0;
-		e1->worldPos.offset = V2(0.0f, 0.0f);
-		e1->worldPos.z = 0.0f;
+		e1->worldPos.offset = V3(0.0f, 0.0f, 0.0f);
 		e1->accelerationAmount = 30.0f;
 		e1->size = 2.0f;
 		e1->color = V3(0.0f, 1.0f, 0.0f);
@@ -510,8 +507,9 @@ namespace AB
 		AB_ASSERT(oldTile);
 		AB_ASSERT(newTile);
 
-		f32 heightDiff = newTile->height - oldTile->height;
-		newPos.z += heightDiff;
+		// TODO: z
+		//f32 heightDiff = newTile->height - oldTile->height;
+		//newPos.offset.z += heightDiff;
 
 		ChangeEntityPos(world, entity, newPos, camera->targetWorldPos, arena);
 		highEntity->pos = GetCamRelPos(world, entity->worldPos,
@@ -772,7 +770,7 @@ namespace AB
 
 						gameState->dragActive = true;
 						v3 newPos = {};
-						f32 t = (gameState->selectedEntity->worldPos.z - camera->posWorld.z) / camera->mouseRayWorld.z;
+						f32 t = (gameState->selectedEntity->worldPos.offset.z - camera->posWorld.z) / camera->mouseRayWorld.z;
 						if (t >= 0.0f)
 						{
 							newPos.x = camera->posWorld.x + camera->mouseRayWorld.x * t;
@@ -800,7 +798,7 @@ namespace AB
 						 gameState->dragActive)
 				{
 					v3 newPos = {};
-					f32 t = (gameState->selectedEntity->worldPos.z - camera->posWorld.z) / camera->mouseRayWorld.z;
+					f32 t = (gameState->selectedEntity->worldPos.offset.z - camera->posWorld.z) / camera->mouseRayWorld.z;
 					if (t >= 0.0f)
 					{
 						newPos.x = camera->posWorld.x + camera->mouseRayWorld.x * t;
@@ -877,8 +875,6 @@ namespace AB
 				TerrainTile* tile = GetTerrainTile(world, gameState->selectedTile);
 				AB_ASSERT(tile);
 				f32 aa = 0;
-				DEBUG_OVERLAY_PUSH_SLIDER("Tile height", &tile->height,
-										  -20.0f, 20.0f);
 				DEBUG_OVERLAY_PUSH_SLIDER("Tile type", (u32*)(&tile->type), 0, 3);
 			}
 		}
