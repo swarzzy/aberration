@@ -26,66 +26,73 @@ namespace AB
 			offset.y -= origin.offset.y;
 
 			u32 tilesDrawn = 0;
-			for (u32 tileZ = 0; tileZ < WORLD_CHUNK_DIM_TILES; tileZ++)
+			for (u32 tileY = 0; tileY < WORLD_CHUNK_DIM_TILES; tileY++)
 			{
-				for (u32 tileY = 0; tileY < WORLD_CHUNK_DIM_TILES; tileY++)
+				for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 				{
-					for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
+					TerrainTile _tile = 
+						FindTileBeforeFirstGapInCell(world, chunk,
+													 {tileX, tileY, 0});
+					TerrainTileData* tile;
+					u32 tileZ;
+					if (!_tile.data)
 					{
-						TerrainTile* tile = GetTerrainTile(chunk, tileX,
-														   tileY, tileZ);
-						TerrainTile* tileUpper = GetTerrainTile(chunk, tileX,
-																tileY, tileZ + 1);
-						if ((!tileUpper || !tileUpper->type) &&
-							tile &&
-							tile->type)
+						tile = GetTerrainTile(chunk, tileX, tileY, WORLD_CHUNK_DIM_TILES - 1);
+						tileZ = WORLD_CHUNK_DIM_TILES - 1;
+					}
+					else
+					{
+						tile = _tile.data;
+						tileZ = _tile.coord.z;
+					}
+
+					if (tile &&	tile->type)
+					{
+						tilesDrawn++;
+						f32 pX = offset.x + tileX * world->tileSizeInUnits;
+						f32 pZ = offset.y + tileY * world->tileSizeInUnits;
+						//pX += world->tileSizeInUnits * 0.5f;
+						//pZ += world->tileSizeInUnits * 0.5f;				
+
+						pX *= world->unitsToRaw;
+						pZ *= world->unitsToRaw;
+
+						v3 color = {};
+						f32 pY = tileZ * world->tileSizeInUnits;
+						//pY -= world->tileRadiusInUnits;
+						pY *= world->unitsToRaw;
+
+						if (selectedTileX == tileX &&
+							selectedTileY == tileY)
 						{
-							tilesDrawn++;
-							f32 pX = offset.x + tileX * world->tileSizeInUnits;
-							f32 pZ = offset.y + tileY * world->tileSizeInUnits;
-							//pX += world->tileSizeInUnits * 0.5f;
-							//pZ += world->tileSizeInUnits * 0.5f;				
-
-							pX *= world->unitsToRaw;
-							pZ *= world->unitsToRaw;
-
-							v3 color = {};
-							f32 pY = tileZ * world->tileSizeInUnits;
-							//pY -= world->tileRadiusInUnits;
-							pY *= world->unitsToRaw;
-
-							if (selectedTileX == tileX &&
-								selectedTileY == tileY)
-							{
-								color = V3(0.8f, 0.0f, 0.0f);
-							}
-							else
-							{
-								switch (tile->type)
-								{
-								case TERRAIN_TYPE_CLIFF:
-								{
-									color = V3(0.7f, 0.7f, 0.7f);
-								} break;
-								case TERRAIN_TYPE_GRASS:
-								{
-									color = V3(0.1f, 0.7f, 0.2f);
-								} break;
-								case TERRAIN_TYPE_WATER:
-								{
-									color = V3(0.0f, 0.0f, 0.8f);
-								} break;
-								INVALID_DEFAULT_CASE();
-								}							
-							}
-
-
-							DrawDebugCubeInstanced(renderGroup,
-												   assetManager,
-												   V3(pX, pY, pZ),
-												   world->tileSizeRaw * 0.5f,
-												   color);		
+							color = V3(0.8f, 0.0f, 0.0f);
 						}
+						else
+						{
+							switch (tile->type)
+							{
+							case TERRAIN_TYPE_CLIFF:
+							{
+								color = V3(0.7f, 0.7f, 0.7f);
+							} break;
+							case TERRAIN_TYPE_GRASS:
+							{
+								color = V3(0.1f, 0.7f, 0.2f);
+							} break;
+							case TERRAIN_TYPE_WATER:
+							{
+								color = V3(0.0f, 0.0f, 0.8f);
+							} break;
+							INVALID_DEFAULT_CASE();
+							}							
+						}
+
+
+						DrawDebugCubeInstanced(renderGroup,
+											   assetManager,
+											   V3(pX, pY, pZ),
+											   world->tileSizeRaw * 0.5f,
+											   color);		
 					}
 				}
 			}

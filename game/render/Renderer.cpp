@@ -4,6 +4,7 @@
 #include "Memory.h"
 #include "../AssetManager.h"
 //#include "../GraphicsPipeline.h"
+#include "World.h"
 
 namespace AB
 {
@@ -114,6 +115,7 @@ out_FragColor = v4(pow(mappedColor, 1.0f / v3(u_Gamma)), 1.0f);
 		u32 debugInstancingVBHandle;
 		i32 lineShaderHandle;
 		u32 lineVBHandle;
+		i32 chunkShader;
 	};
 	// NOTE: Does not setting temp arena point and does not flushes at the end.
 	// TODO: Implement memory stack propperly
@@ -509,9 +511,9 @@ out vec4 out_FragColor;
 		void* dbgInstVertSrc = PushSize(tempArena, dbgInstVertSz + 1, 0);
 		void* dbgInstFragSrc = PushSize(tempArena, dbgInstFragSz + 1, 0);
 		u32 diVRd = DebugReadTextFile(dbgInstVertSrc, dbgInstVertSz + 1,
-									 "../assets/shaders/DebugInstancingVert.glsl");
+									  "../assets/shaders/DebugInstancingVert.glsl");
 		u32 diFRd = DebugReadTextFile(dbgInstFragSrc, dbgInstFragSz + 1,
-									 "../assets/shaders/DebugInstancingFrag.glsl");
+									  "../assets/shaders/DebugInstancingFrag.glsl");
 		AB_CORE_ASSERT(diVRd == dbgInstVertSz + 1);
 		AB_CORE_ASSERT(diFRd == dbgInstFragSz + 1);
 
@@ -526,15 +528,34 @@ out vec4 out_FragColor;
 		void* lineVertSrc = PushSize(tempArena, lineVertSz + 1, 0);
 		void* lineFragSrc = PushSize(tempArena, lineFragSz + 1, 0);
 		u32 lineVRd = DebugReadTextFile(lineVertSrc, lineVertSz + 1,
-									  "../assets/shaders/LineVert.glsl");
+										"../assets/shaders/LineVert.glsl");
 		u32 lineFRd = DebugReadTextFile(lineFragSrc, lineFragSz + 1,
-									  "../assets/shaders/LineFrag.glsl");
+										"../assets/shaders/LineFrag.glsl");
 		AB_CORE_ASSERT(lineVRd == lineVertSz + 1);
 		AB_CORE_ASSERT(lineFRd == lineFragSz + 1);
 
 		renderer->impl->lineShaderHandle =
 			RendererCreateProgram(tempArena, (const char*)lineVertSrc,
 								  (const char*)lineFragSrc);
+
+		{
+			u32 chunkVertSz =
+			DebugGetFileSize("../assets/shaders/ChunkVert.glsl");
+			u32 chunkFragSz =
+			DebugGetFileSize("../assets/shaders/ChunkFrag.glsl");
+			void* chunkVertSrc = PushSize(tempArena, chunkVertSz + 1, 0);
+			void* chunkFragSrc = PushSize(tempArena, chunkFragSz + 1, 0);
+			u32 cVRd = DebugReadTextFile(chunkVertSrc, chunkVertSz + 1,
+										  "../assets/shaders/ChunkVert.glsl");
+			u32 cFRd = DebugReadTextFile(chunkFragSrc, chunkFragSz + 1,
+										  "../assets/shaders/ChunkFrag.glsl");
+			AB_CORE_ASSERT(cVRd == chunkVertSz + 1);
+			AB_CORE_ASSERT(cFRd == chunkFragSz + 1);
+
+			renderer->impl->chunkShader =
+			RendererCreateProgram(tempArena, (const char*)chunkVertSrc,
+								  (const char*)chunkFragSrc);
+		}
 		
 		u32 dbgInsVBO = 0;
 		GLCall(glGenBuffers(1, &dbgInsVBO));
@@ -647,7 +668,7 @@ out vec4 out_FragColor;
 	
 	static void FillLightUniforms(Renderer* renderer, RenderGroup* group, i32 shaderHandle)
 	{
-		GLCall(glUseProgram(shaderHandle));
+ 		GLCall(glUseProgram(shaderHandle));
 		auto diffMapLoc = glGetUniformLocation(shaderHandle,
 											   "material.diffuse_map");
 
@@ -749,14 +770,14 @@ out vec4 out_FragColor;
 			result.highlight = renderData->highlight;
 			//SetPolygonFillMode(renderer->pipeline,
 			//POLYGON_FILL_MODE_FILL);
-		//EnableFaceCulling(renderer->pipeline, true);
+			//EnableFaceCulling(renderer->pipeline, true);
 								
 		} break;
 		case RENDER_COMMAND_DRAW_MESH_WIREFRAME:
 		{
 			auto* renderData =
-				(RenderCommandDrawMeshWireframe*)(renderGroup->renderBuffer
-												  + command->rbOffset);
+			(RenderCommandDrawMeshWireframe*)(renderGroup->renderBuffer
+											  + command->rbOffset);
 			result.transform = &renderData->transform;
 			result.blendMode = renderData->blendMode;
 			result.meshHandle = renderData->meshHandle;
@@ -767,8 +788,8 @@ out vec4 out_FragColor;
 		case RENDER_COMMAND_DRAW_DEBUG_CUBE:
 		{
 			auto* renderData =
-				(RenderCommandDrawDebugCube*)(renderGroup->renderBuffer +
-											  command->rbOffset);
+			(RenderCommandDrawDebugCube*)(renderGroup->renderBuffer +
+										  command->rbOffset);
 			result.transform = &renderData->transform;
 			result.blendMode = BLEND_MODE_OPAQUE;
 			result.meshHandle = renderData->_meshHandle;
@@ -776,7 +797,7 @@ out vec4 out_FragColor;
 			result.useDebugColor = true;
 			//SetPolygonFillMode(renderer->pipeline,
 			//POLYGON_FILL_MODE_FILL);
-		//EnableFaceCulling(renderer->pipeline, true);
+			//EnableFaceCulling(renderer->pipeline, true);
 					
 		} break;
 		
@@ -904,13 +925,13 @@ out vec4 out_FragColor;
 
 		GLCall(glActiveTexture(GL_TEXTURE0));			
 		Texture* diffTexture =
-			AssetGetTextureData(assetManager,
-								mesh->material->diff_map_handle);
+		AssetGetTextureData(assetManager,
+							mesh->material->diff_map_handle);
 
 		GLint useDiffMap = (GLint)(diffTexture != 0);
 		GLuint useDiffMapLoc =
-			glGetUniformLocation(renderer->impl->programHandle,
-								 "material.use_diff_map");
+		glGetUniformLocation(renderer->impl->programHandle,
+							 "material.use_diff_map");
 		GLCall(glUniform1i(useDiffMapLoc, useDiffMap));
 
 		if (useDiffMap)
@@ -1007,280 +1028,379 @@ out vec4 out_FragColor;
 			//PipelineResetState(renderer->pipeline);
 			
 			CommandQueueEntry* command = commandBuffer + at;
-			if (command->commandType == RENDER_COMMAND_DRAW_LINE_BEGIN)
+			if (command->commandType == RENDER_COMMAND_DRAW_CHUNK)
 			{
+				auto dcData = (RenderCommandDrawChunk*)renderGroup->renderBuffer +
+				command->rbOffset;
 
-				auto* renderData =
-					(RenderCommandDrawLineBegin*)
-					(renderGroup->renderBuffer + command->rbOffset);
+				GLCall(glBindBuffer(GL_ARRAY_BUFFER, dcData->vboHandle));
 
-				v3 color = renderData->color;
-				f32 width = renderData->width;
-				RenderLineType type = renderData->type;
+				GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
+											 (sizeof(v3) * 2 + sizeof(v2)),
+											 (void*)0));
+				GLCall(glEnableVertexAttribArray(0));
+				GLCall(glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
+											 (sizeof(v3) * 2 + sizeof(v2)),
+											 (void*)(sizeof(v3))));
+				GLCall(glEnableVertexAttribArray(1));
+				GLCall(glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE,
+											 (sizeof(v3) * 2 + sizeof(v2)),
+											 (void*)(sizeof(v3) + sizeof(v3))));
+				GLCall(glEnableVertexAttribArray(2));
 				
-				u16 vertexCount = command->instanceCount;
-
-				GLCall(glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE));
-				GLCall(glDisable(GL_SAMPLE_COVERAGE));
-
-				GLCall(glUseProgram(renderer->impl->lineShaderHandle));
-
+				GLCall(glUseProgram(renderer->impl->chunkShader));
+				u32 chunkShader = renderer->impl->chunkShader;
+				m4x4 viewProj = MulM4M4(renderGroup->projectionMatrix,
+										renderGroup->camera.lookAt);
 				v3* viewPos = &renderGroup->camera.position;
 		
 				GLuint viewProjLoc;
-				GLCall(viewProjLoc =
-					   glGetUniformLocation(renderer->impl->lineShaderHandle,
-											"u_ViewProjMatrix"));
-
-				GLuint colorLoc;
-				GLCall(colorLoc =
-					   glGetUniformLocation(renderer->impl->lineShaderHandle,
-											"u_Color"));
-
-				GLuint modelProjLoc;
-				GLCall(modelProjLoc =  glGetUniformLocation(renderer->impl->lineShaderHandle, "u_ModelMatrix"));
-
-				GLCall(glUniformMatrix4fv(modelProjLoc, 1, GL_FALSE,
-										  Identity4().data));
-
-
+				GLuint viewPosLoc;
+				GLCall(viewProjLoc = glGetUniformLocation(chunkShader,
+														  "viewProjMatrix"));
+				GLCall(viewPosLoc = glGetUniformLocation(chunkShader,
+														 "u_ViewPos"));
 
 				GLCall(glUniformMatrix4fv(viewProjLoc, 1, GL_FALSE,
 										  viewProj.data));
 
-				GLCall(glUniform3fv(colorLoc, 1, color.data));
+				GLCall(glUniform3fv(viewPosLoc, 1, viewPos->data));
 
-				u32 VBO = renderer->impl->lineVBHandle;
-				GLCall(glBindBuffer(GL_ARRAY_BUFFER, VBO));
-				u32 bufferSize =
-					vertexCount * sizeof(RenderCommandPushLineVertex);
-				byte* instanceData = (byte*)(renderData)
-					+ sizeof(RenderCommandDrawLineBegin);
-				GLCall(glBufferData(GL_ARRAY_BUFFER, bufferSize,
-									instanceData, GL_STATIC_DRAW));
-				GLCall(glEnableVertexAttribArray(0));
-				//GLCall(glEnableVertexAttribArray(1));
-				GLsizei stride = sizeof(v3);
-				GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride,
-											 nullptr));
-				//GLCall(glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride,
-				//							 (void*)sizeof(v3)));
-				GLCall(glLineWidth(width));
-				GLuint glLineType = 0;
-				if (type == RENDER_LINE_TYPE_SEGMENTS)
+
+				auto dirLoc = glGetUniformLocation(chunkShader,
+												   "dir_light.direction");
+				auto ambLoc = glGetUniformLocation(chunkShader,
+												   "dir_light.ambient");
+				auto difLoc = glGetUniformLocation(chunkShader,
+												   "dir_light.diffuse");
+				auto spcLoc = glGetUniformLocation(chunkShader,
+												   "dir_light.specular");
+	   
+				if (renderGroup->dirLightEnabled)
 				{
-					glLineType = GL_LINES;
-				}
-				else if (type == RENDER_LINE_TYPE_STRIP)
-				{
-					glLineType = GL_LINE_STRIP;
+					v3 dir = Normalize(
+						SubV3V3(renderGroup->dirLight.target,
+								renderGroup->dirLight.from));
+					GLCall(glUniform3fv(dirLoc, 1, dir.data));
+					GLCall(glUniform3fv(ambLoc, 1, renderGroup->dirLight.ambient.data));
+					GLCall(glUniform3fv(difLoc, 1, renderGroup->dirLight.diffuse.data));
+					GLCall(glUniform3fv(spcLoc, 1, renderGroup->dirLight.specular.data));
 				}
 				else
 				{
-					INVALID_CODE_PATH();
-				}
-				GLCall(glDrawArrays(glLineType, 0, vertexCount));
+					v3 null = V3(0.0f);
+					GLCall(glUniform3fv(dirLoc, 1, null.data));
+					GLCall(glUniform3fv(ambLoc, 1, null.data));
+					GLCall(glUniform3fv(difLoc, 1, null.data));
+					GLCall(glUniform3fv(spcLoc, 1, null.data));			
+				}		
+				
+
+				GLuint ambLocMat = glGetUniformLocation(renderer->impl->chunkShader,
+													 "material.ambinet");
+				GLuint diffLocMat = glGetUniformLocation(renderer->impl->chunkShader,
+													  "material.diffuse");
+
+				v3 ambColor = V3(0.1f, 0.0f, 0.1f);
+				v3 diffColor = V3(0.8f, 0.0, 0.8f);
+
+				GLCall(glUniform3fv(ambLocMat, 1,  ambColor.data));
+				GLCall(glUniform3fv(diffLocMat, 1, diffColor.data));
+
+				GLuint modelLoc = glGetUniformLocation(renderer->impl->chunkShader,
+													   "modelMatrix"); 
+				GLCall(glUniformMatrix4fv(modelLoc, 1, GL_FALSE,
+										  dcData->worldMatrix.data));
+
+				m3x3 invWorldMtx = M3x3(dcData->worldMatrix);
+				Inverse(&invWorldMtx);
+				m4x4 inv = M4x4(invWorldMtx);
+				m4x4 normalMatrix = Transpose(inv);
+
+				GLuint normalLoc = glGetUniformLocation(renderer->impl->programHandle,
+														"normalMatrix"); 
+				GLCall(glUniformMatrix4fv(normalLoc, 1, GL_FALSE,
+										  normalMatrix.data));
+
+				GLCall(glDrawArrays(GL_TRIANGLES, 0, dcData->numVertices));
 			}
 			else
 			{
-				// NOTE: All instancing here is for now
-				if (command->commandType == RENDER_COMMAND_BEGIN_DEBUG_CUBE_INSTANCING)
+				if (command->commandType == RENDER_COMMAND_DRAW_LINE_BEGIN)
 				{
+
 					auto* renderData =
-						(RenderCommandBeginDebugCubeInctancing*)
+						(RenderCommandDrawLineBegin*)
 						(renderGroup->renderBuffer + command->rbOffset);
+
+					v3 color = renderData->color;
+					f32 width = renderData->width;
+					RenderLineType type = renderData->type;
 				
-					BlendMode blendMode = renderData->blendMode;
-					i32 meshHandle = renderData->_meshHandle;
-					u32 instanceCount = command->instanceCount;
-					//SetPolygonFillMode(renderer->pipeline,
-					//POLYGON_FILL_MODE_FILL);
-					//EnableFaceCulling(renderer->pipeline, true);
+					u16 vertexCount = command->instanceCount;
 
-					if (blendMode == BLEND_MODE_OPAQUE)
-					{
-						GLCall(glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE));
-						GLCall(glDisable(GL_SAMPLE_COVERAGE));
-					}
-					else if (blendMode == BLEND_MODE_TRANSPARENT)
-					{
-						GLCall(glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE));
-						GLCall(glEnable(GL_SAMPLE_COVERAGE));
+					GLCall(glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE));
+					GLCall(glDisable(GL_SAMPLE_COVERAGE));
 
-					} else
-					{
-						INVALID_CODE_PATH();
-					}
-
-					Mesh* mesh = AB::AssetGetMeshData(assetManager, meshHandle);
-
-					VertexBufferToDraw(mesh);
-					//SetPerMeshUniformsAndTextures(renderer, assetManager,
-					//							  mesh, dcData);
-					GLCall(glUseProgram(renderer->impl->debugInstancingShaderHandle));
+					GLCall(glUseProgram(renderer->impl->lineShaderHandle));
 
 					v3* viewPos = &renderGroup->camera.position;
 		
 					GLuint viewProjLoc;
-					GLuint viewPosLoc;
-					GLuint lightSpaceLoc;
-					GLuint shadowMapLoc;
-					GLCall(viewProjLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
-															  "viewProjMatrix"));
-					GLCall(viewPosLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
-															 "u_ViewPos"));
-					GLCall(lightSpaceLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
-																"lightSpaceMatrix"));
-					GLCall(shadowMapLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
-															   "shadowMap"));
+					GLCall(viewProjLoc =
+						   glGetUniformLocation(renderer->impl->lineShaderHandle,
+												"u_ViewProjMatrix"));
+
+					GLuint colorLoc;
+					GLCall(colorLoc =
+						   glGetUniformLocation(renderer->impl->lineShaderHandle,
+												"u_Color"));
+
+					GLuint modelProjLoc;
+					GLCall(modelProjLoc =  glGetUniformLocation(renderer->impl->lineShaderHandle, "u_ModelMatrix"));
+
+					GLCall(glUniformMatrix4fv(modelProjLoc, 1, GL_FALSE,
+											  Identity4().data));
+
 
 
 					GLCall(glUniformMatrix4fv(viewProjLoc, 1, GL_FALSE,
 											  viewProj.data));
 
-					GLCall(glUniform3fv(viewPosLoc, 1, viewPos->data));
+					GLCall(glUniform3fv(colorLoc, 1, color.data));
 
-					GLCall(glUniformMatrix4fv(lightSpaceLoc, 1, GL_FALSE,
-											  lightSpaceMtx->data));
-					GLCall(glUniform1i(shadowMapLoc, SHADOW_MAP_TEXTURE_SLOT_NUMBER));
-
-					GLCall(glActiveTexture(SHADOW_MAP_TEXTURE_SLOT));
-					GLCall(glBindTexture(GL_TEXTURE_2D, renderer->impl->shadowMapHandle));
-
-					FillLightUniforms(renderer, renderGroup, renderer->impl->debugInstancingShaderHandle);
-					// TODO: Point lights
-					//FillPointLightUnformBuffer(renderer, renderGroup);
-					//BindPointLightUniformBuffer(renderer);
-
-				
-					u32 instancingVBO = renderer->impl->debugInstancingVBHandle;
-					GLCall(glBindBuffer(GL_ARRAY_BUFFER, instancingVBO));
-					u64 bufferSize =
-						instanceCount * sizeof(RenderCommandPushDebugCubeInstance);
-					byte* instanceData = (byte*)renderData +
-						sizeof(RenderCommandBeginDebugCubeInctancing);
+					u32 VBO = renderer->impl->lineVBHandle;
+					GLCall(glBindBuffer(GL_ARRAY_BUFFER, VBO));
+					u32 bufferSize =
+						vertexCount * sizeof(RenderCommandPushLineVertex);
+					byte* instanceData = (byte*)(renderData)
+						+ sizeof(RenderCommandDrawLineBegin);
 					GLCall(glBufferData(GL_ARRAY_BUFFER, bufferSize,
 										instanceData, GL_STATIC_DRAW));
-					GLCall(glEnableVertexAttribArray(3));
-					GLCall(glEnableVertexAttribArray(4));
-					GLCall(glEnableVertexAttribArray(5));
-					GLCall(glEnableVertexAttribArray(6));
-					u32 stride = sizeof(m4x4) + sizeof(v3);
-					GLCall(glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, stride,
+					GLCall(glEnableVertexAttribArray(0));
+					//GLCall(glEnableVertexAttribArray(1));
+					GLsizei stride = sizeof(v3);
+					GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride,
 												 nullptr));
-					GLCall(glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, stride,
-												 (void*)(sizeof(v4))));
-					GLCall(glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, stride,
-												 (void*)(sizeof(v4) * 2)));
-					GLCall(glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, stride,
-												 (void*)(sizeof(v4) * 3)));
-
-					GLCall(glEnableVertexAttribArray(7));
-					GLCall(glVertexAttribPointer(7, 3, GL_FLOAT, GL_FALSE, stride,
-												 (void*)(sizeof(v4) * 4)));
-
-					GLCall(glVertexAttribDivisor(3, 1));
-					GLCall(glVertexAttribDivisor(4, 1));
-					GLCall(glVertexAttribDivisor(5, 1));
-					GLCall(glVertexAttribDivisor(6, 1));
-					GLCall(glVertexAttribDivisor(7, 1));
-
-					VertexBufferToDraw(mesh);
-
-					if (mesh->api_ib_handle != 0)
+					//GLCall(glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride,
+					//							 (void*)sizeof(v3)));
+					GLCall(glLineWidth(width));
+					GLuint glLineType = 0;
+					if (type == RENDER_LINE_TYPE_SEGMENTS)
 					{
-						GLCall(glDrawElementsInstanced(GL_TRIANGLES,
-													   (GLsizei)mesh->num_indices,
-													   GL_UNSIGNED_INT,
-													   0, instanceCount));
+						glLineType = GL_LINES;
+					}
+					else if (type == RENDER_LINE_TYPE_STRIP)
+					{
+						glLineType = GL_LINE_STRIP;
 					}
 					else
 					{
-						GLCall(glDrawArraysInstanced(GL_TRIANGLES,
-													 0, mesh->num_vertices,
-													 instanceCount));
+						INVALID_CODE_PATH();
 					}
+					GLCall(glDrawArrays(glLineType, 0, vertexCount));
 				}
 				else
 				{
-					if (!(command->commandType == RENDER_COMMAND_SET_DIR_LIGHT ||
-						  command->commandType == RENDER_COMMAND_SET_POINT_LIGHT))
+					// NOTE: All instancing here is for now
+					if (command->commandType == RENDER_COMMAND_BEGIN_DEBUG_CUBE_INSTANCING)
 					{
-						DrawCallData dcData = {};			
-						dcData = FetchDrawCallDataAndSetState(renderer,
-															  renderGroup, command);
+						auto* renderData =
+							(RenderCommandBeginDebugCubeInctancing*)
+							(renderGroup->renderBuffer + command->rbOffset);
+				
+						BlendMode blendMode = renderData->blendMode;
+						i32 meshHandle = renderData->_meshHandle;
+						u32 instanceCount = command->instanceCount;
+						//SetPolygonFillMode(renderer->pipeline,
+						//POLYGON_FILL_MODE_FILL);
+						//EnableFaceCulling(renderer->pipeline, true);
 
-						Mesh* mesh = AB::AssetGetMeshData(assetManager,
-														  dcData.meshHandle);
-						if (dcData.highlight)
+						if (blendMode == BLEND_MODE_OPAQUE)
 						{
-							GLCall(glUseProgram(renderer->impl->lineShaderHandle));
+							GLCall(glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE));
+							GLCall(glDisable(GL_SAMPLE_COVERAGE));
+						}
+						else if (blendMode == BLEND_MODE_TRANSPARENT)
+						{
+							GLCall(glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE));
+							GLCall(glEnable(GL_SAMPLE_COVERAGE));
 
-							v3* viewPos = &renderGroup->camera.position;
-		
-							GLuint viewProjLoc;
-							GLCall(viewProjLoc =  glGetUniformLocation(renderer->impl->lineShaderHandle, "u_ViewProjMatrix"));
-
-							GLuint modelProjLoc;
-							GLCall(modelProjLoc =  glGetUniformLocation(renderer->impl->lineShaderHandle, "u_ModelMatrix"));
-
-
-							GLuint colorLoc;
-							GLCall(colorLoc = glGetUniformLocation(renderer->impl->lineShaderHandle, "u_Color"));
-
-
-							GLCall(glUniformMatrix4fv(viewProjLoc, 1, GL_FALSE,
-													  viewProj.data));
-
-							GLCall(glUniformMatrix4fv(modelProjLoc, 1, GL_FALSE,
-													  dcData.transform->worldMatrix.data));
-
-
-							GLCall(glUniform3fv(colorLoc, 1,
-												V4(1.0f, 0.0f, 0.0f, 1.0f).data));
-
-							u32 VBO = mesh->api_vb_handle;
-							GLCall(glBindBuffer(GL_ARRAY_BUFFER, VBO));
-							u64 bufferSize = mesh->mem_size;
-							GLCall(glEnableVertexAttribArray(0));
-							//GLCall(glEnableVertexAttribArray(1));
-							GLCall(glVertexAttribPointer(0, 3, GL_FLOAT,
-														 GL_FALSE, 0,
-														 nullptr));
-							GLCall(glLineWidth(1.0f));
-							if (mesh->api_ib_handle != 0)
-							{
-								GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
-													mesh->api_ib_handle));
-								GLCall(glDrawElements(GL_LINE_STRIP,
-													  (GLsizei)mesh->num_indices,
-													  GL_UNSIGNED_INT, 0));
-
-							}
-							else
-							{
-								GLCall(glDrawArrays(GL_LINE_STRIP, 0,
-													mesh->num_vertices));
-								
-							}
-
+						} else
+						{
+							INVALID_CODE_PATH();
 						}
 
+						Mesh* mesh = AB::AssetGetMeshData(assetManager, meshHandle);
+
 						VertexBufferToDraw(mesh);
-						GLCall(glUseProgram(renderer->impl->programHandle));
-						SetPerMeshUniformsAndTextures(renderer, assetManager,
-													  mesh, dcData);
+						//SetPerMeshUniformsAndTextures(renderer, assetManager,
+						//							  mesh, dcData);
+						GLCall(glUseProgram(renderer->impl->debugInstancingShaderHandle));
+
+						v3* viewPos = &renderGroup->camera.position;
+		
+						GLuint viewProjLoc;
+						GLuint viewPosLoc;
+						GLuint lightSpaceLoc;
+						GLuint shadowMapLoc;
+						GLCall(viewProjLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
+																  "viewProjMatrix"));
+						GLCall(viewPosLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
+																 "u_ViewPos"));
+						GLCall(lightSpaceLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
+																	"lightSpaceMatrix"));
+						GLCall(shadowMapLoc = glGetUniformLocation(renderer->impl->debugInstancingShaderHandle,
+																   "shadowMap"));
+
+
+						GLCall(glUniformMatrix4fv(viewProjLoc, 1, GL_FALSE,
+												  viewProj.data));
+
+						GLCall(glUniform3fv(viewPosLoc, 1, viewPos->data));
+
+						GLCall(glUniformMatrix4fv(lightSpaceLoc, 1, GL_FALSE,
+												  lightSpaceMtx->data));
+						GLCall(glUniform1i(shadowMapLoc, SHADOW_MAP_TEXTURE_SLOT_NUMBER));
+
+						GLCall(glActiveTexture(SHADOW_MAP_TEXTURE_SLOT));
+						GLCall(glBindTexture(GL_TEXTURE_2D, renderer->impl->shadowMapHandle));
+
+						FillLightUniforms(renderer, renderGroup, renderer->impl->debugInstancingShaderHandle);
+						// TODO: Point lights
+						//FillPointLightUnformBuffer(renderer, renderGroup);
+						//BindPointLightUniformBuffer(renderer);
+
+				
+						u32 instancingVBO = renderer->impl->debugInstancingVBHandle;
+						GLCall(glBindBuffer(GL_ARRAY_BUFFER, instancingVBO));
+						u64 bufferSize =
+							instanceCount * sizeof(RenderCommandPushDebugCubeInstance);
+						byte* instanceData = (byte*)renderData +
+							sizeof(RenderCommandBeginDebugCubeInctancing);
+						GLCall(glBufferData(GL_ARRAY_BUFFER, bufferSize,
+											instanceData, GL_STATIC_DRAW));
+						GLCall(glEnableVertexAttribArray(3));
+						GLCall(glEnableVertexAttribArray(4));
+						GLCall(glEnableVertexAttribArray(5));
+						GLCall(glEnableVertexAttribArray(6));
+						u32 stride = sizeof(m4x4) + sizeof(v3);
+						GLCall(glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, stride,
+													 nullptr));
+						GLCall(glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, stride,
+													 (void*)(sizeof(v4))));
+						GLCall(glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, stride,
+													 (void*)(sizeof(v4) * 2)));
+						GLCall(glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, stride,
+													 (void*)(sizeof(v4) * 3)));
+
+						GLCall(glEnableVertexAttribArray(7));
+						GLCall(glVertexAttribPointer(7, 3, GL_FLOAT, GL_FALSE, stride,
+													 (void*)(sizeof(v4) * 4)));
+
+						GLCall(glVertexAttribDivisor(3, 1));
+						GLCall(glVertexAttribDivisor(4, 1));
+						GLCall(glVertexAttribDivisor(5, 1));
+						GLCall(glVertexAttribDivisor(6, 1));
+						GLCall(glVertexAttribDivisor(7, 1));
+
+						VertexBufferToDraw(mesh);
 
 						if (mesh->api_ib_handle != 0)
 						{
-							GLCall(glDrawElements(GL_TRIANGLES, (GLsizei)mesh->num_indices,
-												  GL_UNSIGNED_INT, 0));
+							GLCall(glDrawElementsInstanced(GL_TRIANGLES,
+														   (GLsizei)mesh->num_indices,
+														   GL_UNSIGNED_INT,
+														   0, instanceCount));
 						}
 						else
 						{
-							GLCall(glDrawArrays(GL_TRIANGLES, 0, mesh->num_vertices));
+							GLCall(glDrawArraysInstanced(GL_TRIANGLES,
+														 0, mesh->num_vertices,
+														 instanceCount));
 						}
+					}
+					else
+					{
+						if (!(command->commandType == RENDER_COMMAND_SET_DIR_LIGHT ||
+							  command->commandType == RENDER_COMMAND_SET_POINT_LIGHT))
+						{
+							DrawCallData dcData = {};			
+							dcData = FetchDrawCallDataAndSetState(renderer,
+																  renderGroup, command);
+
+							Mesh* mesh = AB::AssetGetMeshData(assetManager,
+															  dcData.meshHandle);
+							if (dcData.highlight)
+							{
+								GLCall(glUseProgram(renderer->impl->lineShaderHandle));
+
+								v3* viewPos = &renderGroup->camera.position;
+		
+								GLuint viewProjLoc;
+								GLCall(viewProjLoc =  glGetUniformLocation(renderer->impl->lineShaderHandle, "u_ViewProjMatrix"));
+
+								GLuint modelProjLoc;
+								GLCall(modelProjLoc =  glGetUniformLocation(renderer->impl->lineShaderHandle, "u_ModelMatrix"));
+
+
+								GLuint colorLoc;
+								GLCall(colorLoc = glGetUniformLocation(renderer->impl->lineShaderHandle, "u_Color"));
+
+
+								GLCall(glUniformMatrix4fv(viewProjLoc, 1, GL_FALSE,
+														  viewProj.data));
+
+								GLCall(glUniformMatrix4fv(modelProjLoc, 1, GL_FALSE,
+														  dcData.transform->worldMatrix.data));
+
+
+								GLCall(glUniform3fv(colorLoc, 1,
+													V4(1.0f, 0.0f, 0.0f, 1.0f).data));
+
+								u32 VBO = mesh->api_vb_handle;
+								GLCall(glBindBuffer(GL_ARRAY_BUFFER, VBO));
+								u64 bufferSize = mesh->mem_size;
+								GLCall(glEnableVertexAttribArray(0));
+								//GLCall(glEnableVertexAttribArray(1));
+								GLCall(glVertexAttribPointer(0, 3, GL_FLOAT,
+															 GL_FALSE, 0,
+															 nullptr));
+								GLCall(glLineWidth(1.0f));
+								if (mesh->api_ib_handle != 0)
+								{
+									GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
+														mesh->api_ib_handle));
+									GLCall(glDrawElements(GL_LINE_STRIP,
+														  (GLsizei)mesh->num_indices,
+														  GL_UNSIGNED_INT, 0));
+
+								}
+								else
+								{
+									GLCall(glDrawArrays(GL_LINE_STRIP, 0,
+														mesh->num_vertices));
+								
+								}
+
+							}
+
+							VertexBufferToDraw(mesh);
+							GLCall(glUseProgram(renderer->impl->programHandle));
+							SetPerMeshUniformsAndTextures(renderer, assetManager,
+														  mesh, dcData);
+
+							if (mesh->api_ib_handle != 0)
+							{
+								GLCall(glDrawElements(GL_TRIANGLES, (GLsizei)mesh->num_indices,
+													  GL_UNSIGNED_INT, 0));
+							}
+							else
+							{
+								GLCall(glDrawArrays(GL_TRIANGLES, 0, mesh->num_vertices));
+							}
 			
+						}
 					}
 				}
 			}
@@ -1430,5 +1550,44 @@ out vec4 out_FragColor;
 		u32 h = PlatformGlobals.windowHeight;
 		glViewport(0, 0, w, h);
 		PostFXPass(renderer);
+	}
+
+	GLuint MakeGLChunkMesh(ChunkMesh* mesh)
+	{
+		GLuint handle;
+		GLCall(glGenBuffers(1, &handle));
+		GLCall(glBindBuffer(GL_ARRAY_BUFFER, handle));
+		uptr bufferSize = mesh->vertexCount * (sizeof(v3) + sizeof(v3) + sizeof(v2));
+		GLCall(glBufferData(GL_ARRAY_BUFFER, bufferSize, 0, GL_STATIC_DRAW));
+		struct Vertex
+		{
+			v3 pos;
+			v3 normal;
+			v2 uv;
+		};
+		
+		Vertex* buffer;
+		GLCall(buffer = (Vertex*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE));
+		AB_ASSERT(buffer);
+		u32 bufferCount = 0;
+		u32 blockCount = 0;
+		ChunkMeshVertexBlock* block = mesh->tail;
+		do
+		{
+			blockCount++;
+			for (u32 i = 0; i < block->at; i++)
+			{
+				buffer[bufferCount].pos = block->positions[i];
+				buffer[bufferCount].normal = block->normals[i];
+				buffer[bufferCount].uv = block->uvs[i];
+				bufferCount++;
+			}
+			block = block->prevBlock;
+		}
+		while(block);
+		
+		GLCall(glUnmapBuffer(GL_ARRAY_BUFFER));
+
+		return handle;
 	}
 }

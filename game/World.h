@@ -96,11 +96,17 @@ namespace AB
 		TERRAIN_TYPE_WATER
 	};
 
-	struct TerrainTile
+	struct TerrainTileData
 	{
 	   	TerrainType type;
 	};
 
+	struct TerrainTile
+	{
+		TerrainTileData* data;
+		TileCoord coord;
+	};
+	
 	struct EntityBlock
 	{
 		u32 count;
@@ -117,7 +123,7 @@ namespace AB
 		i32 coordY;
 		i32 coordZ;
 		
-		TerrainTile terrainTiles[WORLD_CHUNK_TILE_COUNT];
+		TerrainTileData terrainTiles[WORLD_CHUNK_TILE_COUNT];
 		EntityBlock firstEntityBlock;
 		Chunk* nextChunk;
 	};
@@ -160,6 +166,26 @@ namespace AB
 		TileWorldPos pos;
 	};
 
+
+	const u32 CHUNK_MESH_MEM_BLOCK_CAPACITY = 4096;
+	struct ChunkMeshVertexBlock
+	{
+		ChunkMeshVertexBlock* nextBlock;
+		ChunkMeshVertexBlock* prevBlock;
+		u32 at;
+		v3 positions[CHUNK_MESH_MEM_BLOCK_CAPACITY];
+		v3 normals[CHUNK_MESH_MEM_BLOCK_CAPACITY];
+		v2 uvs[CHUNK_MESH_MEM_BLOCK_CAPACITY];
+	};
+
+	struct ChunkMesh
+	{
+		u32 vertexCount;
+		u32 blockCount;
+		ChunkMeshVertexBlock* head;
+		ChunkMeshVertexBlock* tail;	
+	};	
+
 	World*
 		CreateWorld(MemoryArena* arena);
 
@@ -188,14 +214,18 @@ namespace AB
 		GetChunk(World* world, i32 chunkX, i32 chunkY,
 				 MemoryArena* arena = nullptr);
 
-	inline TerrainTile*
+	inline TerrainTileData*
 		GetTerrainTile(Chunk* chunk, u32 tileInChunkX, u32 tileInChunkY, u32 tileInChunkZ);
 
-	inline TerrainTile*
+	inline TerrainTileData*
 		GetTerrainTile(World* world, TileWorldPos coord);
 
-	inline TerrainTile*
+	inline TerrainTileData*
 		GetTerrainTile(World* world, Chunk* chunk, v3 chunkRelOffset);
+
+	TerrainTile
+		FindTileBeforeFirstGapInCell(World* world, Chunk* chunk,
+									 TileCoord beginCoord);
 
 	inline TileWorldPos
 		InvalidTileWorldPos();

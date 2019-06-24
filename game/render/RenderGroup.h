@@ -6,6 +6,7 @@
 
 namespace AB
 {
+	struct ChunkMesh;
 	struct DirectionalLight
 	{
 		v3 from;
@@ -45,14 +46,15 @@ namespace AB
 		RENDER_COMMAND_DRAW_DEBUG_CUBE,
 		RENDER_COMMAND_BEGIN_DEBUG_CUBE_INSTANCING,
 		RENDER_COMMAND_PUSH_DEBUG_CUBE_INSTANCE,
-		RENDER_COMMAND_END_DEBUG_CUBE_INSTANCING
+		RENDER_COMMAND_END_DEBUG_CUBE_INSTANCING,
+		RENDER_COMMAND_DRAW_CHUNK,
 	};
 
 	enum RenderSortCriteria : byte
 	{
 		RENDER_SORT_CRITERIA_MESH_ORIGIN = 0,
-			RENDER_SORT_CRITERIA_NEAREST_VERTEX = 1
-			};
+		RENDER_SORT_CRITERIA_NEAREST_VERTEX = 1
+	};
 
 	struct RenderCommandDrawMesh
 	{
@@ -122,16 +124,23 @@ namespace AB
 		v3 color;
 	};
 
+	struct RenderCommandDrawChunk
+	{
+		u32 vboHandle;
+		u32 numVertices;
+		m4x4 worldMatrix;
+	};
+
 	enum RenderKeyKindBit : u64
 	{
 		KIND_BIT_PIPELINE_CONF = 0,
-			KIND_BIT_DRAW_CALL = 1
-			};
+		KIND_BIT_DRAW_CALL = 1
+	};
 
 	enum RenderKeyBlendTypeBit : u64
 	{
 		BLEND_TYPE_BIT_OPAQUE = 0,
-			BLEND_TYPE_BIT_TRANSPARENT = 1
+		BLEND_TYPE_BIT_TRANSPARENT = 1
 	};
 
 	// NOTE: If the sorting of the whole buffer will stay
@@ -202,6 +211,7 @@ namespace AB
 									 u32 lightBufCapacity);
 
 	void RenderGroupPushCommand(RenderGroup* group,
+								AssetManager* assetManager,
 								RenderCommandType type,
 								void* command);
 	void RenderGroupResetQueue(RenderGroup* group);

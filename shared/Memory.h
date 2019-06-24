@@ -3,8 +3,8 @@
 #include <cstring>
 #include "Log.h"
 
-#define KILOBYTES(kb) ((kb) * 1024)
-#define MEGABYTES(mb) ((mb) * 1024 * 1024)
+#define KILOBYTES(kb) ((kb) * 1024llu)
+#define MEGABYTES(mb) ((mb) * 1024llu * 1024llu)
 
 #define CopyArray(type, elem_count, dest, src) memcpy(dest, src, sizeof(type) * elem_count)
 #define CopyScalar(type, dest, src) memcpy(dest, src, sizeof(type))

@@ -235,11 +235,11 @@ namespace AB
 		return result;
 	}
 	
-	inline TerrainTile*
+	inline TerrainTileData*
 	GetTerrainTile(Chunk* chunk, u32 tileInChunkX, u32 tileInChunkY,
 				   u32 tileInChunkZ)
 	{
-		TerrainTile* result = nullptr;
+		TerrainTileData* result = nullptr;
 #if 0
 		AB_ASSERT(tileInChunkX < WORLD_CHUNK_DIM_TILES);
 		AB_ASSERT(tileInChunkY < WORLD_CHUNK_DIM_TILES);
@@ -252,19 +252,44 @@ namespace AB
 			(tileInChunkZ < WORLD_CHUNK_DIM_TILES))
 		{
 			u32 offset =
-				tileInChunkZ * WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES +
-				tileInChunkY * WORLD_CHUNK_DIM_TILES +
-				tileInChunkX;
+				tileInChunkY * WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES +
+				tileInChunkX * WORLD_CHUNK_DIM_TILES +
+				tileInChunkZ;
 			result = chunk->terrainTiles + offset;
 		}
 		
 		return result;
 	}
 
-	inline TerrainTile*
+	TerrainTile
+	FindTileBeforeFirstGapInCell(World* world, Chunk* chunk,
+								 TileCoord beginCoord)
+	{
+		TerrainTile result = {};
+		for (u32 z = beginCoord.z; z < WORLD_CHUNK_DIM_TILES; z++)
+		{
+			TerrainTileData* data = GetTerrainTile(chunk, beginCoord.x,
+												   beginCoord.y, z);
+			AB_ASSERT(data);
+			if (!data->type && z > 0)
+			{
+				TerrainTileData* tileBefore = GetTerrainTile(chunk, beginCoord.x,
+													   beginCoord.y, z - 1);
+				AB_ASSERT(tileBefore);
+				result.coord.x = beginCoord.x;
+				result.coord.y = beginCoord.y;
+				result.coord.z = z - 1;
+				result.data = tileBefore;
+				break;
+			}
+		}
+		return result;
+	}	
+
+	inline TerrainTileData*
 	GetTerrainTile(World* world, TileWorldPos coord)
 	{
-		TerrainTile* result = nullptr;
+		TerrainTileData* result = nullptr;
 		Chunk* chunk = GetChunk(world, coord.chunkX, coord.chunkY);
 		if (chunk)
 		{
@@ -273,11 +298,11 @@ namespace AB
 		return result;
 	}
 
-	inline TerrainTile*
+	inline TerrainTileData*
 	GetTerrainTile(World* world, Chunk* chunk, v3 chunkRelOffset)
 	{
 		TileCoord coord = ChunkRelOffsetToTileCoord(world, chunkRelOffset);
-		TerrainTile* result = GetTerrainTile(chunk, coord.x, coord.y, coord.z);
+		TerrainTileData* result = GetTerrainTile(chunk, coord.x, coord.y, coord.z);
 		return result;
 	}
 
@@ -819,7 +844,7 @@ namespace AB
 				{
 					for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 					{
-						TerrainTile* tile = GetTerrainTile(chunk, tileX,
+						TerrainTileData* tile = GetTerrainTile(chunk, tileX,
 														   tileY, tileZ);
 						if (tile->type)
 						{
@@ -962,6 +987,102 @@ namespace AB
 		}
 		
 		return index;
+	}
+
+	void PushChunkMeshVertex(ChunkMesh* mesh, MemoryArena* arena,
+							 v3 position, v3 normal, v2 uv)
+	{
+		if (!mesh->head)
+		{
+			// TODO: Clear to zero
+			// if Push size doesn't
+			mesh->head =
+				(ChunkMeshVertexBlock*)PushSize(arena, sizeof(ChunkMeshVertexBlock), 0);
+			mesh->tail = mesh->head;
+			AB_ASSERT(mesh->head);
+			mesh->blockCount++;
+		}
+		else if (mesh->head->at >= CHUNK_MESH_MEM_BLOCK_CAPACITY)
+		{
+			ChunkMeshVertexBlock* newBlock =
+				(ChunkMeshVertexBlock*)PushSize(arena, sizeof(ChunkMeshVertexBlock), 0);
+			AB_ASSERT(newBlock);
+			// TODO: Set to zero?
+			mesh->head->prevBlock = newBlock;
+			newBlock->nextBlock = mesh->head;
+			
+			mesh->head = newBlock;
+			mesh->blockCount++;
+		}
+		
+		mesh->head->positions[mesh->head->at] = position;
+		mesh->head->normals[mesh->head->at] = normal;
+		mesh->head->uvs[mesh->head->at] = uv;
+		mesh->head->at++;
+		mesh->vertexCount++;
+	}
+
+	inline void PushChunkMeshQuad(ChunkMesh* mesh, MemoryArena* arena,
+								  v3 vtx0, v3 vtx1, v3 vtx2, v3 vtx3)
+	{
+		v3 normal = Cross(vtx3 - vtx0, vtx1 - vtx0);
+		PushChunkMeshVertex(mesh, arena, vtx2, normal, V2(0.0f, 0.0f));
+		PushChunkMeshVertex(mesh, arena, vtx1, normal, V2(1.0f, 0.0f));
+		PushChunkMeshVertex(mesh, arena, vtx0, normal, V2(1.0f, 1.0f));
+		
+		PushChunkMeshVertex(mesh, arena, vtx0, normal, V2(1.0f, 1.0f));
+		PushChunkMeshVertex(mesh, arena, vtx3, normal, V2(0.0f, 1.0f));
+		PushChunkMeshVertex(mesh, arena, vtx2, normal, V2(0.0f, 0.0f));
+	}
+
+	inline void PushChunkMeshCube(ChunkMesh* mesh, MemoryArena* arena,
+								  v3 min, v3 max)
+	{
+		v3 vtx0 = min;
+		v3 vtx1 = V3(max.x, min.y, min.z);
+		v3 vtx2 = V3(max.x, min.y, max.z);
+		v3 vtx3 = V3(min.x, min.y, max.z);
+
+		v3 vtx4 = V3(min.x, max.y, min.z);
+		v3 vtx5 = V3(max.x, max.y, min.z);
+		v3 vtx6 = V3(max.x, max.y, max.z);
+		v3 vtx7 = V3(min.x, max.y, max.z);
+
+		PushChunkMeshQuad(mesh, arena, vtx0, vtx1, vtx5, vtx4);
+		PushChunkMeshQuad(mesh, arena, vtx1, vtx2, vtx6, vtx5);
+		PushChunkMeshQuad(mesh, arena, vtx0, vtx3, vtx2, vtx1);
+		PushChunkMeshQuad(mesh, arena, vtx5, vtx6, vtx7, vtx4);
+		PushChunkMeshQuad(mesh, arena, vtx3, vtx0, vtx4, vtx7);
+		PushChunkMeshQuad(mesh, arena, vtx2, vtx3, vtx7, vtx6);
+	}
+
+	ChunkMesh MakeChunkMesh(World* world, Chunk* chunk, MemoryArena* arena)
+	{
+		ChunkMesh mesh = {};
+		for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
+		{
+			for (u32 tileY = 0; tileY < WORLD_CHUNK_DIM_TILES; tileY++)
+			{
+				for (u32 tileZ = 0; tileZ < WORLD_CHUNK_DIM_TILES; tileZ++)
+				{
+					TerrainTileData* tileData =
+						GetTerrainTile(chunk, tileX, tileY, tileZ);
+					if (tileData && tileData->type)
+					{
+						v3 offset = V3(tileX * world->tileSizeInUnits + world->tileRadiusInUnits,
+									   tileZ * world->tileSizeInUnits + world->tileRadiusInUnits,
+									   tileY * world->tileSizeInUnits + world->tileRadiusInUnits);
+						//offset -= (WORLD_CHUNK_DIM_TILES / 2) * world->tileSizeInUnits;
+						v3 min = offset - V3(world->tileRadiusInUnits * 0.9f);
+						v3 max = offset + V3(world->tileRadiusInUnits * 0.9f);
+						min *= world->unitsToRaw;
+						max *= world->unitsToRaw;
+						PushChunkMeshCube(&mesh, arena, min, max);
+					}
+				}
+			}
+		}
+		return mesh;
 	}
 
 

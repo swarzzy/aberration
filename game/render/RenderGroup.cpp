@@ -427,7 +427,25 @@ namespace AB
 				group->lineBatchCount;
 			group->lineBatchCount = 0;
 		} break;
- 
+
+		case RENDER_COMMAND_DRAW_CHUNK:
+		{
+			RenderCommandDrawChunk* renderData = (RenderCommandDrawChunk*)data;
+
+			// TODO: sorting and stuff
+			command.sortKey = 0;
+			command.commandType = RENDER_COMMAND_DRAW_CHUNK;
+
+			renderDataPtr = _PushRenderData(group,
+											sizeof(RenderCommandDrawChunk),
+											alignof(RenderCommandDrawChunk),
+											data);
+
+			uptr offset = (uptr)renderDataPtr - (uptr)group->renderBuffer;
+			command.rbOffset = SafeCastUptrU32(offset);
+			PushCommandQueueEntry(group, &command);	
+		}
+		break;
 		INVALID_DEFAULT_CASE();
 		}
 	}
