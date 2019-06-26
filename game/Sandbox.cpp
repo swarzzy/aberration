@@ -100,7 +100,6 @@ namespace AB
 				 x < 4;
 				 x++)
 			{
-				r = rand() % 11 / 10.0f;
 				g = rand() % 11 / 10.0f;
 				b = rand() % 11 / 10.0f;
 				Chunk* chunk = GetChunk(world, x, y, arena);
@@ -108,34 +107,41 @@ namespace AB
 				{
 					for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 					{
-						TerrainTileData* tile = GetTerrainTile(chunk,
-														   tileX, tileY, 0);
-						TerrainTileData* tile1 = GetTerrainTile(chunk,
-														   tileX, tileY, 1);
-			
-						AB_ASSERT(tile);
-						//tile->height = rand() % 10 / 15.0f;
-						if ((x == -4 && tileX == 0) ||
-							(x == 3 &&
-							 tileX == WORLD_CHUNK_DIM_TILES - 1) ||
-							(y == -4 && tileY == 0) ||
-							(y == 3 &&
-							 tileY == WORLD_CHUNK_DIM_TILES - 1))
+						for (u32 tileZ = 0; tileZ < WORLD_CHUNK_DIM_TILES; tileZ++)
 						{
-							tile->type = TERRAIN_TYPE_CLIFF;
-							AddWallEntity(world, chunk,
-										  V3(tileX * world->tileSizeInUnits,
-											 tileY * world->tileSizeInUnits, 0.0f),
-										  assetManager,
-										  arena);
-								
-						}
-						else
-						{
-							tile->type = TERRAIN_TYPE_GRASS;
-						}
-						tile1->type = TERRAIN_TYPE_WATER;
+							u32 bias = 0;
+							if (tileZ == WORLD_CHUNK_DIM_TILES - 1)
+							{
+								bias = rand() % 2;									
+							}
 
+							TerrainTileData tile = GetTerrainTile(chunk,
+																   tileX,
+																   tileY,
+																   tileZ - bias);
+							//tile->height = rand() % 10 / 15.0f;
+							if ((x == -4 && tileX == 0) ||
+								(x == 3 &&
+								 tileX == WORLD_CHUNK_DIM_TILES - 1) ||
+								(y == -4 && tileY == 0) ||
+								(y == 3 &&
+								 tileY == WORLD_CHUNK_DIM_TILES - 1))
+							{
+								tile.type = TERRAIN_TYPE_CLIFF;
+#if 0
+								AddWallEntity(world, chunk,
+											  V3(tileX * world->tileSizeInUnits,
+												 tileY * world->tileSizeInUnits, 0.0f),
+											  assetManager,
+											  arena);
+#endif
+							}
+							else
+							{
+								tile.type = TERRAIN_TYPE_GRASS;
+							}
+							SetTerrainTile(chunk, tileX, tileY, tileZ - bias, &tile);
+						}
 					}
 				}
 			}
@@ -147,9 +153,9 @@ namespace AB
 			{
 				for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 				{
-					TerrainTileData* tile = GetTerrainTile(chunk, tileX, tileY, 0);
-					AB_ASSERT(tile);
-					tile->type = TERRAIN_TYPE_WATER;
+					TerrainTileData tile = GetTerrainTile(chunk, tileX, tileY, 0);
+					tile.type = TERRAIN_TYPE_WATER;
+					SetTerrainTile(chunk, tileX, tileY, 0, &tile);
 				}
 			}
 
@@ -157,10 +163,11 @@ namespace AB
 
 		Chunk* firstChunk = GetChunk(gameState->world, 0, 0);
 		AB_ASSERT(firstChunk);
-
-		gameState->chunkMesh = MakeChunkMesh(world, firstChunk, arena);
-		GLuint vbo = MakeGLChunkMesh(&gameState->chunkMesh);
-		gameState->chunkVBO = vbo;
+#if 1
+		UpdateHighChunks(world, tempArena);
+#endif
+		gameState->chunkMesh = MakeChunkMesh(world, firstChunk, tempArena);
+		UploadChunkMeshToGPU(firstChunk, &gameState->chunkMesh);
 
 		gameState->entity = AddLowEntity(world, firstChunk,
 										 ENTITY_TYPE_BODY, arena);
@@ -502,14 +509,20 @@ namespace AB
 
 		AB_ASSERT(oldChunk);
 		AB_ASSERT(newChunk);
-		
-		TerrainTileData* oldTile = GetTerrainTile(world, oldChunk,
-												  entity->worldPos.offset);
-		TerrainTileData* newTile = GetTerrainTile(world, newChunk,
-												  newPos.offset);
-		AB_ASSERT(oldTile);
-		AB_ASSERT(newTile);
+#if 0
+		// TODO: Unified world position
+		TileCoord oldTileCoord = ChunkRelOffsetToTileCoord(world,
+														   entity->worldPos.offset);
+		TileCoord newTileCoord = ChunkRelOffsetToTileCoord(world, newPos.offset);
 
+		TerrainTileData oldTile = GetTerrainTile(world, oldChunk,
+												 oldTileCoord.x,
+												 oldTileCoord.y,
+												 oldTileCoord.z);
+		TerrainTileData newTile = GetTerrainTile(world, newChunk,
+												 newTileCoord.x,
+												 newTileCoord.y,
+#endif											 newTileCoord.z);
 		// TODO: z
 		//f32 heightDiff = newTile->height - oldTile->height;
 		//newPos.offset.z += heightDiff;
@@ -523,6 +536,9 @@ namespace AB
 	MoveCamera(GameState* gameState, Camera* camera, World* world,
 			   AssetManager* assetManager, MemoryArena* arena)
 	{
+		// TODO: Delete chunkMesh VBO when evicting chunk from high set
+		// and make mesh again when chunk becomes high
+
 		v2 entityFrameOffset = -MoveCameraTarget(&gameState->camera, world);
 		UpdateCamera(camera, gameState->renderGroup, world);
 
@@ -607,22 +623,11 @@ namespace AB
 	}
 	
 	void Render(MemoryArena* arena,
+				MemoryArena* tempArena,
 				GameState* gameState,
 				AssetManager* assetManager,
 				Renderer* renderer)
 	{
-		WorldPosition chunkP = {};
-		v3 chunkCamRelP = GetCamRelPos(gameState->world, chunkP,
-									   gameState->camera.targetWorldPos);
-		chunkCamRelP = FlipYZ(chunkCamRelP);
-		RenderCommandDrawChunk chunkCommand = {};
-		chunkCommand.vboHandle = gameState->chunkVBO;
-		chunkCommand.numVertices = gameState->chunkMesh.vertexCount;;
-		chunkCommand.worldMatrix = Translation(chunkCamRelP);
-		RenderGroupPushCommand(gameState->renderGroup,
-							   assetManager,
-							   RENDER_COMMAND_DRAW_CHUNK,
-							   &chunkCommand);
 		DEBUG_OVERLAY_TRACE(gameState->stringEnd);
 		DEBUG_OVERLAY_TRACE(gameState->stringAt);
 		if (KeyJustPressed(KEY_LEFT))
@@ -887,10 +892,13 @@ namespace AB
 			{
 				DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileX);
 				DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileY);
-				TerrainTileData* tile = GetTerrainTile(world, gameState->selectedTile);
-				AB_ASSERT(tile);
-				f32 aa = 0;
-				DEBUG_OVERLAY_PUSH_SLIDER("Tile type", (u32*)(&tile->type), 0, 3);
+				Chunk* chunk = GetChunk(world, gameState->selectedTile.chunkX,
+										gameState->selectedTile.chunkY);
+				TerrainTileData tile = GetTerrainTile(chunk, 
+													  gameState->selectedTile.tileX,
+													  gameState->selectedTile.tileY,
+													  gameState->selectedTile.tileZ);
+				DEBUG_OVERLAY_PUSH_SLIDER("Tile type", (u32*)(&tile.type), 0, 3);
 			}
 		}
 	
@@ -982,6 +990,10 @@ namespace AB
 		DrawWorldInstanced(world, gameState->renderGroup, assetManager,
 						   gameState->camera.targetWorldPos,
 						   &gameState->selectedTile);
+#else
+		UpdateHighChunks(world, tempArena);
+		DrawHighChunks(world, camera, gameState->renderGroup, assetManager);
+
 #endif
 
 		//gameState->camera.target = V3(pX, 0, pY);

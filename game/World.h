@@ -14,6 +14,7 @@ namespace AB
 	const u32 CHUNK_TABLE_SIZE = 4096;
 
 	const u32 WORLD_CHUNK_DIM_TILES = 64;
+	const u32 WORLD_CHUNK_TILE_COUNT = WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES;
 
 	const u32 MAX_LOW_ENTITIES = 10000;
 	const u32 MAX_HIGH_CHUNKS = 16;
@@ -103,7 +104,7 @@ namespace AB
 
 	struct TerrainTile
 	{
-		TerrainTileData* data;
+		TerrainTileData data;
 		TileCoord coord;
 	};
 	
@@ -115,10 +116,12 @@ namespace AB
 	};
 
 	// TODO: High chunk list
-	const u32 WORLD_CHUNK_TILE_COUNT = WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES;
 	struct Chunk
 	{
+		b32 dirty;
 		b32 high;
+		u32 meshHandle;
+		u32 meshVertexCount;
 		i32 coordX;
 		i32 coordY;
 		i32 coordZ;
@@ -128,6 +131,7 @@ namespace AB
 		Chunk* nextChunk;
 	};
 
+	//
 	struct World
 	{
 		f32 tileSizeInUnits;
@@ -215,13 +219,16 @@ namespace AB
 				 MemoryArena* arena = nullptr);
 
 	inline TerrainTileData*
-		GetTerrainTile(Chunk* chunk, u32 tileInChunkX, u32 tileInChunkY, u32 tileInChunkZ);
+		GetTerrainTileInternal(Chunk* chunk, u32 tileInChunkX,
+							   u32 tileInChunkY, u32 tileInChunkZ);
 
-	inline TerrainTileData*
-		GetTerrainTile(World* world, TileWorldPos coord);
+	inline TerrainTileData
+		GetTerrainTile(Chunk* chunk, u32 tileInChunkX,
+					   u32 tileInChunkY, u32 tileInChunkZ);
 
-	inline TerrainTileData*
-		GetTerrainTile(World* world, Chunk* chunk, v3 chunkRelOffset);
+	void
+		SetTerrainTile(Chunk* chunk, u32 tileX, u32 tileY, u32 tileZ,
+					   TerrainTileData* data); 
 
 	TerrainTile
 		FindTileBeforeFirstGapInCell(World* world, Chunk* chunk,

@@ -540,21 +540,21 @@ out vec4 out_FragColor;
 
 		{
 			u32 chunkVertSz =
-			DebugGetFileSize("../assets/shaders/ChunkVert.glsl");
+				DebugGetFileSize("../assets/shaders/ChunkVert.glsl");
 			u32 chunkFragSz =
-			DebugGetFileSize("../assets/shaders/ChunkFrag.glsl");
+				DebugGetFileSize("../assets/shaders/ChunkFrag.glsl");
 			void* chunkVertSrc = PushSize(tempArena, chunkVertSz + 1, 0);
 			void* chunkFragSrc = PushSize(tempArena, chunkFragSz + 1, 0);
 			u32 cVRd = DebugReadTextFile(chunkVertSrc, chunkVertSz + 1,
-										  "../assets/shaders/ChunkVert.glsl");
+										 "../assets/shaders/ChunkVert.glsl");
 			u32 cFRd = DebugReadTextFile(chunkFragSrc, chunkFragSz + 1,
-										  "../assets/shaders/ChunkFrag.glsl");
+										 "../assets/shaders/ChunkFrag.glsl");
 			AB_CORE_ASSERT(cVRd == chunkVertSz + 1);
 			AB_CORE_ASSERT(cFRd == chunkFragSz + 1);
 
 			renderer->impl->chunkShader =
-			RendererCreateProgram(tempArena, (const char*)chunkVertSrc,
-								  (const char*)chunkFragSrc);
+				RendererCreateProgram(tempArena, (const char*)chunkVertSrc,
+									  (const char*)chunkFragSrc);
 		}
 		
 		u32 dbgInsVBO = 0;
@@ -776,8 +776,8 @@ out vec4 out_FragColor;
 		case RENDER_COMMAND_DRAW_MESH_WIREFRAME:
 		{
 			auto* renderData =
-			(RenderCommandDrawMeshWireframe*)(renderGroup->renderBuffer
-											  + command->rbOffset);
+				(RenderCommandDrawMeshWireframe*)(renderGroup->renderBuffer
+												  + command->rbOffset);
 			result.transform = &renderData->transform;
 			result.blendMode = renderData->blendMode;
 			result.meshHandle = renderData->meshHandle;
@@ -788,8 +788,8 @@ out vec4 out_FragColor;
 		case RENDER_COMMAND_DRAW_DEBUG_CUBE:
 		{
 			auto* renderData =
-			(RenderCommandDrawDebugCube*)(renderGroup->renderBuffer +
-										  command->rbOffset);
+				(RenderCommandDrawDebugCube*)(renderGroup->renderBuffer +
+											  command->rbOffset);
 			result.transform = &renderData->transform;
 			result.blendMode = BLEND_MODE_OPAQUE;
 			result.meshHandle = renderData->_meshHandle;
@@ -925,13 +925,13 @@ out vec4 out_FragColor;
 
 		GLCall(glActiveTexture(GL_TEXTURE0));			
 		Texture* diffTexture =
-		AssetGetTextureData(assetManager,
-							mesh->material->diff_map_handle);
+			AssetGetTextureData(assetManager,
+								mesh->material->diff_map_handle);
 
 		GLint useDiffMap = (GLint)(diffTexture != 0);
 		GLuint useDiffMapLoc =
-		glGetUniformLocation(renderer->impl->programHandle,
-							 "material.use_diff_map");
+			glGetUniformLocation(renderer->impl->programHandle,
+								 "material.use_diff_map");
 		GLCall(glUniform1i(useDiffMapLoc, useDiffMap));
 
 		if (useDiffMap)
@@ -1030,8 +1030,8 @@ out vec4 out_FragColor;
 			CommandQueueEntry* command = commandBuffer + at;
 			if (command->commandType == RENDER_COMMAND_DRAW_CHUNK)
 			{
-				auto dcData = (RenderCommandDrawChunk*)renderGroup->renderBuffer +
-				command->rbOffset;
+				auto dcData = (RenderCommandDrawChunk*)(renderGroup->renderBuffer +
+														command->rbOffset);
 
 				GLCall(glBindBuffer(GL_ARRAY_BUFFER, dcData->vboHandle));
 
@@ -1097,9 +1097,9 @@ out vec4 out_FragColor;
 				
 
 				GLuint ambLocMat = glGetUniformLocation(renderer->impl->chunkShader,
-													 "material.ambinet");
+														"material.ambinet");
 				GLuint diffLocMat = glGetUniformLocation(renderer->impl->chunkShader,
-													  "material.diffuse");
+														 "material.diffuse");
 
 				v3 ambColor = V3(0.1f, 0.0f, 0.1f);
 				v3 diffColor = V3(0.8f, 0.0, 0.8f);
@@ -1552,10 +1552,19 @@ out vec4 out_FragColor;
 		PostFXPass(renderer);
 	}
 
-	GLuint MakeGLChunkMesh(ChunkMesh* mesh)
+	void UploadChunkMeshToGPU(Chunk* chunk, ChunkMesh* mesh)
 	{
-		GLuint handle;
-		GLCall(glGenBuffers(1, &handle));
+		GLuint handle;		
+		if (!chunk->meshHandle)
+		{
+			GLCall(glGenBuffers(1, &handle));
+			AB_ASSERT(handle);
+		}
+		else
+		{
+			handle = chunk->meshHandle;
+		}
+		
 		GLCall(glBindBuffer(GL_ARRAY_BUFFER, handle));
 		uptr bufferSize = mesh->vertexCount * (sizeof(v3) + sizeof(v3) + sizeof(v2));
 		GLCall(glBufferData(GL_ARRAY_BUFFER, bufferSize, 0, GL_STATIC_DRAW));
@@ -1588,6 +1597,7 @@ out vec4 out_FragColor;
 		
 		GLCall(glUnmapBuffer(GL_ARRAY_BUFFER));
 
-		return handle;
+		chunk->meshHandle = handle;
+		chunk->meshVertexCount = mesh->vertexCount;
 	}
 }

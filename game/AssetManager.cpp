@@ -16,11 +16,11 @@ namespace AB {
 		mgr = (AssetManager*)PushSize(memory, sizeof(AssetManager),
 									  alignof(AssetManager));
 		AB_CORE_ASSERT(mgr, "Allocation failed");
-		
+		BeginTemporaryMemory(tempArena);
 		i32 handle = AssetCreateMeshAAB(mgr, memory, tempArena,
 									 "../assets/Cube.aab");
 		AB_CORE_ASSERT(handle == ASSET_DEFAULT_CUBE_MESH_HANDLE);
-		
+		EndTemporaryMemory(tempArena);		
 		return mgr;
 	}
 

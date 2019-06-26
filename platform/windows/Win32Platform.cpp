@@ -794,6 +794,12 @@ namespace AB
 			updateTimer -= app->state.frameTime;
 			app->state.fps = SECOND_INTERVAL / app->state.frameTime;
 			app->state.absDeltaTime = app->state.frameTime / (1000.0f * 1000.0f);
+			// NOTE : Temporary clamping delta time in order to avoid
+			// glitches in time based code when frame time is too long
+			if (app->state.absDeltaTime > 0.6f)
+			{
+				app->state.absDeltaTime = 0.6f;
+			}
 			app->state.gameDeltaTime = app->state.absDeltaTime * app->state.gameSpeed;
 		}
 	}

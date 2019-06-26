@@ -11,7 +11,7 @@
 #define CopyBytes(numBytes, dest, src) memcpy(dest, src, numBytes)
 #define SetArray(type, elem_count, dest, val) memset(dest, val, sizeof(type) * elem_count)
 #define SetZeroScalar(type, dest) memset(dest, 0, sizeof(type))
-
+#define SetZeroArray(type, count, dest) memset(dest, 0, sizeof(type) * count)
 namespace AB
 {
 

@@ -33,9 +33,9 @@ namespace AB
 					TerrainTile _tile = 
 						FindTileBeforeFirstGapInCell(world, chunk,
 													 {tileX, tileY, 0});
-					TerrainTileData* tile;
+					TerrainTileData tile;
 					u32 tileZ;
-					if (!_tile.data)
+					if (!_tile.data.type)
 					{
 						tile = GetTerrainTile(chunk, tileX, tileY, WORLD_CHUNK_DIM_TILES - 1);
 						tileZ = WORLD_CHUNK_DIM_TILES - 1;
@@ -46,7 +46,7 @@ namespace AB
 						tileZ = _tile.coord.z;
 					}
 
-					if (tile &&	tile->type)
+					if (tile.type)
 					{
 						tilesDrawn++;
 						f32 pX = offset.x + tileX * world->tileSizeInUnits;
@@ -69,7 +69,7 @@ namespace AB
 						}
 						else
 						{
-							switch (tile->type)
+							switch (tile.type)
 							{
 							case TERRAIN_TYPE_CLIFF:
 							{
