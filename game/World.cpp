@@ -51,7 +51,12 @@ namespace AB
 	{
 		World* world = nullptr;
 		world = (World*)PushSize(arena, sizeof(World), alignof(World));
-		SetZeroScalar(World, world);
+		//SetZeroScalar(World, world);
+
+		world->chunkMesher = (ChunkMesher*)PushSize(arena, sizeof(ChunkMesher), 0);
+		AB_ASSERT(world->chunkMesher);
+
+		InitializeMesher(world->chunkMesher);
 		
 		world->tileSizeRaw = 1.0f;
 		world->tileSizeInUnits = 1.0f;
@@ -926,6 +931,7 @@ namespace AB
 				}
 			}
 			chunk->high = false;
+			MesherRemoveChunk(world->chunkMesher, chunk);
 		}
 	}
 
@@ -952,6 +958,8 @@ namespace AB
 			world->highChunks[world->highChunkCount] = chunk;
 			world->highChunkCount++;
 			chunk->high = true;
+			chunk->dirty = true;
+			MesherAddChunk(world->chunkMesher,chunk);
 		}
 	}
 
@@ -981,178 +989,7 @@ namespace AB
 		
 		return index;
 	}
-
-	void PushChunkMeshVertex(ChunkMesh* mesh, MemoryArena* arena,
-							 v3 position, v3 normal, v2 uv)
-	{
-		if (!mesh->head)
-		{
-			// TODO: Clear to zero
-			// if Push size doesn't
-			mesh->head =
-				(ChunkMeshVertexBlock*)PushSize(arena, sizeof(ChunkMeshVertexBlock), 0);
-			SetZeroScalar(ChunkMeshVertexBlock, mesh->head);
-			mesh->tail = mesh->head;
-			AB_ASSERT(mesh->head);
-			mesh->blockCount++;
-		}
-		else if (mesh->head->at >= CHUNK_MESH_MEM_BLOCK_CAPACITY)
-		{
-			ChunkMeshVertexBlock* newBlock =
-				(ChunkMeshVertexBlock*)PushSize(arena, sizeof(ChunkMeshVertexBlock), 0);
-			AB_ASSERT(newBlock);
-			// TODO: Set to zero?
-			SetZeroScalar(ChunkMeshVertexBlock, newBlock);
-			mesh->head->prevBlock = newBlock;
-			newBlock->nextBlock = mesh->head;
-			
-			mesh->head = newBlock;
-			mesh->blockCount++;
-		}
-		
-		mesh->head->positions[mesh->head->at] = position;
-		mesh->head->normals[mesh->head->at] = normal;
-		mesh->head->uvs[mesh->head->at] = uv;
-		mesh->head->at++;
-		mesh->vertexCount++;
-	}
-
-	inline void PushChunkMeshQuad(ChunkMesh* mesh, MemoryArena* arena,
-								  v3 vtx0, v3 vtx1, v3 vtx2, v3 vtx3)
-	{
-		v3 normal = Cross(vtx3 - vtx0, vtx1 - vtx0);
-		PushChunkMeshVertex(mesh, arena, vtx2, normal, V2(0.0f, 0.0f));
-		PushChunkMeshVertex(mesh, arena, vtx1, normal, V2(1.0f, 0.0f));
-		PushChunkMeshVertex(mesh, arena, vtx0, normal, V2(1.0f, 1.0f));
-		
-		PushChunkMeshVertex(mesh, arena, vtx0, normal, V2(1.0f, 1.0f));
-		PushChunkMeshVertex(mesh, arena, vtx3, normal, V2(0.0f, 1.0f));
-		PushChunkMeshVertex(mesh, arena, vtx2, normal, V2(0.0f, 0.0f));
-	}
-
-	inline void PushChunkMeshCube(ChunkMesh* mesh, MemoryArena* arena,
-								  v3 min, v3 max)
-	{
-		v3 vtx0 = min;
-		v3 vtx1 = V3(max.x, min.y, min.z);
-		v3 vtx2 = V3(max.x, min.y, max.z);
-		v3 vtx3 = V3(min.x, min.y, max.z);
-
-		v3 vtx4 = V3(min.x, max.y, min.z);
-		v3 vtx5 = V3(max.x, max.y, min.z);
-		v3 vtx6 = V3(max.x, max.y, max.z);
-		v3 vtx7 = V3(min.x, max.y, max.z);
-
-		PushChunkMeshQuad(mesh, arena, vtx0, vtx1, vtx5, vtx4);
-		PushChunkMeshQuad(mesh, arena, vtx1, vtx2, vtx6, vtx5);
-		PushChunkMeshQuad(mesh, arena, vtx0, vtx3, vtx2, vtx1);
-		PushChunkMeshQuad(mesh, arena, vtx5, vtx6, vtx7, vtx4);
-		PushChunkMeshQuad(mesh, arena, vtx3, vtx0, vtx4, vtx7);
-		PushChunkMeshQuad(mesh, arena, vtx2, vtx3, vtx7, vtx6);
-	}
-
-	inline bool NotEmpty(TerrainTileData* tile)
-	{
-		return tile && tile->type;
-	}
-
-	ChunkMesh MakeChunkMesh(World* world, Chunk* chunk, MemoryArena* tempArena)
-	{
-		ChunkMesh mesh = {};
-		for (u32 tileZ = 0; tileZ < WORLD_CHUNK_DIM_TILES; tileZ++)
-		{
-			for (u32 tileY = 0; tileY < WORLD_CHUNK_DIM_TILES; tileY++)
-			{
-				for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
-				{
-					TerrainTileData testTile =
-						GetTerrainTile(chunk, tileX, tileY, tileZ);
-					TerrainTileData upTile =
-						GetTerrainTile(chunk, tileX, tileY, tileZ + 1);
-					TerrainTileData dnTile =
-						GetTerrainTile(chunk, tileX, tileY, tileZ - 1);
-					TerrainTileData lTile =
-						GetTerrainTile(chunk, tileX - 1, tileY, tileZ);
-					TerrainTileData rTile =
-						GetTerrainTile(chunk, tileX + 1, tileY, tileZ);
-					TerrainTileData fTile =
-						GetTerrainTile(chunk, tileX, tileY + 1, tileZ);
-					TerrainTileData bTile =
-						GetTerrainTile(chunk, tileX, tileY - 1, tileZ);
-					
-					bool occluded = NotEmpty(&upTile) &&
-						NotEmpty(&dnTile) &&
-						NotEmpty(&lTile) &&
-						NotEmpty(&rTile) &&
-						NotEmpty(&fTile) &&
-						NotEmpty(&bTile);
-					
-					if (!occluded && testTile.type)
-					{
-						v3 offset = V3(tileX * world->tileSizeInUnits + world->tileRadiusInUnits,
-									   tileZ * world->tileSizeInUnits + world->tileRadiusInUnits,
-									   tileY * world->tileSizeInUnits + world->tileRadiusInUnits);
-						//offset -= (WORLD_CHUNK_DIM_TILES / 2) * world->tileSizeInUnits;
-						offset.y -= (WORLD_CHUNK_DIM_TILES) * world->tileSizeInUnits;
-						v3 min = offset - V3(world->tileRadiusInUnits );
-						v3 max = offset + V3(world->tileRadiusInUnits );
-						min *= world->unitsToRaw;
-						max *= world->unitsToRaw;
-						PushChunkMeshCube(&mesh, tempArena, min, max);
-					}
-				}
-			}
-		}
-		return mesh;
-	}
-
-	void RebuildChunkMesh(World* world, Chunk* chunk, MemoryArena* tempArena)
-	{
-		BeginTemporaryMemory(tempArena);
-		if (chunk->dirty || chunk->meshHandle == 0)
-		{
-			ChunkMesh mesh = MakeChunkMesh(world, chunk, tempArena);
-			// TODO: Stop calling API function from here
-			UploadChunkMeshToGPU(chunk, &mesh);
-			chunk->dirty = false;
-		}
-		EndTemporaryMemory(tempArena);
-	}
-
-	void UpdateHighChunks(World* world, MemoryArena* tempArena)
-	{
-		for (u32 i = 0; i < world->highChunkCount; i++)
-		{
-			Chunk* chunk = world->highChunks[i];
-			RebuildChunkMesh(world, chunk, tempArena);
-		}
-	}
-
-	void DrawHighChunks(World* world, Camera* camera, RenderGroup* renderGroup,
-						AssetManager* assetManager)
-	{
-		for (u32 highIndex = 0; highIndex < world->highChunkCount; highIndex++)
-		{
-			Chunk* chunk = world->highChunks[highIndex];
-			WorldPosition chunkP = {};
-			chunkP.chunkX = chunk->coordX;
-			chunkP.chunkY = chunk->coordY;
-			v3 chunkCamRelP = GetCamRelPos(world, chunkP,
-										   camera->targetWorldPos);
-			
-			chunkCamRelP = FlipYZ(chunkCamRelP);
-			RenderCommandDrawChunk chunkCommand = {};
-			chunkCommand.vboHandle = chunk->meshHandle;
-			chunkCommand.numVertices = chunk->meshVertexCount;;
-			chunkCommand.worldMatrix = Translation(chunkCamRelP);
-			RenderGroupPushCommand(renderGroup,
-								   assetManager,
-								   RENDER_COMMAND_DRAW_CHUNK,
-								   &chunkCommand);
-			
-		}
-	}
-
+	
 	void
 	SetTerrainTile(Chunk* chunk, u32 tileX, u32 tileY, u32 tileZ,
 				   TerrainTileData* data)

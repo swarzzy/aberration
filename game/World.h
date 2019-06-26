@@ -4,6 +4,7 @@
 namespace AB
 {
 	struct Camera;
+	struct ChunkMesher;
 	
 	const i32 TILEMAP_SAFE_MARGIN = 16 * 16;
 	const i32 CHUNK_SAFE_MARGIN = 16;
@@ -120,8 +121,6 @@ namespace AB
 	{
 		b32 dirty;
 		b32 high;
-		u32 meshHandle;
-		u32 meshVertexCount;
 		i32 coordX;
 		i32 coordY;
 		i32 coordZ;
@@ -134,6 +133,7 @@ namespace AB
 	//
 	struct World
 	{
+		ChunkMesher* chunkMesher;
 		f32 tileSizeInUnits;
 		f32 tileRadiusInUnits;
 		f32 tileSizeRaw;
@@ -181,14 +181,6 @@ namespace AB
 		v3 normals[CHUNK_MESH_MEM_BLOCK_CAPACITY];
 		v2 uvs[CHUNK_MESH_MEM_BLOCK_CAPACITY];
 	};
-
-	struct ChunkMesh
-	{
-		u32 vertexCount;
-		u32 blockCount;
-		ChunkMeshVertexBlock* head;
-		ChunkMeshVertexBlock* tail;	
-	};	
 
 	World*
 		CreateWorld(MemoryArena* arena);
@@ -295,4 +287,10 @@ namespace AB
 	u32
 		AddWallEntity(World* world, Chunk* chunk, v2 offset,
 					  AssetManager* assetManager, MemoryArena* arena = 0);
+
+	inline bool NotEmpty(TerrainTileData* tile)
+	{
+		return tile && tile->type;
+	}
+
 }

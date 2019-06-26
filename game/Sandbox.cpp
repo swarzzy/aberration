@@ -164,10 +164,8 @@ namespace AB
 		Chunk* firstChunk = GetChunk(gameState->world, 0, 0);
 		AB_ASSERT(firstChunk);
 #if 1
-		UpdateHighChunks(world, tempArena);
+		MesherUpdateChunks(world->chunkMesher, world, tempArena);
 #endif
-		gameState->chunkMesh = MakeChunkMesh(world, firstChunk, tempArena);
-		UploadChunkMeshToGPU(firstChunk, &gameState->chunkMesh);
 
 		gameState->entity = AddLowEntity(world, firstChunk,
 										 ENTITY_TYPE_BODY, arena);
@@ -991,8 +989,9 @@ namespace AB
 						   gameState->camera.targetWorldPos,
 						   &gameState->selectedTile);
 #else
-		UpdateHighChunks(world, tempArena);
-		DrawHighChunks(world, camera, gameState->renderGroup, assetManager);
+		MesherUpdateChunks(world->chunkMesher, world, tempArena);
+		MesherDrawChunks(world->chunkMesher, world, camera,
+						 gameState->renderGroup, assetManager);
 
 #endif
 

@@ -305,4 +305,5 @@ void GameRender(AB::MemoryArena* arena, AB::PlatformState* platform)
 //#include "GraphicsPipeline.cpp"
 #include "render/RenderGroup.cpp"
 #include "render/Renderer.cpp"
+#include "render/ChunkMesher.cpp"
 #include "Sandbox.cpp"

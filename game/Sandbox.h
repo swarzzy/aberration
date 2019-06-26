@@ -22,7 +22,6 @@ namespace AB
 	struct GameState
 	{
 		u32 chunkVBO;
-		ChunkMesh chunkMesh;
 		u32 stringEnd;
 		u32 stringAt;
 		byte* debug0;

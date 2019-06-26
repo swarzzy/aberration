@@ -1552,52 +1552,5 @@ out vec4 out_FragColor;
 		PostFXPass(renderer);
 	}
 
-	void UploadChunkMeshToGPU(Chunk* chunk, ChunkMesh* mesh)
-	{
-		GLuint handle;		
-		if (!chunk->meshHandle)
-		{
-			GLCall(glGenBuffers(1, &handle));
-			AB_ASSERT(handle);
-		}
-		else
-		{
-			handle = chunk->meshHandle;
-		}
-		
-		GLCall(glBindBuffer(GL_ARRAY_BUFFER, handle));
-		uptr bufferSize = mesh->vertexCount * (sizeof(v3) + sizeof(v3) + sizeof(v2));
-		GLCall(glBufferData(GL_ARRAY_BUFFER, bufferSize, 0, GL_STATIC_DRAW));
-		struct Vertex
-		{
-			v3 pos;
-			v3 normal;
-			v2 uv;
-		};
-		
-		Vertex* buffer;
-		GLCall(buffer = (Vertex*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE));
-		AB_ASSERT(buffer);
-		u32 bufferCount = 0;
-		u32 blockCount = 0;
-		ChunkMeshVertexBlock* block = mesh->tail;
-		do
-		{
-			blockCount++;
-			for (u32 i = 0; i < block->at; i++)
-			{
-				buffer[bufferCount].pos = block->positions[i];
-				buffer[bufferCount].normal = block->normals[i];
-				buffer[bufferCount].uv = block->uvs[i];
-				bufferCount++;
-			}
-			block = block->prevBlock;
-		}
-		while(block);
-		
-		GLCall(glUnmapBuffer(GL_ARRAY_BUFFER));
 
-		chunk->meshHandle = handle;
-		chunk->meshVertexCount = mesh->vertexCount;
-	}
 }
