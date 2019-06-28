@@ -122,8 +122,13 @@ namespace AB
 #define glDrawElementsInstanced GL_FUNCTION(glDrawElementsInstanced)
 #define glDrawArraysInstanced GL_FUNCTION(glDrawArraysInstanced)
 #define glClearDepth GL_FUNCTION(glClearDepth)
+#define glTexImage3D GL_FUNCTION(glTexImage3D)
+#define glTexSubImage3D GL_FUNCTION(glTexSubImage3D)
+#define glTexStorage3D GL_FUNCTION(glTexStorage3D)
+#define glGenerateMipmap GL_FUNCTION(glGenerateMipmap)
+#define glTexParameterf GL_FUNCTION(glTexParameterf)
 		
-		static constexpr u32 OPENGL_LOG_BUFFER_SIZE = 256;
+	static constexpr u32 OPENGL_LOG_BUFFER_SIZE = 256;
 	static char g_OpenGLLogBuffer[OPENGL_LOG_BUFFER_SIZE];
 
 	void _OpenGLClearErrorQueue()

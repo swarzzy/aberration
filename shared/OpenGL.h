@@ -1467,6 +1467,9 @@ typedef void            (APIENTRYP PFNGLVERTEXATTRIBP3UIVPROC) (GLuint index, GL
 typedef void            (APIENTRYP PFNGLVERTEXATTRIBP4UIPROC) (GLuint index, GLenum type, GLboolean normalized, GLuint value);
 typedef void            (APIENTRYP PFNGLVERTEXATTRIBP4UIVPROC) (GLuint index, GLenum type, GLboolean normalized, const GLuint *value);
 
+// OpenGL 4.2
+typedef void (APIENTRYP PFNGLTEXSTORAGE3DPROC) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth);
+
 // GL_ARB_gpu_shader5 extension
 #define GEOMETRY_SHADER_INVOCATIONS                      0x887F
 #define MAX_GEOMETRY_SHADER_INVOCATIONS                  0x8E5A
@@ -1499,7 +1502,7 @@ typedef GLvoid (APIENTRYP PFNGLGETUNIFORMSUBROUTINEUIVPROC) (GLenum shadertype, 
 typedef GLvoid (APIENTRYP PFNGLGETPROGRAMSTAGEIVPROC) (GLuint program, GLenum shadertype, GLenum pname, GLint *values);
 
 
-#define AB_OPENGL_FUNCTIONS_COUNT (345 + 8)
+#define AB_OPENGL_FUNCTIONS_COUNT (345 + 8 + 1)
 
 namespace AB
 {
@@ -1874,6 +1877,9 @@ namespace AB
 			PFNGLGETUNIFORMSUBROUTINEUIVPROC        		_glGetUniformSubroutineuiv;
 			PFNGLGETPROGRAMSTAGEIVPROC              		_glGetProgramStageivARB;
 
+			// 4.2
+			PFNGLTEXSTORAGE3DPROC                           _glTexStorage3D;
+			
 		};
 	};
 }

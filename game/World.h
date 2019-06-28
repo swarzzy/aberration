@@ -14,7 +14,7 @@ namespace AB
 	const u32 INVALID_TILE_COORD = AB_UINT32_MAX;
 	const u32 CHUNK_TABLE_SIZE = 4096;
 
-	const u32 WORLD_CHUNK_DIM_TILES = 64;
+	const u32 WORLD_CHUNK_DIM_TILES = 32;
 	const u32 WORLD_CHUNK_TILE_COUNT = WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES;
 
 	const u32 MAX_LOW_ENTITIES = 10000;
@@ -168,18 +168,6 @@ namespace AB
 		b32 hit;
 		f32 tMin;
 		TileWorldPos pos;
-	};
-
-
-	const u32 CHUNK_MESH_MEM_BLOCK_CAPACITY = 4096;
-	struct ChunkMeshVertexBlock
-	{
-		ChunkMeshVertexBlock* nextBlock;
-		ChunkMeshVertexBlock* prevBlock;
-		u32 at;
-		v3 positions[CHUNK_MESH_MEM_BLOCK_CAPACITY];
-		v3 normals[CHUNK_MESH_MEM_BLOCK_CAPACITY];
-		v2 uvs[CHUNK_MESH_MEM_BLOCK_CAPACITY];
 	};
 
 	World*

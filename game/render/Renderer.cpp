@@ -116,6 +116,7 @@ out_FragColor = v4(pow(mappedColor, 1.0f / v3(u_Gamma)), 1.0f);
 		i32 lineShaderHandle;
 		u32 lineVBHandle;
 		i32 chunkShader;
+		u32 terrainTexArray;
 	};
 	// NOTE: Does not setting temp arena point and does not flushes at the end.
 	// TODO: Implement memory stack propperly
@@ -555,6 +556,37 @@ out vec4 out_FragColor;
 			renderer->impl->chunkShader =
 				RendererCreateProgram(tempArena, (const char*)chunkVertSrc,
 									  (const char*)chunkFragSrc);
+
+			Image bitmap = LoadBMP(tempArena, "../assets/grass_tile.bmp", TEX_COLOR_SPACE_SRGB);
+			AB_ASSERT(bitmap.bitmap);
+			Image stone = LoadBMP(tempArena, "../assets/stone_tile.bmp", TEX_COLOR_SPACE_SRGB);
+			AB_ASSERT(bitmap.bitmap);
+
+			GLuint terrainTexArray;
+			GLCall(glGenTextures(1, &terrainTexArray));
+			GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, terrainTexArray));
+			// TODO : STUDY: glTexStorage ang glTexSubImage
+			const u32 TERRAIN_TILE_TEXTURE_DIM = 256;
+			const u32 TERRAIN_TILE_MAX_TEXTURES = 32;
+#if 0
+			GLCall(glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_SRGB8, 256, 256, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, bitmap.bitmap));
+			GLCall(glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_SRGB8, 256, 256, 2, 0, GL_RGB, GL_UNSIGNED_BYTE, stone.bitmap));
+			GLCall(glGenerateMipmap(GL_TEXTURE_2D_ARRAY));
+#else
+			GLCall(glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_SRGB8, 256, 256, 32));
+			GLCall(glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, 256, 256, 1, GL_RGB, GL_UNSIGNED_BYTE, bitmap.bitmap));
+			GLCall(glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 1, 256, 256, 1, GL_RGB, GL_UNSIGNED_BYTE, stone.bitmap));
+#endif
+			
+			//glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAX_LOD, 1000.0f);
+			//glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAX_LEVEL, 4);
+			glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+			AB_ASSERT(terrainTexArray);
+			renderer->impl->terrainTexArray = terrainTexArray;
 		}
 		
 		u32 dbgInsVBO = 0;
@@ -1030,21 +1062,22 @@ out vec4 out_FragColor;
 			CommandQueueEntry* command = commandBuffer + at;
 			if (command->commandType == RENDER_COMMAND_DRAW_CHUNK)
 			{
+				GLCall(glDisable(GL_CULL_FACE));
 				auto dcData = (RenderCommandDrawChunk*)(renderGroup->renderBuffer +
 														command->rbOffset);
 
 				GLCall(glBindBuffer(GL_ARRAY_BUFFER, dcData->vboHandle));
 
 				GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
-											 (sizeof(v3) * 2 + sizeof(v2)),
+											 (sizeof(v3) * 2 + sizeof(byte)),
 											 (void*)0));
 				GLCall(glEnableVertexAttribArray(0));
 				GLCall(glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
-											 (sizeof(v3) * 2 + sizeof(v2)),
+											 (sizeof(v3) * 2 + sizeof(byte)),
 											 (void*)(sizeof(v3))));
 				GLCall(glEnableVertexAttribArray(1));
-				GLCall(glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE,
-											 (sizeof(v3) * 2 + sizeof(v2)),
+				GLCall(glVertexAttribPointer(2, 1, GL_UNSIGNED_BYTE, GL_FALSE,
+											 (sizeof(v3) * 2 + sizeof(byte)),
 											 (void*)(sizeof(v3) + sizeof(v3))));
 				GLCall(glEnableVertexAttribArray(2));
 				
@@ -1053,6 +1086,13 @@ out vec4 out_FragColor;
 				m4x4 viewProj = MulM4M4(renderGroup->projectionMatrix,
 										renderGroup->camera.lookAt);
 				v3* viewPos = &renderGroup->camera.position;
+
+				GLCall(glActiveTexture(GL_TEXTURE0));
+				GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, renderer->impl->terrainTexArray));
+				auto sampler = glGetUniformLocation(chunkShader,
+													"u_TerrainAtlas");
+				//AB_ASSERT(sampler);
+				GLCall(glUniform1i(sampler, 0));
 		
 				GLuint viewProjLoc;
 				GLuint viewPosLoc;

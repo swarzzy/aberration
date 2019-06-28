@@ -369,8 +369,9 @@ namespace AB
 		"glGetActiveSubroutineName",
 		"glUniformSubroutinesuiv",
 		"glGetUniformSubroutineuiv",
-		"glGetProgramStageiv"
+		"glGetProgramStageiv",
 
+		"glTexStorage3D"
 	};
 
 #if defined(AB_PLATFORM_WINDOWS)

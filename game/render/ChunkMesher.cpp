@@ -43,8 +43,12 @@ namespace AB
 				else
 				{
 					mesher->chunks[i] = mesher->chunks[mesher->chunkCount - 1];
+					// TODO: We can loose vbo handle this way
+					// Store handles in another array and one from there when chunk added
+					
 					mesher->vertexBuffers[i] =
 						mesher->vertexBuffers[mesher->chunkCount - 1];
+					mesher->vertexBuffers[mesher->chunkCount - 1] = vbHandle;
 					mesher->chunkCount--;
 				}
 				chunk->dirty = true;
@@ -102,7 +106,7 @@ namespace AB
 	}
 
 	void PushChunkMeshVertex(ChunkMesh* mesh, MemoryArena* arena,
-							 v3 position, v3 normal, v2 uv)
+							 v3 position, v3 normal, byte tileId)
 	{
 		if (!mesh->head)
 		{
@@ -131,26 +135,27 @@ namespace AB
 		
 		mesh->head->positions[mesh->head->at] = position;
 		mesh->head->normals[mesh->head->at] = normal;
-		mesh->head->uvs[mesh->head->at] = uv;
+		mesh->head->tileIds[mesh->head->at] = tileId;
 		mesh->head->at++;
 		mesh->vertexCount++;
 	}
 
 	inline void PushChunkMeshQuad(ChunkMesh* mesh, MemoryArena* arena,
-								  v3 vtx0, v3 vtx1, v3 vtx2, v3 vtx3)
+								  v3 vtx0, v3 vtx1, v3 vtx2, v3 vtx3,
+								  TerrainType type)
 	{
 		v3 normal = Cross(vtx3 - vtx0, vtx1 - vtx0);
-		PushChunkMeshVertex(mesh, arena, vtx2, normal, V2(0.0f, 0.0f));
-		PushChunkMeshVertex(mesh, arena, vtx1, normal, V2(1.0f, 0.0f));
-		PushChunkMeshVertex(mesh, arena, vtx0, normal, V2(1.0f, 1.0f));
+		PushChunkMeshVertex(mesh, arena, vtx2, normal, type - 1);
+		PushChunkMeshVertex(mesh, arena, vtx1, normal, type - 1);
+		PushChunkMeshVertex(mesh, arena, vtx0, normal, type - 1);
 		
-		PushChunkMeshVertex(mesh, arena, vtx0, normal, V2(1.0f, 1.0f));
-		PushChunkMeshVertex(mesh, arena, vtx3, normal, V2(0.0f, 1.0f));
-		PushChunkMeshVertex(mesh, arena, vtx2, normal, V2(0.0f, 0.0f));
+		PushChunkMeshVertex(mesh, arena, vtx0, normal, type - 1);
+		PushChunkMeshVertex(mesh, arena, vtx3, normal, type - 1);
+		PushChunkMeshVertex(mesh, arena, vtx2, normal, type - 1);
 	}
 
 	inline void PushChunkMeshCube(ChunkMesh* mesh, MemoryArena* arena,
-								  v3 min, v3 max)
+								  v3 min, v3 max, TerrainType type)
 	{
 		v3 vtx0 = min;
 		v3 vtx1 = V3(max.x, min.y, min.z);
@@ -162,12 +167,12 @@ namespace AB
 		v3 vtx6 = V3(max.x, max.y, max.z);
 		v3 vtx7 = V3(min.x, max.y, max.z);
 
-		PushChunkMeshQuad(mesh, arena, vtx0, vtx1, vtx5, vtx4);
-		PushChunkMeshQuad(mesh, arena, vtx1, vtx2, vtx6, vtx5);
-		PushChunkMeshQuad(mesh, arena, vtx0, vtx3, vtx2, vtx1);
-		PushChunkMeshQuad(mesh, arena, vtx5, vtx6, vtx7, vtx4);
-		PushChunkMeshQuad(mesh, arena, vtx3, vtx0, vtx4, vtx7);
-		PushChunkMeshQuad(mesh, arena, vtx2, vtx3, vtx7, vtx6);
+		PushChunkMeshQuad(mesh, arena, vtx0, vtx1, vtx5, vtx4, type);
+		PushChunkMeshQuad(mesh, arena, vtx1, vtx2, vtx6, vtx5, type);
+		PushChunkMeshQuad(mesh, arena, vtx0, vtx3, vtx2, vtx1, type);
+		PushChunkMeshQuad(mesh, arena, vtx5, vtx6, vtx7, vtx4, type);
+		PushChunkMeshQuad(mesh, arena, vtx3, vtx0, vtx4, vtx7, type);
+		PushChunkMeshQuad(mesh, arena, vtx2, vtx3, vtx7, vtx6, type);
 	}
 
 
@@ -180,21 +185,75 @@ namespace AB
 			{
 				for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 				{
+					u32 tileXMinusOne = tileX ? tileX - 1 : INVALID_TILE_COORD;
+					u32 tileYMinusOne = tileY ? tileY - 1 : INVALID_TILE_COORD;
+					u32 tileZMinusOne = tileZ ? tileZ - 1 : INVALID_TILE_COORD;
+					u32 tileXPlusOne = tileX < (WORLD_CHUNK_DIM_TILES - 1) ? tileX + 1 : INVALID_TILE_COORD;
+					u32 tileYPlusOne = tileY < (WORLD_CHUNK_DIM_TILES - 1) ? tileY + 1 : INVALID_TILE_COORD;
+					u32 tileZPlusOne = tileZ < (WORLD_CHUNK_DIM_TILES - 1) ? tileZ + 1 : INVALID_TILE_COORD;
 					TerrainTileData testTile =
 						GetTerrainTile(chunk, tileX, tileY, tileZ);
 					TerrainTileData upTile =
-						GetTerrainTile(chunk, tileX, tileY, tileZ + 1);
+						GetTerrainTile(chunk, tileX, tileY, tileZPlusOne);
 					TerrainTileData dnTile =
-						GetTerrainTile(chunk, tileX, tileY, tileZ - 1);
+						GetTerrainTile(chunk, tileX, tileY, tileZMinusOne);
 					TerrainTileData lTile =
-						GetTerrainTile(chunk, tileX - 1, tileY, tileZ);
+						GetTerrainTile(chunk, tileXMinusOne, tileY, tileZ);
 					TerrainTileData rTile =
-						GetTerrainTile(chunk, tileX + 1, tileY, tileZ);
+						GetTerrainTile(chunk, tileXPlusOne, tileY, tileZ);
 					TerrainTileData fTile =
-						GetTerrainTile(chunk, tileX, tileY + 1, tileZ);
+						GetTerrainTile(chunk, tileX, tileYPlusOne, tileZ);
 					TerrainTileData bTile =
-						GetTerrainTile(chunk, tileX, tileY - 1, tileZ);
-					
+						GetTerrainTile(chunk, tileX, tileYMinusOne, tileZ);
+
+					if (testTile.type)
+					{
+						v3 offset = V3(tileX * world->tileSizeInUnits + world->tileRadiusInUnits,
+									   tileZ * world->tileSizeInUnits + world->tileRadiusInUnits,
+									   tileY * world->tileSizeInUnits + world->tileRadiusInUnits);
+						offset.y -= (WORLD_CHUNK_DIM_TILES) * world->tileSizeInUnits;
+						v3 min = offset - V3(world->tileRadiusInUnits);
+						v3 max = offset + V3(world->tileRadiusInUnits);
+						min *= world->unitsToRaw;
+						max *= world->unitsToRaw;
+
+						TerrainType type = testTile.type;
+						v3 vtx0 = min;
+						v3 vtx1 = V3(max.x, min.y, min.z);
+						v3 vtx2 = V3(max.x, min.y, max.z);
+						v3 vtx3 = V3(min.x, min.y, max.z);
+
+						v3 vtx4 = V3(min.x, max.y, min.z);
+						v3 vtx5 = V3(max.x, max.y, min.z);
+						v3 vtx6 = V3(max.x, max.y, max.z);
+						v3 vtx7 = V3(min.x, max.y, max.z);
+
+						if (!NotEmpty(&upTile))
+						{
+							PushChunkMeshQuad(&mesh, tempArena, vtx5, vtx6, vtx7, vtx4, type);
+						}
+						if (!NotEmpty(&dnTile))
+						{
+							PushChunkMeshQuad(&mesh, tempArena, vtx0, vtx3, vtx2, vtx1, type);
+						}
+						if (!NotEmpty(&rTile))
+						{
+							PushChunkMeshQuad(&mesh, tempArena, vtx1, vtx2, vtx6, vtx5, type);
+						}
+						if (!NotEmpty(&lTile))
+						{
+							PushChunkMeshQuad(&mesh, tempArena, vtx3, vtx0, vtx4, vtx7, type);
+						}
+						if (!NotEmpty(&fTile))
+						{
+							PushChunkMeshQuad(&mesh, tempArena, vtx2, vtx3, vtx7, vtx6, type);
+						}
+						if (!NotEmpty(&bTile))
+						{
+							PushChunkMeshQuad(&mesh, tempArena, vtx0, vtx1, vtx5, vtx4, type);
+						}
+					}
+#if 0
 					bool occluded = NotEmpty(&upTile) &&
 						NotEmpty(&dnTile) &&
 						NotEmpty(&lTile) &&
@@ -213,8 +272,9 @@ namespace AB
 						v3 max = offset + V3(world->tileRadiusInUnits );
 						min *= world->unitsToRaw;
 						max *= world->unitsToRaw;
-						PushChunkMeshCube(&mesh, tempArena, min, max);
+						PushChunkMeshCube(&mesh, tempArena, min, max, testTile.type);
 					}
+#endif
 				}
 			}
 		}
@@ -225,15 +285,16 @@ namespace AB
 	{
 		GLuint handle = vertexBuffer;
 		GLCall(glBindBuffer(GL_ARRAY_BUFFER, handle));
-		uptr bufferSize = mesh->vertexCount * (sizeof(v3) + sizeof(v3) + sizeof(v2));
+		uptr bufferSize = mesh->vertexCount * (sizeof(v3) + sizeof(v3) + sizeof(byte));
 		GLCall(glBufferData(GL_ARRAY_BUFFER, bufferSize, 0, GL_STATIC_DRAW));
+		#pragma pack(push, 1)
 		struct Vertex
 		{
 			v3 pos;
 			v3 normal;
-			v2 uv;
+			byte tileId;
 		};
-		
+		#pragma pack(pop)
 		Vertex* buffer;
 		GLCall(buffer = (Vertex*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE));
 		AB_ASSERT(buffer);
@@ -247,7 +308,7 @@ namespace AB
 			{
 				buffer[bufferCount].pos = block->positions[i];
 				buffer[bufferCount].normal = block->normals[i];
-				buffer[bufferCount].uv = block->uvs[i];
+				buffer[bufferCount].tileId = block->tileIds[i];
 				bufferCount++;
 			}
 			block = block->prevBlock;

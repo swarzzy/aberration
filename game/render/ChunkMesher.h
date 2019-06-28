@@ -7,11 +7,25 @@ namespace AB
 	const u32 CHUNK_MESHER_MAX_CHUNKS = 9;
 	struct ChunkMesher
 	{
+		// TODO: Fux vertex buffers
 		u32 chunkCount;
 		GLuint vertexBuffers[CHUNK_MESHER_MAX_CHUNKS];
 		u32 vertexCounts[CHUNK_MESHER_MAX_CHUNKS];
 		Chunk* chunks[CHUNK_MESHER_MAX_CHUNKS];
 	};
+
+	
+	const u32 CHUNK_MESH_MEM_BLOCK_CAPACITY = 4096;
+	struct ChunkMeshVertexBlock
+	{
+		ChunkMeshVertexBlock* nextBlock;
+		ChunkMeshVertexBlock* prevBlock;
+		u32 at;
+		v3 positions[CHUNK_MESH_MEM_BLOCK_CAPACITY];
+		v3 normals[CHUNK_MESH_MEM_BLOCK_CAPACITY];
+		byte tileIds[CHUNK_MESH_MEM_BLOCK_CAPACITY];
+	};
+
 
 	struct ChunkMesh
 	{
@@ -32,9 +46,10 @@ namespace AB
 							 v3 position, v3 normal, v2 uv);
 
 	inline void PushChunkMeshQuad(ChunkMesh* mesh, MemoryArena* arena,
-								  v3 vtx0, v3 vtx1, v3 vtx2, v3 vtx3);
+								  v3 vtx0, v3 vtx1, v3 vtx2, v3 vtx3,
+								  TerrainTile type);
 	inline void PushChunkMeshCube(ChunkMesh* mesh, MemoryArena* arena,
-								  v3 min, v3 max);
+								  v3 min, v3 max, TerrainTile type);
 	ChunkMesh MakeChunkMesh(World* world, Chunk* chunk, MemoryArena* tempArena);
 	void UploadChunkMeshToGPU(GLuint vertexBuffer, ChunkMesh* mesh);
 	

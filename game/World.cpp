@@ -851,17 +851,18 @@ namespace AB
 							tileWorldPos.chunkY = chunk->coordY;
 					
 							tileWorldPos.offset.x = tileX * world->tileSizeInUnits;
-							//tileWorldPos.offset.x += world->tileSizeInUnits * 0.5f;
+							//tileWorldPos.offset.x -= world->tileSizeInUnits * 0.5f;
 					
 							tileWorldPos.offset.y = tileY * world->tileSizeInUnits;
-							//tileWorldPos.offset.y += world->tileSizeInUnits * 0.5f;
+							//tileWorldPos.offset.y -= world->tileSizeInUnits * 0.5f;
 
 							tileWorldPos.offset.z = tileZ * world->tileSizeInUnits;
 
 							v3 tileCamRelPos = GetCamRelPos(world, tileWorldPos,
 															camera->targetWorldPos);
-							v3 minCorner = tileCamRelPos - world->tileSizeInUnits * 0.5f;
-							v3 maxCorner = tileCamRelPos + world->tileSizeInUnits * 0.5f;
+							tileCamRelPos.z -= WORLD_CHUNK_DIM_TILES * world->tileSizeInUnits;
+							v3 minCorner = tileCamRelPos;// - world->tileSizeInUnits * 0.5f;
+							v3 maxCorner = tileCamRelPos + world->tileSizeInUnits;
 #if 0
 							minCorner.z = tile.height - world->tileSizeInUnits;
 							maxCorner.z = tile.height;

@@ -9,6 +9,36 @@
 namespace AB
 {
 
+	void DrawBlockHighlight(RenderGroup* renderGroup,
+							AssetManager* assetManager,
+							World* world,
+							Camera* camera, TileWorldPos pos)
+	{
+		if (IsValid(pos))
+		{
+			v3 offset = V3(0.0f);
+			Chunk* chunk = GetChunk(world, pos.chunkX, pos.chunkY);
+			offset.x = (chunk->coordX - camera->targetWorldPos.chunkX) * world->chunkSizeUnits;
+			offset.x -= camera->targetWorldPos.offset.x;
+			offset.x += pos.tileX * world->tileSizeInUnits;
+			offset.y = (chunk->coordY - camera->targetWorldPos.chunkY) * world->chunkSizeUnits;
+			offset.y -= camera->targetWorldPos.offset.y;
+			offset.y += pos.tileY * world->tileSizeInUnits;
+			offset.z = pos.tileZ * world->tileSizeInUnits;
+			offset.z -= WORLD_CHUNK_DIM_TILES * world->tileSizeInUnits;
+			offset = FlipYZ(offset);
+
+			v3 min = offset;
+			v3 max = offset + V3(world->tileSizeInUnits);
+
+			min *= world->unitsToRaw;
+			max *= world->unitsToRaw;
+			
+			DrawAlignedBoxOutline(renderGroup, assetManager,
+								  min, max, V3(1.0f, 0.0f, 0.0f), 1.0f);
+		}
+	}
+
 	void Init(MemoryArena* arena,
 			  MemoryArena* tempArena,
 			  GameState* gameState,
@@ -116,9 +146,9 @@ namespace AB
 							}
 
 							TerrainTileData tile = GetTerrainTile(chunk,
-																   tileX,
-																   tileY,
-																   tileZ - bias);
+																  tileX,
+																  tileY,
+																  tileZ - bias);
 							//tile->height = rand() % 10 / 15.0f;
 							if ((x == -4 && tileX == 0) ||
 								(x == 3 &&
@@ -138,7 +168,16 @@ namespace AB
 							}
 							else
 							{
-								tile.type = TERRAIN_TYPE_GRASS;
+								auto choise = rand() % 3;
+								if (choise < 2)
+								{
+									tile.type = TERRAIN_TYPE_GRASS;									
+								}
+								else
+								{
+									tile.type = TERRAIN_TYPE_CLIFF;									
+								}
+							
 							}
 							SetTerrainTile(chunk, tileX, tileY, tileZ - bias, &tile);
 						}
@@ -339,13 +378,13 @@ namespace AB
 			// Needs to be rapaced with robust code.
 			WorldPosition beginPos = resultPos;
 			WorldPosition desiredPosP =
-			OffsetWorldPos(world, beginPos, V3(delta + colliderSize, 0.0f));
+				OffsetWorldPos(world, beginPos, V3(delta + colliderSize, 0.0f));
 
 			WorldPosition desiredPosN =
-			OffsetWorldPos(world, beginPos, V3(delta - colliderSize, 0.0f));
+				OffsetWorldPos(world, beginPos, V3(delta - colliderSize, 0.0f));
 
 			WorldPosition desiredPosC =
-			OffsetWorldPos(world, beginPos, V3(delta, 0.0f));
+				OffsetWorldPos(world, beginPos, V3(delta, 0.0f));
 
 
 			i32 minChunkX = MINIMUM(beginPos.chunkX,
@@ -383,7 +422,7 @@ namespace AB
 			f32 tMin = 1.0f;
 			u32 hitEntityIndex = 0;
 			WorldPosition targetPosition =
-			OffsetWorldPos(world, resultPos, V3(delta, 0.0f));
+				OffsetWorldPos(world, resultPos, V3(delta, 0.0f));
 
 			for (i32 chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
 			{
@@ -403,7 +442,7 @@ namespace AB
 							{
 								u32 testEntityIndex = block->lowEntityIndices[i];
 								LowEntity* testEntity =
-								GetLowEntity(world, testEntityIndex);
+									GetLowEntity(world, testEntityIndex);
 							
 								if (entity != testEntity)
 								{
@@ -466,7 +505,7 @@ namespace AB
 			{
 				delta = WorldPosDiff(world, targetPosition, resultPos).xy;
 				entity->velocity -=
-				2.0f * Dot(entity->velocity, wallNormal) * wallNormal;
+					2.0f * Dot(entity->velocity, wallNormal) * wallNormal;
 				delta *= 1.0f - tMin;
 				delta -= Dot(delta, wallNormal) * wallNormal;				
 			}
@@ -493,9 +532,9 @@ namespace AB
 
 		v2 movementDelta;
 		movementDelta = 0.5f * acceleration *
-		Square(GlobalGameDeltaTime) + 
-		entity->velocity *
-		GlobalGameDeltaTime;
+			Square(GlobalGameDeltaTime) + 
+			entity->velocity *
+			GlobalGameDeltaTime;
 
 		auto newPos = DoCollisionDetection(world, entity,  movementDelta);
 
@@ -521,268 +560,268 @@ namespace AB
 												 newTileCoord.x,
 												 newTileCoord.y,
 #endif											 newTileCoord.z);
-		// TODO: z
-		//f32 heightDiff = newTile->height - oldTile->height;
-		//newPos.offset.z += heightDiff;
+												 // TODO: z
+												 //f32 heightDiff = newTile->height - oldTile->height;
+												 //newPos.offset.z += heightDiff;
 
-		ChangeEntityPos(world, entity, newPos, camera->targetWorldPos, arena);
-		highEntity->pos = GetCamRelPos(world, entity->worldPos,
-									   camera->targetWorldPos);
-	}
+												 ChangeEntityPos(world, entity, newPos, camera->targetWorldPos, arena);
+												 highEntity->pos = GetCamRelPos(world, entity->worldPos,
+																				camera->targetWorldPos);
+												 }
 
-	void
-	MoveCamera(GameState* gameState, Camera* camera, World* world,
-			   AssetManager* assetManager, MemoryArena* arena)
-	{
-		// TODO: Delete chunkMesh VBO when evicting chunk from high set
-		// and make mesh again when chunk becomes high
+			void
+			MoveCamera(GameState* gameState, Camera* camera, World* world,
+					   AssetManager* assetManager, MemoryArena* arena)
+			{
+			// TODO: Delete chunkMesh VBO when evicting chunk from high set
+			// and make mesh again when chunk becomes high
 
-		v2 entityFrameOffset = -MoveCameraTarget(&gameState->camera, world);
-		UpdateCamera(camera, gameState->renderGroup, world);
+			v2 entityFrameOffset = -MoveCameraTarget(&gameState->camera, world);
+			UpdateCamera(camera, gameState->renderGroup, world);
 
-		for (u32 i = 1; i < world->highEntityCount; i++)
-		{
-			world->highEntities[i].pos += V3(entityFrameOffset, 0.0f);
-		}
+			for (u32 i = 1; i < world->highEntityCount; i++)
+			{
+				world->highEntities[i].pos += V3(entityFrameOffset, 0.0f);
+			}
 
-		i32 highAreaChunkSpanX = 1;
-		i32 highAreaChunkSpanY = 1;
+			i32 highAreaChunkSpanX = 1;
+			i32 highAreaChunkSpanY = 1;
 
-		i32 minChunkX = SafeSubChunkCoord(camera->targetWorldPos.chunkX,
-										  highAreaChunkSpanX);
-		i32 minChunkY = SafeSubChunkCoord(camera->targetWorldPos.chunkY,
-										  highAreaChunkSpanY);
-		i32 maxChunkX = SafeAddChunkCoord(camera->targetWorldPos.chunkX,
-										  highAreaChunkSpanX);
-		i32 maxChunkY = SafeAddChunkCoord(camera->targetWorldPos.chunkY,
-										  highAreaChunkSpanY); 
+			i32 minChunkX = SafeSubChunkCoord(camera->targetWorldPos.chunkX,
+											  highAreaChunkSpanX);
+			i32 minChunkY = SafeSubChunkCoord(camera->targetWorldPos.chunkY,
+											  highAreaChunkSpanY);
+			i32 maxChunkX = SafeAddChunkCoord(camera->targetWorldPos.chunkX,
+											  highAreaChunkSpanX);
+			i32 maxChunkY = SafeAddChunkCoord(camera->targetWorldPos.chunkY,
+											  highAreaChunkSpanY); 
 #if 0
-		DEBUG_OVERLAY_TRACE(camera->targetWorldPos.chunkX);
-		DEBUG_OVERLAY_TRACE(camera->targetWorldPos.chunkY);
-		DEBUG_OVERLAY_TRACE(camera->targetWorldPos.offset.x);
-		DEBUG_OVERLAY_TRACE(camera->targetWorldPos.offset.y);
+			DEBUG_OVERLAY_TRACE(camera->targetWorldPos.chunkX);
+			DEBUG_OVERLAY_TRACE(camera->targetWorldPos.chunkY);
+			DEBUG_OVERLAY_TRACE(camera->targetWorldPos.offset.x);
+			DEBUG_OVERLAY_TRACE(camera->targetWorldPos.offset.y);
 #endif
 
-		for (u32 i = 0; i < world->highChunkCount;)
-		{
-			Chunk* chunk = world->highChunks[i];
-			if ((chunk->coordX < minChunkX) ||
-				(chunk->coordX > maxChunkX) ||
-				(chunk->coordY < minChunkY) ||
-				(chunk->coordY > maxChunkY))
+			for (u32 i = 0; i < world->highChunkCount;)
 			{
-				SetChunkToLow(world, chunk);
-			}
-			else
-			{
-				i++;
-			}
-		}
-
-		
-		for (i32 chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
-		{
-			for (i32 chunkX = minChunkX; chunkX <= maxChunkX; chunkX++)
-			{
-				Chunk* chunk = GetChunk(world, chunkX, chunkY);
-				if (chunk)
+				Chunk* chunk = world->highChunks[i];
+				if ((chunk->coordX < minChunkX) ||
+					(chunk->coordX > maxChunkX) ||
+					(chunk->coordY < minChunkY) ||
+					(chunk->coordY > maxChunkY))
 				{
-					if (!(chunk->high)) 
-					{
-						SetChunkToHigh(world, chunk, camera->targetWorldPos);
-					}
-				}
-			}
-		}
-
-		v2 minLine = WorldPosDiff(world, {minChunkX, minChunkY, 0, 0},
-								  camera->targetWorldPos).xy;
-
-		v2 maxLine = WorldPosDiff(world,
-								  {maxChunkX, maxChunkY,
-									  world->chunkSizeUnits, world->chunkSizeUnits},
-								  camera->targetWorldPos).xy;
-
-		DrawAlignedBoxOutline(gameState->renderGroup, assetManager,
-							  V3(minLine.x, 3.0f, minLine.y) * world->unitsToRaw,
-							  V3(maxLine.x, 10.0f, maxLine.y) * world->unitsToRaw,
-							  V3(0.8, 0.0, 0.0), 2.0f);
-
-		DEBUG_OVERLAY_TRACE(world->lowEntityCount);
-		DEBUG_OVERLAY_TRACE(world->highEntityCount);
-	}
-
-	inline bool
-	KeyJustPressed(KeyCode key)
-	{
-		bool result = GlobalInput.keys[key].pressedNow &&
-		!GlobalInput.keys[key].wasPressed;
-		return result;
-	}
-	
-	void Render(MemoryArena* arena,
-				MemoryArena* tempArena,
-				GameState* gameState,
-				AssetManager* assetManager,
-				Renderer* renderer)
-	{
-		DEBUG_OVERLAY_TRACE(gameState->stringEnd);
-		DEBUG_OVERLAY_TRACE(gameState->stringAt);
-		if (KeyJustPressed(KEY_LEFT))
-		{
-			if (gameState->stringAt > 0)
-			{
-				gameState->stringAt--;
-			}
-		}
-
-		if (KeyJustPressed(KEY_RIGHT))
-		{
-			if (gameState->stringAt < gameState->stringEnd)
-			{
-				gameState->stringAt++;
-				AB_ASSERT(gameState->stringAt <= (STRING_SIZE));
-			}
-		}
-
-		for (u32 i = 0; i < GlobalInput.textBufferCount; i++)
-		{			
-			char c = GlobalInput.textBuffer[i];
-			if (c == '\b')
-			{
-				if (gameState->stringAt > 0 &&
-					gameState->stringEnd > 0)
-				{
-					gameState->stringAt--;
-					for (u32 i = gameState->stringAt;
-						 i < gameState->stringEnd;
-						 i++)
-					{
-						gameState->string[i] = gameState->string[i + 1];
-					}
-					gameState->string[gameState->stringEnd - 1] = '\0';
-					gameState->stringEnd--;
-				}
-			}
-			else
-			{
-				if (gameState->stringEnd < STRING_SIZE - 1 &&
-					gameState->stringAt < STRING_SIZE - 1)
-				{
-					if (gameState->string[gameState->stringAt] != '\0')
-					{
-						if (gameState->stringEnd < STRING_SIZE - 1)
-						{
-							for (u32 i = gameState->stringEnd + 1;
-								 i > gameState->stringAt;
-								 i--)
-							{
-								gameState->string[i] = gameState->string[i - 1];
-							}
-							
-						}
-					}
-
-					gameState->string[gameState->stringAt] = c;
-					gameState->stringAt++;
-					gameState->stringEnd++;
-				}
-			}
-		}
-		
-		DEBUG_OVERLAY_STRING(gameState->string);
-		DEBUG_OVERLAY_SLIDER(g_Platform->gameSpeed, 0.0f, 10.0f);
-		World* world = gameState->world;
-		Camera* camera = &gameState->camera;
-
-		DEBUG_OVERLAY_TRACE(world->nonResidentEntityBlocksCount);
-		DEBUG_OVERLAY_TRACE(world->freeEntityBlockCount);
-		//DEBUG_OVERLAY_TRACE_VAR(gameState->selectedEntity);
-		{
-
-			MoveCamera(gameState, camera, world, assetManager, arena);
-			//UpdateGizmos(gameState, arena);
-			for (u32 index = 1; index < world->highEntityCount; index++)
-			{
-				Entity entity = GetEntityFromHighIndex(world, index);
-
-				if (entity.low->type == ENTITY_TYPE_BODY)
-				{
-					DoEntityPhysicalMovement(world, entity.high , V2(0.0f),
-											 camera, arena);
-				}
-				
-				DrawEntity(gameState, assetManager, entity, false);
-
-			}
-		}
-
-		//DEBUG_OVERLAY_TRACE(gameState->selectedTile.chunkX);
-		//DEBUG_OVERLAY_TRACE(gameState->selectedTile.chunkY);
-		//DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileX);
-		//DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileX);
-
-		if (GlobalInput.keys[KEY_T].pressedNow &&
-			!GlobalInput.keys[KEY_T].wasPressed)
-		{
-			if (gameState->selectionMode == SELECTION_MODE_ENTITY)
-			{
-				gameState->selectionMode = SELECTION_MODE_TILEMAP;
-			}
-			else if (gameState->selectionMode == SELECTION_MODE_TILEMAP)
-			{
-				gameState->selectionMode = SELECTION_MODE_ENTITY;				
-			}
-			gameState->selectedEntity = nullptr;
-			gameState->selectedTile = InvalidTileWorldPos();
-		}
-
-		if (gameState->selectionEnabled)
-		{
-			if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow &&
-				!GlobalInput.mouseButtons[MBUTTON_LEFT].wasPressed)
-			{
-				if (gameState->selectionMode == SELECTION_MODE_ENTITY)
-				{
-					u32 hitIndex = RaycastFromCursor(camera, world);
-					// TODO: IMPORTANT: Check if entity is high.
-					// Only high entities can be selected
-
-					gameState->selectedEntity = GetLowEntity(world, hitIndex);
-					gameState->selectedTile = InvalidTileWorldPos();
-				}
-				else if (gameState->selectionMode == SELECTION_MODE_TILEMAP)
-				{
-					auto[hit, tMin, pos] = TilemapRaycast(world, camera,
-														  camera->posWorld,
-														  camera->mouseRayWorld);
-					gameState->selectedTile = pos;
-					gameState->selectedEntity = nullptr;
+					SetChunkToLow(world, chunk);
 				}
 				else
 				{
-					INVALID_CODE_PATH();
+					i++;
 				}
 			}
 
-			if (gameState->selectedEntity)
+		
+			for (i32 chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
 			{
-				if (GlobalInput.mouseButtons[MBUTTON_MIDDLE].pressedNow &&
-					!GlobalInput.mouseButtons[MBUTTON_MIDDLE].wasPressed)
+			for (i32 chunkX = minChunkX; chunkX <= maxChunkX; chunkX++)
+			{
+			Chunk* chunk = GetChunk(world, chunkX, chunkY);
+			if (chunk)
+			{
+				if (!(chunk->high)) 
 				{
-					if (GetLowEntity(world, RaycastFromCursor(camera, world)) ==
-						gameState->selectedEntity)
+					SetChunkToHigh(world, chunk, camera->targetWorldPos);
+				}
+			}
+			}
+			}
+
+			v2 minLine = WorldPosDiff(world, {minChunkX, minChunkY, 0, 0},
+									  camera->targetWorldPos).xy;
+
+			v2 maxLine = WorldPosDiff(world,
+		{maxChunkX, maxChunkY,
+				world->chunkSizeUnits, world->chunkSizeUnits},
+									  camera->targetWorldPos).xy;
+
+			DrawAlignedBoxOutline(gameState->renderGroup, assetManager,
+								  V3(minLine.x, 3.0f, minLine.y) * world->unitsToRaw,
+								  V3(maxLine.x, 10.0f, maxLine.y) * world->unitsToRaw,
+								  V3(0.8, 0.0, 0.0), 2.0f);
+
+			DEBUG_OVERLAY_TRACE(world->lowEntityCount);
+			DEBUG_OVERLAY_TRACE(world->highEntityCount);
+			}
+
+		inline bool
+			KeyJustPressed(KeyCode key)
+		{
+			bool result = GlobalInput.keys[key].pressedNow &&
+				!GlobalInput.keys[key].wasPressed;
+			return result;
+		}
+	
+		void Render(MemoryArena* arena,
+					MemoryArena* tempArena,
+					GameState* gameState,
+					AssetManager* assetManager,
+					Renderer* renderer)
+		{
+			DEBUG_OVERLAY_TRACE(gameState->stringEnd);
+			DEBUG_OVERLAY_TRACE(gameState->stringAt);
+			if (KeyJustPressed(KEY_LEFT))
+			{
+				if (gameState->stringAt > 0)
+				{
+					gameState->stringAt--;
+				}
+			}
+
+			if (KeyJustPressed(KEY_RIGHT))
+			{
+				if (gameState->stringAt < gameState->stringEnd)
+				{
+					gameState->stringAt++;
+					AB_ASSERT(gameState->stringAt <= (STRING_SIZE));
+				}
+			}
+
+			for (u32 i = 0; i < GlobalInput.textBufferCount; i++)
+			{			
+				char c = GlobalInput.textBuffer[i];
+				if (c == '\b')
+				{
+					if (gameState->stringAt > 0 &&
+						gameState->stringEnd > 0)
 					{
-						if (GlobalInput.keys[KEY_X].pressedNow)
+						gameState->stringAt--;
+						for (u32 i = gameState->stringAt;
+							 i < gameState->stringEnd;
+							 i++)
 						{
-							gameState->dragAxis = MOUSE_DRAG_AXIS_X;
+							gameState->string[i] = gameState->string[i + 1];
 						}
-						if (GlobalInput.keys[KEY_Y].pressedNow)
+						gameState->string[gameState->stringEnd - 1] = '\0';
+						gameState->stringEnd--;
+					}
+				}
+				else
+				{
+					if (gameState->stringEnd < STRING_SIZE - 1 &&
+						gameState->stringAt < STRING_SIZE - 1)
+					{
+						if (gameState->string[gameState->stringAt] != '\0')
 						{
-							gameState->dragAxis = MOUSE_DRAG_AXIS_Y;
+							if (gameState->stringEnd < STRING_SIZE - 1)
+							{
+								for (u32 i = gameState->stringEnd + 1;
+									 i > gameState->stringAt;
+									 i--)
+								{
+									gameState->string[i] = gameState->string[i - 1];
+								}
+							
+							}
 						}
-						if (GlobalInput.keys[KEY_Z].pressedNow)
+
+						gameState->string[gameState->stringAt] = c;
+						gameState->stringAt++;
+						gameState->stringEnd++;
+					}
+				}
+			}
+		
+			DEBUG_OVERLAY_STRING(gameState->string);
+			DEBUG_OVERLAY_SLIDER(g_Platform->gameSpeed, 0.0f, 10.0f);
+			World* world = gameState->world;
+			Camera* camera = &gameState->camera;
+
+			DEBUG_OVERLAY_TRACE(world->nonResidentEntityBlocksCount);
+			DEBUG_OVERLAY_TRACE(world->freeEntityBlockCount);
+			//DEBUG_OVERLAY_TRACE_VAR(gameState->selectedEntity);
+			{
+
+				MoveCamera(gameState, camera, world, assetManager, arena);
+				//UpdateGizmos(gameState, arena);
+				for (u32 index = 1; index < world->highEntityCount; index++)
+				{
+					Entity entity = GetEntityFromHighIndex(world, index);
+
+					if (entity.low->type == ENTITY_TYPE_BODY)
+					{
+						DoEntityPhysicalMovement(world, entity.high , V2(0.0f),
+												 camera, arena);
+					}
+				
+					DrawEntity(gameState, assetManager, entity, false);
+
+				}
+			}
+
+			//DEBUG_OVERLAY_TRACE(gameState->selectedTile.chunkX);
+			//DEBUG_OVERLAY_TRACE(gameState->selectedTile.chunkY);
+			//DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileX);
+			//DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileX);
+
+			if (GlobalInput.keys[KEY_T].pressedNow &&
+				!GlobalInput.keys[KEY_T].wasPressed)
+			{
+				if (gameState->selectionMode == SELECTION_MODE_ENTITY)
+				{
+					gameState->selectionMode = SELECTION_MODE_TILEMAP;
+				}
+				else if (gameState->selectionMode == SELECTION_MODE_TILEMAP)
+				{
+					gameState->selectionMode = SELECTION_MODE_ENTITY;				
+				}
+				gameState->selectedEntity = nullptr;
+				gameState->selectedTile = InvalidTileWorldPos();
+			}
+
+			if (gameState->selectionEnabled)
+			{
+				if (GlobalInput.mouseButtons[MBUTTON_LEFT].pressedNow &&
+					!GlobalInput.mouseButtons[MBUTTON_LEFT].wasPressed)
+				{
+					if (gameState->selectionMode == SELECTION_MODE_ENTITY)
+					{
+						u32 hitIndex = RaycastFromCursor(camera, world);
+						// TODO: IMPORTANT: Check if entity is high.
+						// Only high entities can be selected
+
+						gameState->selectedEntity = GetLowEntity(world, hitIndex);
+						gameState->selectedTile = InvalidTileWorldPos();
+					}
+					else if (gameState->selectionMode == SELECTION_MODE_TILEMAP)
+					{
+						auto[hit, tMin, pos] = TilemapRaycast(world, camera,
+															  camera->posWorld,
+															  camera->mouseRayWorld);
+						gameState->selectedTile = hit ? pos : InvalidTileWorldPos();
+						gameState->selectedEntity = nullptr;
+					}
+					else
+					{
+						INVALID_CODE_PATH();
+					}
+				}
+
+				if (gameState->selectedEntity)
+				{
+					if (GlobalInput.mouseButtons[MBUTTON_MIDDLE].pressedNow &&
+						!GlobalInput.mouseButtons[MBUTTON_MIDDLE].wasPressed)
+					{
+						if (GetLowEntity(world, RaycastFromCursor(camera, world)) ==
+							gameState->selectedEntity)
 						{
+							if (GlobalInput.keys[KEY_X].pressedNow)
+							{
+								gameState->dragAxis = MOUSE_DRAG_AXIS_X;
+							}
+							if (GlobalInput.keys[KEY_Y].pressedNow)
+							{
+								gameState->dragAxis = MOUSE_DRAG_AXIS_Y;
+							}
+							if (GlobalInput.keys[KEY_Z].pressedNow)
+							{
 							gameState->dragAxis = MOUSE_DRAG_AXIS_Z;
 						}
 
@@ -897,6 +936,10 @@ namespace AB
 													  gameState->selectedTile.tileY,
 													  gameState->selectedTile.tileZ);
 				DEBUG_OVERLAY_PUSH_SLIDER("Tile type", (u32*)(&tile.type), 0, 3);
+
+				SetTerrainTile(chunk, gameState->selectedTile.tileX,
+							   gameState->selectedTile.tileY,
+							   gameState->selectedTile.tileZ, &tile);
 			}
 		}
 	
@@ -992,6 +1035,8 @@ namespace AB
 		MesherUpdateChunks(world->chunkMesher, world, tempArena);
 		MesherDrawChunks(world->chunkMesher, world, camera,
 						 gameState->renderGroup, assetManager);
+		DrawBlockHighlight(gameState->renderGroup, assetManager, world, camera,
+						   gameState->selectedTile);
 
 #endif
 
