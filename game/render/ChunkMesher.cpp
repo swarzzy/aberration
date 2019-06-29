@@ -49,6 +49,7 @@ namespace AB
 					mesher->vertexBuffers[i] =
 						mesher->vertexBuffers[mesher->chunkCount - 1];
 					mesher->vertexBuffers[mesher->chunkCount - 1] = vbHandle;
+					mesher->vertexCounts[i] = mesher->vertexCounts[mesher->chunkCount - 1];
 					mesher->chunkCount--;
 				}
 				chunk->dirty = true;
@@ -62,20 +63,20 @@ namespace AB
 	void MesherUpdateChunks(ChunkMesher* mesher, World* world,
 							MemoryArena* tempArena)
 	{
+		BeginTemporaryMemory(tempArena);
 		for (u32 i = 0; i < mesher->chunkCount; i++)
 		{
 			Chunk* chunk = mesher->chunks[i];
 			GLuint handle = mesher->vertexBuffers[i];
 			if (chunk->dirty)
 			{
-				BeginTemporaryMemory(tempArena);
 				ChunkMesh mesh = MakeChunkMesh(world, chunk, tempArena);
 				mesher->vertexCounts[i] = mesh.vertexCount;
 				UploadChunkMeshToGPU(handle, &mesh);
 				chunk->dirty = false;
-				EndTemporaryMemory(tempArena);
 			}
 		}
+		EndTemporaryMemory(tempArena);
 	}
 
 	void MesherDrawChunks(ChunkMesher* mesher, World* world, Camera* camera,
@@ -110,8 +111,6 @@ namespace AB
 	{
 		if (!mesh->head)
 		{
-			// TODO: Clear to zero
-			// if Push size doesn't
 			mesh->head =
 				(ChunkMeshVertexBlock*)PushSize(arena, sizeof(ChunkMeshVertexBlock), 0);
 			SetZeroScalar(ChunkMeshVertexBlock, mesh->head);
@@ -185,12 +184,13 @@ namespace AB
 			{
 				for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 				{
+#if 1
 					u32 tileXMinusOne = tileX ? tileX - 1 : INVALID_TILE_COORD;
 					u32 tileYMinusOne = tileY ? tileY - 1 : INVALID_TILE_COORD;
 					u32 tileZMinusOne = tileZ ? tileZ - 1 : INVALID_TILE_COORD;
-					u32 tileXPlusOne = tileX < (WORLD_CHUNK_DIM_TILES - 1) ? tileX + 1 : INVALID_TILE_COORD;
-					u32 tileYPlusOne = tileY < (WORLD_CHUNK_DIM_TILES - 1) ? tileY + 1 : INVALID_TILE_COORD;
-					u32 tileZPlusOne = tileZ < (WORLD_CHUNK_DIM_TILES - 1) ? tileZ + 1 : INVALID_TILE_COORD;
+					u32 tileXPlusOne = (tileX < (WORLD_CHUNK_DIM_TILES - 1)) ? tileX + 1 : INVALID_TILE_COORD;
+					u32 tileYPlusOne = (tileY < (WORLD_CHUNK_DIM_TILES - 1)) ? tileY + 1 : INVALID_TILE_COORD;
+					u32 tileZPlusOne = (tileZ < (WORLD_CHUNK_DIM_TILES - 1)) ? tileZ + 1 : INVALID_TILE_COORD;
 					TerrainTileData testTile =
 						GetTerrainTile(chunk, tileX, tileY, tileZ);
 					TerrainTileData upTile =
@@ -253,7 +253,28 @@ namespace AB
 							PushChunkMeshQuad(&mesh, tempArena, vtx0, vtx1, vtx5, vtx4, type);
 						}
 					}
-#if 0
+#else
+					u32 tileXMinusOne = tileX ? tileX - 1 : INVALID_TILE_COORD;
+					u32 tileYMinusOne = tileY ? tileY - 1 : INVALID_TILE_COORD;
+					u32 tileZMinusOne = tileZ ? tileZ - 1 : INVALID_TILE_COORD;
+					u32 tileXPlusOne = tileX < (WORLD_CHUNK_DIM_TILES - 1) ? tileX + 1 : INVALID_TILE_COORD;
+					u32 tileYPlusOne = tileY < (WORLD_CHUNK_DIM_TILES - 1) ? tileY + 1 : INVALID_TILE_COORD;
+					u32 tileZPlusOne = tileZ < (WORLD_CHUNK_DIM_TILES - 1) ? tileZ + 1 : INVALID_TILE_COORD;
+					TerrainTileData testTile =
+											   GetTerrainTile(chunk, tileX, tileY, tileZ);
+					TerrainTileData upTile =
+											   GetTerrainTile(chunk, tileX, tileY, tileZPlusOne);
+					TerrainTileData dnTile =
+											   GetTerrainTile(chunk, tileX, tileY, tileZMinusOne);
+					TerrainTileData lTile =
+											   GetTerrainTile(chunk, tileXMinusOne, tileY, tileZ);
+					TerrainTileData rTile =
+											   GetTerrainTile(chunk, tileXPlusOne, tileY, tileZ);
+					TerrainTileData fTile =
+											   GetTerrainTile(chunk, tileX, tileYPlusOne, tileZ);
+					TerrainTileData bTile =
+											   GetTerrainTile(chunk, tileX, tileYMinusOne, tileZ);
+
 					bool occluded = NotEmpty(&upTile) &&
 						NotEmpty(&dnTile) &&
 						NotEmpty(&lTile) &&

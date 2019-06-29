@@ -116,6 +116,7 @@ out_FragColor = v4(pow(mappedColor, 1.0f / v3(u_Gamma)), 1.0f);
 		i32 lineShaderHandle;
 		u32 lineVBHandle;
 		i32 chunkShader;
+		u32 chunkIndexBuffer;
 		u32 terrainTexArray;
 	};
 	// NOTE: Does not setting temp arena point and does not flushes at the end.
@@ -556,6 +557,8 @@ out vec4 out_FragColor;
 			renderer->impl->chunkShader =
 				RendererCreateProgram(tempArena, (const char*)chunkVertSrc,
 									  (const char*)chunkFragSrc);
+		}
+		{
 
 			Image bitmap = LoadBMP(tempArena, "../assets/grass_tile.bmp", TEX_COLOR_SPACE_SRGB);
 			AB_ASSERT(bitmap.bitmap);
@@ -587,6 +590,20 @@ out vec4 out_FragColor;
 			glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
 			AB_ASSERT(terrainTexArray);
 			renderer->impl->terrainTexArray = terrainTexArray;
+		}
+		{
+#if 0
+			GLuint chunkIBO;
+			uptr size = WORLD_CHUNK_DIM_TILES *	WORLD_CHUNK_DIM_TILES *
+				WORLD_CHUNK_DIM_TILES * 24 * sizeof(u32) / 2 + 1;
+				
+			GLCall(glCreateBuffers(1, &chunkIBO));
+			GLCall(glNamedBufferData(chunkIBO, size, 0, GL_STATIC_DRAW));
+			void* buffer = nullptr;
+			GLCall(buffer = glMapNamedBuffer(chunkIBO, GL_READ_WRITE));
+
+			GLCall(glUnmapNamedBuffer(chunkIBO));
+#endif
 		}
 		
 		u32 dbgInsVBO = 0;
