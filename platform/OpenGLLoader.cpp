@@ -371,7 +371,11 @@ namespace AB
 		"glGetUniformSubroutineuiv",
 		"glGetProgramStageiv",
 
-		"glTexStorage3D"
+		"glTexStorage3D",
+		"glCreateBuffers",
+		"glNamedBufferData",
+		"glMapNamedBuffer",
+		"glUnmapNamedBuffer"
 	};
 
 #if defined(AB_PLATFORM_WINDOWS)

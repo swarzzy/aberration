@@ -127,7 +127,7 @@ namespace AB
 	struct RenderCommandDrawChunk
 	{
 		u32 vboHandle;
-		u32 numVertices;
+		u32 quadCount;
 		m4x4 worldMatrix;
 	};
 

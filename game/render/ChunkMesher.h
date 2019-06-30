@@ -10,7 +10,7 @@ namespace AB
 		// TODO: Fux vertex buffers
 		u32 chunkCount;
 		GLuint vertexBuffers[CHUNK_MESHER_MAX_CHUNKS];
-		u32 vertexCounts[CHUNK_MESHER_MAX_CHUNKS];
+		u32 quadCounts[CHUNK_MESHER_MAX_CHUNKS];
 		Chunk* chunks[CHUNK_MESHER_MAX_CHUNKS];
 	};
 
@@ -29,7 +29,7 @@ namespace AB
 
 	struct ChunkMesh
 	{
-		u32 vertexCount;
+		u32 quadCount;
 		u32 blockCount;
 		ChunkMeshVertexBlock* head;
 		ChunkMeshVertexBlock* tail;	

@@ -51,6 +51,8 @@ typedef byte				b8;
 #define AB_INT32_MIN 	(-(i32)(2147483648))
 #define AB_INT32_MAX 	((i32)(2147483647))
 
+#define AB_OFFSETOF(type, member) ((uptr)((byte *)&((type *)0)->member - (byte *)0))
+
 //#define restrict __restrict
 
 #if defined(AB_PLATFORM_WINDOWS)

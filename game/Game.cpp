@@ -127,6 +127,10 @@ namespace AB
 #define glTexStorage3D GL_FUNCTION(glTexStorage3D)
 #define glGenerateMipmap GL_FUNCTION(glGenerateMipmap)
 #define glTexParameterf GL_FUNCTION(glTexParameterf)
+#define glCreateBuffers GL_FUNCTION(glCreateBuffers)
+#define glNamedBufferData GL_FUNCTION(glNamedBufferData)
+#define glMapNamedBuffer GL_FUNCTION(glMapNamedBuffer)
+#define glUnmapNamedBuffer GL_FUNCTION(glUnmapNamedBuffer)
 		
 	static constexpr u32 OPENGL_LOG_BUFFER_SIZE = 256;
 	static char g_OpenGLLogBuffer[OPENGL_LOG_BUFFER_SIZE];

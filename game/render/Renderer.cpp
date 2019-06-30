@@ -592,17 +592,32 @@ out vec4 out_FragColor;
 			renderer->impl->terrainTexArray = terrainTexArray;
 		}
 		{
-#if 0
+#if 1
 			GLuint chunkIBO;
-			uptr size = WORLD_CHUNK_DIM_TILES *	WORLD_CHUNK_DIM_TILES *
-				WORLD_CHUNK_DIM_TILES * 24 * sizeof(u32) / 2 + 1;
+			u32 indexCount = RENDERER_MAX_CHUNK_QUADS * RENDERER_INDICES_PER_CHUNK_QUAD;
+			AB_ASSERT(indexCount % RENDERER_INDICES_PER_CHUNK_QUAD == 0);
+			uptr size = indexCount * sizeof(u32);
 				
 			GLCall(glCreateBuffers(1, &chunkIBO));
 			GLCall(glNamedBufferData(chunkIBO, size, 0, GL_STATIC_DRAW));
-			void* buffer = nullptr;
-			GLCall(buffer = glMapNamedBuffer(chunkIBO, GL_READ_WRITE));
+			u32* buffer = nullptr;
+			GLCall(buffer = (u32*)glMapNamedBuffer(chunkIBO, GL_READ_WRITE));
+
+			u32 k = 0;
+			for (u32 i = 0; i < indexCount; i += RENDERER_INDICES_PER_CHUNK_QUAD)
+			{
+				AB_ASSERT(i < indexCount);
+				buffer[i] = k + 2;
+				buffer[i + 1] = k + 1;
+				buffer[i + 2] = k;
+				buffer[i + 3] = k;
+				buffer[i + 4] = k + 3;
+				buffer[i + 5] = k + 2;
+				k += 4;
+			}
 
 			GLCall(glUnmapNamedBuffer(chunkIBO));
+			renderer->impl->chunkIndexBuffer = chunkIBO;
 #endif
 		}
 		
@@ -1083,7 +1098,10 @@ out vec4 out_FragColor;
 				auto dcData = (RenderCommandDrawChunk*)(renderGroup->renderBuffer +
 														command->rbOffset);
 
+				AB_ASSERT(dcData->quadCount <= RENDERER_MAX_CHUNK_QUADS);
 				GLCall(glBindBuffer(GL_ARRAY_BUFFER, dcData->vboHandle));
+				GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
+									renderer->impl->chunkIndexBuffer));
 
 				GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
 											 (sizeof(v3) * 2 + sizeof(byte)),
@@ -1178,8 +1196,9 @@ out vec4 out_FragColor;
 														"normalMatrix"); 
 				GLCall(glUniformMatrix4fv(normalLoc, 1, GL_FALSE,
 										  normalMatrix.data));
+				GLsizei numIndices = dcData->quadCount * RENDERER_INDICES_PER_CHUNK_QUAD;
 
-				GLCall(glDrawArrays(GL_TRIANGLES, 0, dcData->numVertices));
+				GLCall(glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_INT, 0));
 			}
 			else
 			{

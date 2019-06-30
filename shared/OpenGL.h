@@ -1470,6 +1470,12 @@ typedef void            (APIENTRYP PFNGLVERTEXATTRIBP4UIVPROC) (GLuint index, GL
 // OpenGL 4.2
 typedef void (APIENTRYP PFNGLTEXSTORAGE3DPROC) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth);
 
+// OpenGL 4.5
+typedef void (APIENTRYP PFNGLCREATEBUFFERSPROC) (GLsizei n, GLuint *buffers);
+typedef void (APIENTRYP PFNGLNAMEDBUFFERDATAPROC) (GLuint buffer, GLsizeiptr size, const void *data, GLenum usage);
+typedef void* (APIENTRYP PFNGLMAPNAMEDBUFFERPROC) (GLuint buffer, GLenum access);
+typedef GLboolean (APIENTRYP PFNGLUNMAPNAMEDBUFFERPROC) (GLuint buffer);
+
 // GL_ARB_gpu_shader5 extension
 #define GEOMETRY_SHADER_INVOCATIONS                      0x887F
 #define MAX_GEOMETRY_SHADER_INVOCATIONS                  0x8E5A
@@ -1502,7 +1508,7 @@ typedef GLvoid (APIENTRYP PFNGLGETUNIFORMSUBROUTINEUIVPROC) (GLenum shadertype, 
 typedef GLvoid (APIENTRYP PFNGLGETPROGRAMSTAGEIVPROC) (GLuint program, GLenum shadertype, GLenum pname, GLint *values);
 
 
-#define AB_OPENGL_FUNCTIONS_COUNT (345 + 8 + 1)
+#define AB_OPENGL_FUNCTIONS_COUNT (345 + 8 + 5)
 
 namespace AB
 {
@@ -1879,7 +1885,11 @@ namespace AB
 
 			// 4.2
 			PFNGLTEXSTORAGE3DPROC                           _glTexStorage3D;
-			
+			// 4.5
+			PFNGLCREATEBUFFERSPROC                          _glCreateBuffers;
+			PFNGLNAMEDBUFFERDATAPROC                        _glNamedBufferData;
+			PFNGLMAPNAMEDBUFFERPROC                         _glMapNamedBuffer;
+			PFNGLUNMAPNAMEDBUFFERPROC                       _glUnmapNamedBuffer;
 		};
 	};
 }

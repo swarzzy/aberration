@@ -4,15 +4,18 @@
 #include "../ExtendedMath.h"
 #include "RenderGroup.h"
 //#include "../GraphicsPipeline.h"
+#include "World.h"
 
 namespace AB::API
 {
 	struct Pipeline;
 }
 
-namespace AB {
-
-	const Rectangle TERRAIN_TILE_GRASS_UV = {{0.0f, 0.0f}, {255.0f / 1024.0f, 255.0f / 1024.0f}};
+namespace AB
+{
+	const u32 RENDERER_MAX_CHUNK_QUADS =
+		WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES * 4 / 2;
+	const u32 RENDERER_INDICES_PER_CHUNK_QUAD = 6;
 
 	struct RenderCC
 	{
