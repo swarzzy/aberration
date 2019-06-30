@@ -18,22 +18,19 @@ namespace AB
 		{
 			v3 offset = V3(0.0f);
 			Chunk* chunk = GetChunk(world, pos.chunkX, pos.chunkY);
-			offset.x = (chunk->coordX - camera->targetWorldPos.chunkX) * world->chunkSizeUnits;
+			offset.x = (chunk->coordX - camera->targetWorldPos.chunkX) * WORLD_CHUNK_SIZE;
 			offset.x -= camera->targetWorldPos.offset.x;
-			offset.x += pos.tileX * world->tileSizeInUnits;
-			offset.y = (chunk->coordY - camera->targetWorldPos.chunkY) * world->chunkSizeUnits;
+			offset.x += pos.tileX * WORLD_TILE_SIZE;
+			offset.y = (chunk->coordY - camera->targetWorldPos.chunkY) * WORLD_CHUNK_SIZE;
 			offset.y -= camera->targetWorldPos.offset.y;
-			offset.y += pos.tileY * world->tileSizeInUnits;
-			offset.z = pos.tileZ * world->tileSizeInUnits;
-			offset.z -= WORLD_CHUNK_DIM_TILES * world->tileSizeInUnits;
+			offset.y += pos.tileY * WORLD_TILE_SIZE;
+			offset.z = pos.tileZ * WORLD_TILE_SIZE;
+			offset.z -= WORLD_CHUNK_DIM_TILES * WORLD_TILE_SIZE;
 			offset = FlipYZ(offset);
 
 			v3 min = offset;
-			v3 max = offset + V3(world->tileSizeInUnits);
+			v3 max = offset + V3(WORLD_TILE_SIZE);
 
-			min *= world->unitsToRaw;
-			max *= world->unitsToRaw;
-			
 			DrawAlignedBoxOutline(renderGroup, assetManager,
 								  min, max, V3(1.0f, 0.0f, 0.0f), 1.0f);
 		}
@@ -301,18 +298,18 @@ namespace AB
 	DrawEntity(GameState* gameState, AssetManager* assetManager,
 			   Entity entity, bool drawBBox = false)
 	{
-		v3 camRelPos = GetCamRelPos(gameState->world, entity.low->worldPos,
+		v3 camRelPos = GetCamRelPos(entity.low->worldPos,
 									gameState->camera.targetWorldPos);
 		v3 pos = V3(0.0f);
-		pos.x = camRelPos.x * gameState->world->unitsToRaw;
-		pos.z = camRelPos.y * gameState->world->unitsToRaw;
+		pos.x = camRelPos.x;
+		pos.z = camRelPos.y;
 
 		v3 scale = V3(0.0f);
-		scale.x = gameState->world->unitsToRaw  * entity.low->size;
-		scale.z = gameState->world->unitsToRaw  * entity.low->size;
-		scale.y = gameState->world->unitsToRaw  * entity.low->size;
+		scale.x = entity.low->size;
+		scale.z = entity.low->size;
+		scale.y = entity.low->size;
 		// TODO: Mesh aligment, tilemap footprints n' stuff
-		pos.y = camRelPos.z * gameState->world->unitsToRaw;
+		pos.y = camRelPos.z;
 
 		//pos.x -= scale.x * 0.5f;
 		//pos.z -= scale.z * 0.5f;
@@ -330,10 +327,8 @@ namespace AB
 			if (drawBBox || selected)
 			{
 				v3 worldPos = FlipYZ(entity.high->pos);
-				worldPos *= gameState->world->unitsToRaw;
-				f32 rawSize = entity.low->size * gameState->world->unitsToRaw;
-				v3 min = mesh->aabb.min * rawSize + worldPos;
-				v3 max = mesh->aabb.max * rawSize + worldPos;
+				v3 min = mesh->aabb.min * entity.low->size + worldPos;
+				v3 max = mesh->aabb.max * entity.low->size + worldPos;
 
 				DrawAlignedBoxOutline(gameState->renderGroup, assetManager,
 									  min,
@@ -344,9 +339,9 @@ namespace AB
 		}
 		if (selected)
 		{
-			scale.x = gameState->world->unitsToRaw  * 1.0f;
-			scale.z = gameState->world->unitsToRaw  * 1.0f;
-			scale.y = gameState->world->unitsToRaw  * 1.0f;
+			scale.x = 1.0f;
+			scale.z = 1.0f;
+			scale.y = 1.0f;
 
 			DrawDebugMesh(gameState->renderGroup, assetManager, pos,
 						  scale,
@@ -378,13 +373,13 @@ namespace AB
 			// Needs to be rapaced with robust code.
 			WorldPosition beginPos = resultPos;
 			WorldPosition desiredPosP =
-				OffsetWorldPos(world, beginPos, V3(delta + colliderSize, 0.0f));
+				OffsetWorldPos(beginPos, V3(delta + colliderSize, 0.0f));
 
 			WorldPosition desiredPosN =
-				OffsetWorldPos(world, beginPos, V3(delta - colliderSize, 0.0f));
+				OffsetWorldPos(beginPos, V3(delta - colliderSize, 0.0f));
 
 			WorldPosition desiredPosC =
-				OffsetWorldPos(world, beginPos, V3(delta, 0.0f));
+				OffsetWorldPos(beginPos, V3(delta, 0.0f));
 
 
 			i32 minChunkX = MINIMUM(beginPos.chunkX,
@@ -399,7 +394,7 @@ namespace AB
 			i32 maxChunkY = MAXIMUM(beginPos.chunkY,
 									MAXIMUM(desiredPosP.chunkY,
 											desiredPosN.chunkY));
-			if (desiredPosC.offset.x > world->chunkSizeUnits / 2.0f)
+			if (desiredPosC.offset.x > WORLD_CHUNK_SIZE / 2.0f)
 			{
 				maxChunkX++;
 			}
@@ -408,7 +403,7 @@ namespace AB
 				minChunkX--;
 			}
 
-			if (desiredPosC.offset.y > world->chunkSizeUnits / 2.0f)
+			if (desiredPosC.offset.y > WORLD_CHUNK_SIZE / 2.0f)
 			{
 				maxChunkY++;
 			}
@@ -422,7 +417,7 @@ namespace AB
 			f32 tMin = 1.0f;
 			u32 hitEntityIndex = 0;
 			WorldPosition targetPosition =
-				OffsetWorldPos(world, resultPos, V3(delta, 0.0f));
+				OffsetWorldPos(resultPos, V3(delta, 0.0f));
 
 			for (i32 chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
 			{
@@ -446,8 +441,7 @@ namespace AB
 							
 								if (entity != testEntity)
 								{
-									v2 relOldPos = WorldPosDiff(world,
-																resultPos,
+									v2 relOldPos = WorldPosDiff(resultPos,
 																testEntity->worldPos).xy;
 									// TODO: Using aabb's and stuff
 									v2 minCorner = -0.5f * V2(testEntity->size);
@@ -499,11 +493,11 @@ namespace AB
 				}
 			}
 			
-			resultPos = OffsetWorldPos(world, resultPos, V3(delta * tMin, 0.0f));
+			resultPos = OffsetWorldPos(resultPos, V3(delta * tMin, 0.0f));
 			
 			if (hitEntityIndex)
 			{
-				delta = WorldPosDiff(world, targetPosition, resultPos).xy;
+				delta = WorldPosDiff(targetPosition, resultPos).xy;
 				entity->velocity -=
 					2.0f * Dot(entity->velocity, wallNormal) * wallNormal;
 				delta *= 1.0f - tMin;
@@ -565,7 +559,7 @@ namespace AB
 												 //newPos.offset.z += heightDiff;
 
 												 ChangeEntityPos(world, entity, newPos, camera->targetWorldPos, arena);
-												 highEntity->pos = GetCamRelPos(world, entity->worldPos,
+												 highEntity->pos = GetCamRelPos(entity->worldPos,
 																				camera->targetWorldPos);
 												 }
 
@@ -634,17 +628,15 @@ namespace AB
 			}
 			}
 
-			v2 minLine = WorldPosDiff(world, {minChunkX, minChunkY, 0, 0},
+			v2 minLine = WorldPosDiff({minChunkX, minChunkY, 0, 0},
 									  camera->targetWorldPos).xy;
 
-			v2 maxLine = WorldPosDiff(world,
-		{maxChunkX, maxChunkY,
-				world->chunkSizeUnits, world->chunkSizeUnits},
+			v2 maxLine = WorldPosDiff({maxChunkX, maxChunkY, WORLD_CHUNK_SIZE, WORLD_CHUNK_SIZE},
 									  camera->targetWorldPos).xy;
 
 			DrawAlignedBoxOutline(gameState->renderGroup, assetManager,
-								  V3(minLine.x, 3.0f, minLine.y) * world->unitsToRaw,
-								  V3(maxLine.x, 10.0f, maxLine.y) * world->unitsToRaw,
+								  V3(minLine.x, 3.0f, minLine.y),
+								  V3(maxLine.x, 10.0f, maxLine.y),
 								  V3(0.8, 0.0, 0.0), 2.0f);
 
 			DEBUG_OVERLAY_TRACE(world->lowEntityCount);
@@ -985,8 +977,7 @@ namespace AB
 			//DEBUG_OVERLAY_TRACE(entity.low->worldPos.chunkY);
 			//DEBUG_OVERLAY_TRACE(entity.low->worldPos.offset.x);
 			//DEBUG_OVERLAY_TRACE(entity.low->worldPos.offset.y);
-			TileCoord tileCoord = ChunkRelOffsetToTileCoord(world,
-															entity.low->worldPos.offset);
+			TileCoord tileCoord = ChunkRelOffsetToTileCoord(entity.low->worldPos.offset);
 			//DEBUG_OVERLAY_TRACE(tileCoord.x);
 			//DEBUG_OVERLAY_TRACE(tileCoord.y);
 		}

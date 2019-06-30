@@ -58,13 +58,6 @@ namespace AB
 
 		InitializeMesher(world->chunkMesher);
 		
-		world->tileSizeRaw = 1.0f;
-		world->tileSizeInUnits = 1.0f;
-		world->tileRadiusInUnits = 0.5f;
-		world->chunkSizeUnits = world->tileSizeInUnits * WORLD_CHUNK_DIM_TILES;
-		world->toUnits = world->tileSizeInUnits / world->tileSizeRaw;
-		world->unitsToRaw = world->tileSizeRaw / world->tileSizeInUnits;
-
 		// NOTE: Reserving for null entity
 		world->lowEntityCount = 1;
 		world->highEntityCount = 1;
@@ -140,7 +133,7 @@ namespace AB
 				HighEntity* high =
 					world->highEntities + index;
 
-				high->pos = GetCamRelPos(world, low->worldPos, camTargetWorldPos);
+				high->pos = GetCamRelPos(low->worldPos, camTargetWorldPos);
 
 				high->lowIndex = lowIndex;
 				low->highIndex = index;
@@ -335,14 +328,14 @@ namespace AB
 	}
 
 	inline TileCoord
-	ChunkRelOffsetToTileCoord(World* world, v3 chunkRelOffset)
+	ChunkRelOffsetToTileCoord(v3 chunkRelOffset)
 	{
 		AB_ASSERT(chunkRelOffset.x <=
-				  WORLD_CHUNK_DIM_TILES * world->tileSizeInUnits);
+				  WORLD_CHUNK_DIM_TILES * WORLD_TILE_SIZE);
 		AB_ASSERT(chunkRelOffset.y <=
-				  WORLD_CHUNK_DIM_TILES * world->tileSizeInUnits);
+				  WORLD_CHUNK_DIM_TILES * WORLD_TILE_SIZE);
 		AB_ASSERT(chunkRelOffset.z <=
-				  WORLD_CHUNK_DIM_TILES * world->tileSizeInUnits);
+				  WORLD_CHUNK_DIM_TILES * WORLD_TILE_SIZE);
 
 		// TODO: @Cleanup
 #if 0
@@ -357,9 +350,9 @@ namespace AB
 #endif
 
 		TileCoord result;
-		result.x = Floor(chunkRelOffset.x / world->tileSizeInUnits);
-		result.y = Floor(chunkRelOffset.y / world->tileSizeInUnits);
-		result.z = Floor(chunkRelOffset.z / world->tileSizeInUnits);
+		result.x = Floor(chunkRelOffset.x / WORLD_TILE_SIZE);
+		result.y = Floor(chunkRelOffset.y / WORLD_TILE_SIZE);
+		result.z = Floor(chunkRelOffset.z / WORLD_TILE_SIZE);
 #if 0
 		if (result.x > WORLD_CHUNK_DIM_TILES - 1)
 		{
@@ -375,18 +368,18 @@ namespace AB
 	}
 
 	inline WorldPosition
-	OffsetWorldPos(World* world, WorldPosition oldPos, v3 offset)
+	OffsetWorldPos(WorldPosition oldPos, v3 offset)
 	{
 		// TODO: Better checking!
 		WorldPosition newPos = oldPos;
 		newPos.offset += offset;
-		i32 chunkOffsetX = Floor(newPos.offset.x / world->chunkSizeUnits);
-		i32 chunkOffsetY = Floor(newPos.offset.y / world->chunkSizeUnits);
+		i32 chunkOffsetX = Floor(newPos.offset.x / WORLD_CHUNK_SIZE);
+		i32 chunkOffsetY = Floor(newPos.offset.y / WORLD_CHUNK_SIZE);
 		// TODO: Chunks Z!
-		i32 chunkOffsetZ = Floor(newPos.offset.z / world->chunkSizeUnits);
-		newPos.offset.x -= chunkOffsetX * world->chunkSizeUnits;
-		newPos.offset.y -= chunkOffsetY * world->chunkSizeUnits;
-		newPos.offset.z -= chunkOffsetZ * world->chunkSizeUnits;
+		i32 chunkOffsetZ = Floor(newPos.offset.z / WORLD_CHUNK_SIZE);
+		newPos.offset.x -= chunkOffsetX * WORLD_CHUNK_SIZE;
+		newPos.offset.y -= chunkOffsetY * WORLD_CHUNK_SIZE;
+		newPos.offset.z -= chunkOffsetZ * WORLD_CHUNK_SIZE;
 
 		AB_ASSERT(oldPos.chunkX + chunkOffsetX > INT32_MIN + CHUNK_SAFE_MARGIN);
 		AB_ASSERT(oldPos.chunkX + chunkOffsetX < INT32_MAX - CHUNK_SAFE_MARGIN);
@@ -422,18 +415,18 @@ namespace AB
 	}
 
 	inline bool
-	IsNormalized(World* world, WorldPosition* pos)
+	IsNormalized(WorldPosition* pos)
 	{
 		// NOTE: <= ???
-		return ((pos->offset.x <= world->chunkSizeUnits) &&
-				(pos->offset.y <= world->chunkSizeUnits) &&
-				(pos->offset.z <= world->chunkSizeUnits));
+		return ((pos->offset.x <= WORLD_CHUNK_SIZE) &&
+				(pos->offset.y <= WORLD_CHUNK_SIZE) &&
+				(pos->offset.z <= WORLD_CHUNK_SIZE));
 	}
 
 	inline WorldPosition
-	NormalizeWorldPos(World* world, WorldPosition* pos)
+	NormalizeWorldPos(WorldPosition* pos)
 	{
-		return OffsetWorldPos(world, *pos, V3(0.0f));
+		return OffsetWorldPos(*pos, V3(0.0f));
 	}
 
 	// TODO @Important: It may take some extra blocks of memory
@@ -447,10 +440,10 @@ namespace AB
 					MemoryArena* arena)
 	{
 		WorldPosition oldPos = entity->worldPos;
-		AB_ASSERT(IsNormalized(world, &oldPos));
-		if (!IsNormalized(world, &newPos))
+		AB_ASSERT(IsNormalized(&oldPos));
+		if (!IsNormalized(&newPos))
 		{
-			newPos = NormalizeWorldPos(world, &newPos);
+			newPos = NormalizeWorldPos(&newPos);
 		}
 
 		// TODO: Chunk Z!!!
@@ -546,7 +539,7 @@ namespace AB
 		HighEntity* high = GetHighEntity(world, entity->highIndex);
 		if (high)
 		{
-			high->pos = GetCamRelPos(world, entity->worldPos,
+			high->pos = GetCamRelPos(entity->worldPos,
 									 camTargetWorldPos);
 		}
 		entity->worldPos = newPos;
@@ -557,13 +550,13 @@ namespace AB
 					v3 offset, WorldPosition camTargetWorldPos,
 					MemoryArena* arena)
 	{
-		WorldPosition newPos = OffsetWorldPos(world, entity->worldPos, offset);
+		WorldPosition newPos = OffsetWorldPos(entity->worldPos, offset);
 		ChangeEntityPos(world, entity, newPos, camTargetWorldPos, arena);
 	}
 
 
 	inline v3
-	WorldPosDiff(World* world, WorldPosition a, WorldPosition b)
+	WorldPosDiff(WorldPosition a, WorldPosition b)
 	{
 		v3 result;
 		// TODO: Potential integer overflow
@@ -574,8 +567,8 @@ namespace AB
 		f32 dOffX = a.offset.x - b.offset.x;
 		f32 dOffY = a.offset.y - b.offset.y;
 		f32 dOffZ = a.offset.z - b.offset.z;
-		result = V3(world->chunkSizeUnits * dX + dOffX,
-					world->chunkSizeUnits * dY + dOffY,
+		result = V3(WORLD_CHUNK_SIZE * dX + dOffX,
+					WORLD_CHUNK_SIZE * dY + dOffY,
 					dOffZ);
 		return result;
 	}
@@ -626,10 +619,10 @@ namespace AB
 
 	// TODO: Camera Z
 	inline v3
-	GetCamRelPos(World* world, WorldPosition worldPos,
+	GetCamRelPos(WorldPosition worldPos,
 				 WorldPosition camTargetWorldPos)
 	{
-		v3 result = V3(WorldPosDiff(world, worldPos, camTargetWorldPos).xy,
+		v3 result = V3(WorldPosDiff(worldPos, camTargetWorldPos).xy,
 					   worldPos.offset.z);
 		return result;
 	}
@@ -850,19 +843,19 @@ namespace AB
 							tileWorldPos.chunkX = chunk->coordX;
 							tileWorldPos.chunkY = chunk->coordY;
 					
-							tileWorldPos.offset.x = tileX * world->tileSizeInUnits;
+							tileWorldPos.offset.x = tileX * WORLD_TILE_SIZE;
 							//tileWorldPos.offset.x -= world->tileSizeInUnits * 0.5f;
 					
-							tileWorldPos.offset.y = tileY * world->tileSizeInUnits;
+							tileWorldPos.offset.y = tileY * WORLD_TILE_SIZE;
 							//tileWorldPos.offset.y -= world->tileSizeInUnits * 0.5f;
 
-							tileWorldPos.offset.z = tileZ * world->tileSizeInUnits;
+							tileWorldPos.offset.z = tileZ * WORLD_TILE_SIZE;
 
-							v3 tileCamRelPos = GetCamRelPos(world, tileWorldPos,
+							v3 tileCamRelPos = GetCamRelPos(tileWorldPos,
 															camera->targetWorldPos);
-							tileCamRelPos.z -= WORLD_CHUNK_DIM_TILES * world->tileSizeInUnits;
+							tileCamRelPos.z -= WORLD_CHUNK_DIM_TILES * WORLD_TILE_SIZE;
 							v3 minCorner = tileCamRelPos;// - world->tileSizeInUnits * 0.5f;
-							v3 maxCorner = tileCamRelPos + world->tileSizeInUnits;
+							v3 maxCorner = tileCamRelPos + WORLD_TILE_SIZE;
 #if 0
 							minCorner.z = tile.height - world->tileSizeInUnits;
 							maxCorner.z = tile.height;

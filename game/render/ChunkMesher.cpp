@@ -5,7 +5,7 @@ namespace AB
 {
 	void InitializeMesher(ChunkMesher* mesher)
 	{
-		GLCall(glGenBuffers(CHUNK_MESHER_MAX_CHUNKS, (GLuint*)(&mesher->vertexBuffers)));
+		GLCall(glCreateBuffers(CHUNK_MESHER_MAX_CHUNKS, (GLuint*)(&mesher->vertexBuffers)));
 		
 #if defined (AB_CONFIG_DEBUG)
 		for (u32 i = 0; i < CHUNK_MESHER_MAX_CHUNKS; i++)
@@ -92,8 +92,7 @@ namespace AB
 			WorldPosition chunkP = {};
 			chunkP.chunkX = chunk->coordX;
 			chunkP.chunkY = chunk->coordY;
-			v3 chunkCamRelP = GetCamRelPos(world, chunkP,
-										   camera->targetWorldPos);
+			v3 chunkCamRelP = GetCamRelPos(chunkP, camera->targetWorldPos);
 			
 			chunkCamRelP = FlipYZ(chunkCamRelP);
 			RenderCommandDrawChunk chunkCommand = {};
@@ -183,14 +182,12 @@ namespace AB
 
 					if (testTile.type)
 					{
-						v3 offset = V3(tileX * world->tileSizeInUnits + world->tileRadiusInUnits,
-									   tileZ * world->tileSizeInUnits + world->tileRadiusInUnits,
-									   tileY * world->tileSizeInUnits + world->tileRadiusInUnits);
-						offset.y -= (WORLD_CHUNK_DIM_TILES) * world->tileSizeInUnits;
-						v3 min = offset - V3(world->tileRadiusInUnits);
-						v3 max = offset + V3(world->tileRadiusInUnits);
-						min *= world->unitsToRaw;
-						max *= world->unitsToRaw;
+						v3 offset = V3(tileX * WORLD_TILE_SIZE + WORLD_TILE_RADIUS,
+									   tileZ * WORLD_TILE_SIZE + WORLD_TILE_RADIUS,
+									   tileY * WORLD_TILE_SIZE + WORLD_TILE_RADIUS);
+						offset.y -= (WORLD_CHUNK_DIM_TILES) * WORLD_TILE_SIZE;
+						v3 min = offset - V3(WORLD_TILE_RADIUS);
+						v3 max = offset + V3(WORLD_TILE_RADIUS);
 
 						TerrainType type = testTile.type;
 						v3 vtx0 = min;

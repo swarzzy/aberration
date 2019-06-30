@@ -25,6 +25,10 @@ namespace AB
 
 	const u32 ENTITY_MAX_MESHES = 4;
 
+	const f32 WORLD_TILE_SIZE = 1.0f;
+	const f32 WORLD_TILE_RADIUS = WORLD_TILE_SIZE * 0.5f;
+	const f32 WORLD_CHUNK_SIZE = WORLD_TILE_SIZE * WORLD_CHUNK_DIM_TILES;
+
 
 	struct WorldPosition
 	{
@@ -134,12 +138,6 @@ namespace AB
 	struct World
 	{
 		ChunkMesher* chunkMesher;
-		f32 tileSizeInUnits;
-		f32 tileRadiusInUnits;
-		f32 tileSizeRaw;
-		f32 toUnits;
-		f32 unitsToRaw;
-		f32 chunkSizeUnits;
 
 		u32 chunkCount;
 
@@ -221,16 +219,16 @@ namespace AB
 		IsValid(TileWorldPos pos);
 
 	inline TileCoord
-		ChunkRelOffsetToTileCoord(World* world, v3 chunkRelOffset);
+		ChunkRelOffsetToTileCoord(v3 chunkRelOffset);
 	
 	inline WorldPosition
-		OffsetWorldPos(World* world, WorldPosition oldPos, v3 offset);
+		OffsetWorldPos(WorldPosition oldPos, v3 offset);
 
 	inline bool
-		IsNormalized(World* world, WorldPosition* pos);
+		IsNormalized(WorldPosition* pos);
 
 	inline WorldPosition
-		NormalizeWorldPos(World* world, WorldPosition* pos);
+		NormalizeWorldPos(WorldPosition* pos);
 
 	void
 		ChangeEntityPos(World* world, LowEntity* entity,
@@ -243,14 +241,14 @@ namespace AB
 						MemoryArena* arena);
 
 	inline v3
-		WorldPosDiff(World* world, WorldPosition a, WorldPosition b);
+		WorldPosDiff(WorldPosition a, WorldPosition b);
 
 	u32
 		AddLowEntity(World* world, Chunk* chunk, EntityType type,
 					 MemoryArena* arena = nullptr);
 
 	inline v3 // NOTE: z is still relative to global sea level
-		GetCamRelPos(World* world, WorldPosition worldPos,
+		GetCamRelPos(WorldPosition worldPos,
 					 WorldPosition camTargetWorldPos);
 
 	inline v3

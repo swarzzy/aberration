@@ -1192,7 +1192,7 @@ out vec4 out_FragColor;
 				m4x4 inv = M4x4(invWorldMtx);
 				m4x4 normalMatrix = Transpose(inv);
 
-				GLuint normalLoc = glGetUniformLocation(renderer->impl->programHandle,
+				GLuint normalLoc = glGetUniformLocation(renderer->impl->chunkShader,
 														"normalMatrix"); 
 				GLCall(glUniformMatrix4fv(normalLoc, 1, GL_FALSE,
 										  normalMatrix.data));
