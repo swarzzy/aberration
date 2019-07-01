@@ -12,32 +12,9 @@ namespace AB
 		return hitEntityIndex;
 	}
 
-	// TODO: Get rid of this
-	b32 TestWall(f32 wallX, f32 relPlayerX, f32 relPlayerY,
-				 f32 playerDeltaX, f32 playerDeltaY,
-				 f32 minCornerY, f32 maxCornerY, f32* tMin)
+	v3 MoveCameraTarget(Camera* camera, World* world)
 	{
-		b32 collided = false;
-		if (AbsF32(playerDeltaX) > FLOAT_EPS)
-		{
-			f32 tEps = 0.01f;
-			f32 tResult = (wallX - relPlayerX) / playerDeltaX;
-			f32 y = relPlayerY + playerDeltaY * tResult;
-			if ((tResult >= 0.0f) && (*tMin > tResult))
-			{
-				if ((y >= minCornerY) && (y <= maxCornerY))
-				{
-					*tMin = MAXIMUM(0.0f, tResult - tEps);
-					collided = true;
-				}
-			}
-		}
-		return collided;
-	}
-
-	v2 MoveCameraTarget(Camera* camera, World* world)
-	{
-		v2 camFrameOffset = {};
+		v3 camFrameOffset = {};
 		
 		v3 _frontDir = V3(camera->front.x, 0.0f, camera->front.z);
 		v3 _rightDir = Cross(V3(0.0f, 1.0f, 0.0f), _frontDir);
@@ -91,7 +68,7 @@ namespace AB
 		newVelocity = newVelocity +
 			acceleration * GlobalAbsDeltaTime;
 
-		camFrameOffset = WorldPosDiff(newPos, camera->targetWorldPos).xy;
+		camFrameOffset = WorldPosDiff(newPos, camera->targetWorldPos);
 		camera->targetWorldPos = newPos;
 		camera->targetWorldVelocity = newVelocity;
 

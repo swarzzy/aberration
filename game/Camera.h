@@ -51,7 +51,7 @@ namespace AB
 				 f32 playerDeltaX, f32 playerDeltaY,
 				 f32 minCornerY, f32 maxCornerY, f32* tMin);
 
-	v2 MoveCameraTarget(Camera* camera, World* world);
+	v3 MoveCameraTarget(Camera* camera, World* world);
 
 	void UpdateCamera(Camera* camera, RenderGroup* renderGroup, World* world);
 }

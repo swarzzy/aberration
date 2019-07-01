@@ -92,6 +92,7 @@ namespace AB
 			WorldPosition chunkP = {};
 			chunkP.chunkX = chunk->coordX;
 			chunkP.chunkY = chunk->coordY;
+			chunkP.chunkZ = chunk->coordZ;
 			v3 chunkCamRelP = GetCamRelPos(chunkP, camera->targetWorldPos);
 			
 			chunkCamRelP = FlipYZ(chunkCamRelP);
@@ -185,7 +186,7 @@ namespace AB
 						v3 offset = V3(tileX * WORLD_TILE_SIZE + WORLD_TILE_RADIUS,
 									   tileZ * WORLD_TILE_SIZE + WORLD_TILE_RADIUS,
 									   tileY * WORLD_TILE_SIZE + WORLD_TILE_RADIUS);
-						offset.y -= (WORLD_CHUNK_DIM_TILES) * WORLD_TILE_SIZE;
+						//offset.y -= (WORLD_CHUNK_DIM_TILES) * WORLD_TILE_SIZE;
 						v3 min = offset - V3(WORLD_TILE_RADIUS);
 						v3 max = offset + V3(WORLD_TILE_RADIUS);
 
@@ -236,33 +237,36 @@ namespace AB
 		GLuint handle = vertexBuffer;
 		uptr bufferSize = mesh->quadCount * 4 * (sizeof(v3) + sizeof(v3) + sizeof(byte));
 		GLCall(glNamedBufferData(handle, bufferSize, 0, GL_STATIC_DRAW));
-		#pragma pack(push, 1)
+#pragma pack(push, 1)
 		struct Vertex
 		{
 			v3 pos;
 			v3 normal;
 			byte tileId;
 		};
-		#pragma pack(pop)
+#pragma pack(pop)
 		Vertex* buffer;
 		GLCall(buffer = (Vertex*)glMapNamedBuffer(handle, GL_READ_WRITE));
 		AB_ASSERT(buffer);
 		u32 bufferCount = 0;
 		u32 blockCount = 0;
 		ChunkMeshVertexBlock* block = mesh->tail;
-		do
+		if (block)
 		{
-			blockCount++;			
-			for (u32 i = 0; i < block->at; i++)
+			do
 			{
-				buffer[bufferCount].pos = block->positions[i];
-				buffer[bufferCount].normal = block->normals[i];
-				buffer[bufferCount].tileId = block->tileIds[i];
-				bufferCount++;
+				blockCount++;			
+				for (u32 i = 0; i < block->at; i++)
+				{
+					buffer[bufferCount].pos = block->positions[i];
+					buffer[bufferCount].normal = block->normals[i];
+					buffer[bufferCount].tileId = block->tileIds[i];
+					bufferCount++;
+				}
+				block = block->prevBlock;
 			}
-			block = block->prevBlock;
+			while(block);
 		}
-		while(block);
 		
 		GLCall(glUnmapNamedBuffer(handle));
 	}

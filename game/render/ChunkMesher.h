@@ -4,7 +4,7 @@
 
 namespace AB
 {
-	const u32 CHUNK_MESHER_MAX_CHUNKS = 9;
+	const u32 CHUNK_MESHER_MAX_CHUNKS = 27;
 	struct ChunkMesher
 	{
 		// TODO: Fux vertex buffers

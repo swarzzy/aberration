@@ -18,7 +18,7 @@ namespace AB
 	const u32 WORLD_CHUNK_TILE_COUNT = WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES * WORLD_CHUNK_DIM_TILES;
 
 	const u32 MAX_LOW_ENTITIES = 10000;
-	const u32 MAX_HIGH_CHUNKS = 16;
+	const u32 MAX_HIGH_CHUNKS = 32;
 	const u32 MAX_HIGH_ENTITIES = 2048;
 
 	const u32 ENTITY_BLOCK_CAPACITY = 16;
@@ -29,11 +29,11 @@ namespace AB
 	const f32 WORLD_TILE_RADIUS = WORLD_TILE_SIZE * 0.5f;
 	const f32 WORLD_CHUNK_SIZE = WORLD_TILE_SIZE * WORLD_CHUNK_DIM_TILES;
 
-
 	struct WorldPosition
 	{
 		i32 chunkX;
 		i32 chunkY;
+		i32 chunkZ;
 		// NOTE: Offset in chunk 0..chunkSizeUnits
 		v3 offset;
 	};
@@ -42,6 +42,7 @@ namespace AB
 	{
 		i32 chunkX;
 		i32 chunkY;
+		i32 chunkZ;
 		u32 tileX;
 		u32 tileY;
 		u32 tileZ;
@@ -77,7 +78,7 @@ namespace AB
 		v3 color;
 		f32 friction;
 		u32 highIndex;
-		v2 velocity;
+		v3 velocity;
 		u32 meshCount;
 		Mesh* meshes[ENTITY_MAX_MESHES];
 	};
@@ -159,6 +160,7 @@ namespace AB
 	{
 		b32 hit;
 		f32 tMin;
+		v3 normal;
 	};
 
 	struct TilemapRaycastResult
@@ -166,6 +168,7 @@ namespace AB
 		b32 hit;
 		f32 tMin;
 		TileWorldPos pos;
+		v3 normal;
 	};
 
 	World*
@@ -193,7 +196,7 @@ namespace AB
 		_SetEntityToLow(World* world, u32 highIndex);
 
 	inline Chunk*
-		GetChunk(World* world, i32 chunkX, i32 chunkY,
+		GetChunk(World* world, i32 chunkX, i32 chunkY, i32 chunkZ,
 				 MemoryArena* arena = nullptr);
 
 	inline TerrainTileData*
