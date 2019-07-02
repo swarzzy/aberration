@@ -46,6 +46,22 @@ namespace AB
 		Plane nearPlane;
 	};
 
+	union v3i
+	{
+		struct
+		{
+			i32 x, y, z;
+		};
+	};
+
+	inline v3i V3I(i32 x, i32 y, i32 z)
+	{
+		v3i result;
+		result.x = x;
+		result.y = y;
+		result.z = z;
+		return result;
+	}
 
 	union v2u
 	{

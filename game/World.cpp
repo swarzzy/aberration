@@ -400,7 +400,7 @@ namespace AB
 	// When entity goes from half-filled block to full it need extra block.
 	// Number of extra blocks should be fixed and depends of number of chunks and
 	// entities
-	void
+	WorldPosition
 	ChangeEntityPos(World* world, LowEntity* entity,
 					WorldPosition newPos, WorldPosition camTargetWorldPos,
 					MemoryArena* arena)
@@ -417,7 +417,7 @@ namespace AB
 		   (oldPos.chunkY == newPos.chunkY) &&
 		   (oldPos.chunkZ == newPos.chunkZ))
 		{
-			// NOTE: In same chunk
+			// NOTE: Are in the same chunk
 		}
 		else
 		{
@@ -473,6 +473,8 @@ namespace AB
 					oldBlock = oldBlock->nextBlock;
 				} while (oldBlock && !found);
 				AB_ASSERT(found);
+				AB_ASSERT(oldChunk->entityCount > 0);
+				oldChunk->entityCount--;
 			}
 			{
 				EntityBlock* newBlock = &newChunk->firstEntityBlock;
@@ -493,13 +495,14 @@ namespace AB
 					newChunk->firstEntityBlock.lowEntityIndices[0]
 						= entity->lowIndex;
 				}
+				newChunk->entityCount++;
 			}
-			if (oldChunk->high && !newChunk->high)
+			if (oldChunk->simulated && !newChunk->simulated)
 			{
 				AB_ASSERT(entity->highIndex);
 				_SetEntityToLow(world, entity->highIndex);
 			}
-			else if (!oldChunk->high && newChunk->high)
+			else if (!oldChunk->simulated && newChunk->simulated)
 			{
 				AB_ASSERT(!entity->highIndex);
 				_SetEntityToHigh(world, camTargetWorldPos, entity->lowIndex);
@@ -513,15 +516,16 @@ namespace AB
 									 camTargetWorldPos);
 		}
 		entity->worldPos = newPos;
+		return newPos;
 	}
 
-	inline void
+	inline WorldPosition
 	OffsetEntityPos(World* world, LowEntity* entity,
 					v3 offset, WorldPosition camTargetWorldPos,
 					MemoryArena* arena)
 	{
 		WorldPosition newPos = OffsetWorldPos(entity->worldPos, offset);
-		ChangeEntityPos(world, entity, newPos, camTargetWorldPos, arena);
+		return ChangeEntityPos(world, entity, newPos, camTargetWorldPos, arena);
 	}
 
 
@@ -559,7 +563,7 @@ namespace AB
 				= index;
 			chunk->firstEntityBlock.count++;
 			world->lowEntityCount++;
-
+			chunk->entityCount++;
 		}
 		else
 		{
@@ -578,7 +582,7 @@ namespace AB
 		
 				chunk->firstEntityBlock.lowEntityIndices[0] = index;
 				world->lowEntityCount++;
-
+				chunk->entityCount++;
 			}
 		}
 
@@ -874,7 +878,7 @@ namespace AB
 	void
 	SetChunkToLow(World* world, Chunk* chunk)
 	{
-		if (chunk->high)
+		if (chunk->simulated)
 		{
 			EntityBlock* block = &chunk->firstEntityBlock;
 			do
@@ -902,7 +906,7 @@ namespace AB
 					break;
 				}
 			}
-			chunk->high = false;
+			chunk->simulated = false;
 			MesherRemoveChunk(world->chunkMesher, chunk);
 		}
 	}
@@ -910,7 +914,7 @@ namespace AB
 	void
 	SetChunkToHigh(World* world, Chunk* chunk, WorldPosition camTargetWorldPos)
 	{
-		if (!chunk->high)
+		if (!chunk->simulated)
 		{
 			EntityBlock* block = &chunk->firstEntityBlock;
 			do
@@ -929,7 +933,7 @@ namespace AB
 			AB_ASSERT(world->highChunkCount < MAX_HIGH_CHUNKS);
 			world->highChunks[world->highChunkCount] = chunk;
 			world->highChunkCount++;
-			chunk->high = true;
+			chunk->simulated = true;
 			chunk->dirty = true;
 			MesherAddChunk(world->chunkMesher,chunk);
 		}

@@ -125,12 +125,13 @@ namespace AB
 	struct Chunk
 	{
 		b32 dirty;
-		b32 high;
+		b32 simulated;
 		i32 coordX;
 		i32 coordY;
 		i32 coordZ;
 		
 		TerrainTileData terrainTiles[WORLD_CHUNK_TILE_COUNT];
+		u32 entityCount;
 		EntityBlock firstEntityBlock;
 		Chunk* nextChunk;
 	};
@@ -233,12 +234,12 @@ namespace AB
 	inline WorldPosition
 		NormalizeWorldPos(WorldPosition* pos);
 
-	void
+	WorldPosition
 		ChangeEntityPos(World* world, LowEntity* entity,
 						WorldPosition newPos, WorldPosition camTragetWorldPos,
 						MemoryArena* arena);
 
-	inline void
+	inline WorldPosition
 		OffsetEntityPos(World* world, LowEntity* entity,
 						v3 offset, WorldPosition camTargetWorldPos,
 						MemoryArena* arena);
@@ -282,4 +283,7 @@ namespace AB
 		return tile && tile->type;
 	}
 
+	inline i32 SafeAddChunkCoord(i32 a, i32 b);
+	
+	inline i32 SafeSubChunkCoord(i32 a, i32 b);
 }

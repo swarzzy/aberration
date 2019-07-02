@@ -7,6 +7,7 @@
 #include "DebugTools.h"
 #include "AssetManager.h"
 #include "render/Renderer.h"
+#include "SimRegion.h"
 
 #include "Sandbox.h"
 
@@ -315,4 +316,5 @@ void GameRender(AB::MemoryArena* arena, AB::PlatformState* platform)
 #include "render/RenderGroup.cpp"
 #include "render/Renderer.cpp"
 #include "render/ChunkMesher.cpp"
+#include "SimRegion.cpp"
 #include "Sandbox.cpp"

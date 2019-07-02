@@ -640,7 +640,7 @@ namespace AB
 					Chunk* chunk = GetChunk(world, chunkX, chunkY, chunkZ);
 					if (chunk)
 					{
-						if (!(chunk->high)) 
+						if (!(chunk->simulated)) 
 						{
 							SetChunkToHigh(world, chunk, camera->targetWorldPos);
 						}
@@ -671,12 +671,8 @@ namespace AB
 			!GlobalInput.keys[key].wasPressed;
 		return result;
 	}
-	
-	void Render(MemoryArena* arena,
-				MemoryArena* tempArena,
-				GameState* gameState,
-				AssetManager* assetManager,
-				Renderer* renderer)
+
+	void DoStringEditingStuff(GameState* gameState)
 	{
 		DEBUG_OVERLAY_TRACE(gameState->stringEnd);
 		DEBUG_OVERLAY_TRACE(gameState->stringAt);
@@ -743,9 +739,27 @@ namespace AB
 		}
 		
 		DEBUG_OVERLAY_STRING(gameState->string);
-		DEBUG_OVERLAY_SLIDER(g_Platform->gameSpeed, 0.0f, 10.0f);
+	}
+	
+	void Render(MemoryArena* arena,
+				MemoryArena* tempArena,
+				GameState* gameState,
+				AssetManager* assetManager,
+				Renderer* renderer)
+	{
+		DoStringEditingStuff(gameState);
 		World* world = gameState->world;
 		Camera* camera = &gameState->camera;
+
+		BeginTemporaryMemory(tempArena);
+		SimRegion* simRegion = BeginSim(tempArena, world, camera->targetWorldPos,
+										V3I(1, 1, 1));
+
+		EndSim(simRegion, world, arena);
+		
+		EndTemporaryMemory(tempArena);
+		
+		DEBUG_OVERLAY_SLIDER(g_Platform->gameSpeed, 0.0f, 10.0f);
 
 		DEBUG_OVERLAY_TRACE(world->nonResidentEntityBlocksCount);
 		DEBUG_OVERLAY_TRACE(world->freeEntityBlockCount);
