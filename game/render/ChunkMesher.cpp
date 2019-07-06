@@ -69,14 +69,14 @@ namespace AB
 			GLuint handle = mesher->vertexBuffers[i];
 			if (chunk->dirty)
 			{
-				BeginTemporaryMemory(tempArena);
+				//BeginTemporaryMemory(tempArena);
 				ChunkMesh mesh = MakeChunkMesh(world, chunk, tempArena);
 				mesher->quadCounts[i] = mesh.quadCount;
 				UploadChunkMeshToGPU(handle, &mesh);
 				AB_INFO("Chunk mesh generated for chunk (X: %i32; Y %i32; Z: %i32).\n Quads: %i32; Vertices: % i32",
 					chunk->coordX, chunk->coordY, chunk->coordZ, mesh.quadCount, mesh.quadCount * 4);
 				chunk->dirty = false;
-				EndTemporaryMemory(tempArena);
+				//EndTemporaryMemory(tempArena);
 			}
 		}
 	}

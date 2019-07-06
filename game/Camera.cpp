@@ -3,13 +3,14 @@
 namespace AB
 {
 
-	u32 RaycastFromCursor(Camera* camera, World* world)
+	// TODO: This call should be valid only on region that bound to camera
+	u32 RaycastFromCursor(SimRegion* region, Camera* camera)
 	{
-		u32 hitEntityIndex = 0;
+		u32 hitEntityID = 0;
 		v3 dir = camera->mouseRayWorld;
 		v3 from = camera->posWorld;
-		hitEntityIndex = Raycast(world, camera, from, dir);			
-		return hitEntityIndex;
+		hitEntityID = RaycastEntities(region, from, dir);
+		return hitEntityID;
 	}
 
 	v3 MoveCameraTarget(Camera* camera, World* world)

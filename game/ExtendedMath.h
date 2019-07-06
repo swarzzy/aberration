@@ -4,6 +4,8 @@
 
 namespace AB
 {
+	struct WorldPosition;
+	
 	struct Rectangle
 	{
 		v2 min;
@@ -46,6 +48,7 @@ namespace AB
 		Plane nearPlane;
 	};
 
+
 	union v3i
 	{
 		struct
@@ -60,6 +63,30 @@ namespace AB
 		result.x = x;
 		result.y = y;
 		result.z = z;
+		return result;
+	}
+
+	inline bool operator==(v3i& a, v3i& b)
+	{
+		bool result = a.x == b.x && a.y == b.y && a.z == b.z;
+		return result;
+	}
+	
+	inline bool operator!=(v3i& a, v3i& b)
+	{
+		bool result = a.x == b.x && a.y == b.y && a.z == b.z;
+		return !result;
+	}
+
+	inline bool operator>=(v3i& a, v3i& b)
+	{
+		bool result = a.x >= b.x && a.y >= b.y && a.z >= b.z;
+		return result;
+	}
+
+	inline bool operator<=(v3i& a, v3i& b)
+	{
+		bool result = a.x <= b.x && a.y <= b.y && a.z <= b.z;
 		return result;
 	}
 
@@ -78,6 +105,7 @@ namespace AB
 		result.max = leftCorner + dim;
 		return result;
 	}
+
 
 	BBoxAligned RealignBBoxAligned(BBoxAligned aabb);
 	Frustum FrustumFromProjRH(const m4x4* perspMtx);

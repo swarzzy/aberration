@@ -48,7 +48,7 @@ namespace AB
 #define MOVING_ENTITIES_COUNT 64 // 128 max
 		u32 movingEntities[MOVING_ENTITIES_COUNT];
 		b32 selectionEnabled;
-		LowEntity* selectedEntity;
+		u32 selectedEntityID;
 		b32 dragActive;
 		v3 prevDragPos;
 		MouseDragAxis dragAxis;

@@ -23,11 +23,35 @@ namespace AB
 
 	const u32 ENTITY_BLOCK_CAPACITY = 16;
 
-	const u32 ENTITY_MAX_MESHES = 4;
 
 	const f32 WORLD_TILE_SIZE = 1.0f;
 	const f32 WORLD_TILE_RADIUS = WORLD_TILE_SIZE * 0.5f;
 	const f32 WORLD_CHUNK_SIZE = WORLD_TILE_SIZE * WORLD_CHUNK_DIM_TILES;
+
+	const u32 ENTITY_MAX_MESHES = 4;
+
+	enum EntityType
+	{
+	ENTITY_TYPE_BODY,
+	ENTITY_TYPE_WALL,
+	ENTITY_TYPE_GIZMOS
+	};
+
+    struct SimEntity
+    {
+		u32 id;
+        v3 pos;
+		EntityType type;
+		f32 accelerationAmount;
+		f32 size;
+		v3 color;
+		f32 friction;
+		u32 highIndex;
+		v3 velocity;
+		u32 meshCount;
+		Mesh* meshes[ENTITY_MAX_MESHES];
+    };
+
 
 	struct WorldPosition
 	{
@@ -60,27 +84,11 @@ namespace AB
 		ENTITY_RESIDENCE_LOW
 	};
 
-	enum EntityType
-	{
-		ENTITY_TYPE_BODY,
-		ENTITY_TYPE_WALL,
-		ENTITY_TYPE_GIZMOS
-	};
 
 	struct LowEntity
 	{
-		u32 lowIndex;
-		EntityType type;
+		SimEntity stored;
 		WorldPosition worldPos;
-		f32 accelerationAmount;
-		f32 size;
-		//BBoxAligned aabb;
-		v3 color;
-		f32 friction;
-		u32 highIndex;
-		v3 velocity;
-		u32 meshCount;
-		Mesh* meshes[ENTITY_MAX_MESHES];
 	};
 
 	struct HighEntity
@@ -124,8 +132,11 @@ namespace AB
 	// TODO: High chunk list
 	struct Chunk
 	{
+		// TODO: This flags here are defintly not a good idea
 		b32 dirty;
 		b32 simulated;
+		b32 visible;
+		
 		i32 coordX;
 		i32 coordY;
 		i32 coordZ;
@@ -283,7 +294,76 @@ namespace AB
 		return tile && tile->type;
 	}
 
-	inline i32 SafeAddChunkCoord(i32 a, i32 b);
+	inline i32
+		SafeAddChunkCoord(i32 a, i32 b);
 	
-	inline i32 SafeSubChunkCoord(i32 a, i32 b);
+
+	inline i32
+		SafeSubChunkCoord(i32 a, i32 b)
+	{
+		i32 result = 0;
+		if (b < 0)
+		{
+			result = SafeAddChunkCoord(a, -b);
+		}
+		else
+		{
+			result = a - b;
+			if (result > a)
+			{
+				result = AB_INT32_MIN + CHUNK_SAFE_MARGIN;
+			}
+		}
+		
+		return result;
+	}
+
+	inline i32
+		SafeAddChunkCoord(i32 a, i32 b)
+	{
+		i32 result;
+		if (b < 0)
+		{
+			result = SafeSubChunkCoord(a, -b);
+		}
+		else
+		{
+			result = a + b;
+			if (result < a)
+			{
+				result = AB_INT32_MAX - CHUNK_SAFE_MARGIN;
+			}
+		}
+
+		return result;
+	}
+
+
+	struct ChunkRegion
+	{
+		v3i minCorner;
+		v3i maxCorner;
+	};
+
+	inline ChunkRegion ChunkRegionFromOriginAndSpan(v3i origin, v3i span)
+	{
+		ChunkRegion result;
+
+		result.minCorner.x = SafeSubChunkCoord(origin.x, span.x);
+		result.minCorner.y = SafeSubChunkCoord(origin.y, span.y);
+		result.minCorner.z = SafeSubChunkCoord(origin.z, span.z);
+		result.maxCorner.x = SafeAddChunkCoord(origin.x, span.x);
+		result.maxCorner.y = SafeAddChunkCoord(origin.y, span.y);
+		result.maxCorner.z = SafeAddChunkCoord(origin.z, span.z);
+
+		return result;
+	}
+
+	inline bool InChunkRegion(ChunkRegion* region, v3i coord)
+	{
+		bool result = coord >= region->minCorner &&	coord <= region->maxCorner;
+		return result;			
+	}
+
+
 }

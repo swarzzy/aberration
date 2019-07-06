@@ -2,49 +2,6 @@
 
 namespace AB
 {
-	inline i32
-	SafeAddChunkCoord(i32 a, i32 b);
-	
-
-	inline i32
-	SafeSubChunkCoord(i32 a, i32 b)
-	{
-		i32 result = 0;
-		if (b < 0)
-		{
-			result = SafeAddChunkCoord(a, -b);
-		}
-		else
-		{
-			result = a - b;
-			if (result > a)
-			{
-				result = AB_INT32_MIN + CHUNK_SAFE_MARGIN;
-			}
-		}
-		
-		return result;
-	}
-
-	inline i32
-	SafeAddChunkCoord(i32 a, i32 b)
-	{
-		i32 result;
-		if (b < 0)
-		{
-			result = SafeSubChunkCoord(a, -b);
-		}
-		else
-		{
-			result = a + b;
-			if (result < a)
-			{
-				result = AB_INT32_MAX - CHUNK_SAFE_MARGIN;
-			}
-		}
-
-		return result;
-	}
 
 	World*
 	CreateWorld(MemoryArena* arena)
@@ -74,7 +31,7 @@ namespace AB
 		}
 		return result;		
 	}
-
+#if 0
 	inline HighEntity*
 	GetHighEntity(World* world, u32 highIndex)
 	{
@@ -86,7 +43,7 @@ namespace AB
 		return result;
 	}
 
-	
+   
 	inline Entity
 	GetEntityFromLowIndex(World* world, u32 lowIndex)
 	{
@@ -118,7 +75,6 @@ namespace AB
 		
 		return result;
 	}
-	
 	u32
 	_SetEntityToHigh(World* world, WorldPosition camTargetWorldPos, u32 lowIndex)
 	{
@@ -168,6 +124,7 @@ namespace AB
 		}
 		world->highEntityCount--;
 	}
+#endif
 
 	inline Chunk*
 	GetChunk(World* world, i32 chunkX, i32 chunkY, i32 chunkZ, MemoryArena* arena)
@@ -437,7 +394,7 @@ namespace AB
 				{
 					for (u32 i = 0; i < oldBlock->count; i++)
 					{
-						if (oldBlock->lowEntityIndices[i] == entity->lowIndex)
+						if (oldBlock->lowEntityIndices[i] == entity->stored.id)
 						{
 							// NOTE: Moving last index from last block here
 							EntityBlock* head = &oldChunk->firstEntityBlock;
@@ -481,7 +438,7 @@ namespace AB
 				if (newBlock->count < ENTITY_BLOCK_CAPACITY)
 				{
 					newBlock->lowEntityIndices[newBlock->count] =
-						entity->lowIndex;
+						entity->stored.id;
 					newBlock->count++;
 				}
 				else
@@ -493,28 +450,32 @@ namespace AB
 					newChunk->firstEntityBlock.nextBlock = emptyBlock;
 					newChunk->firstEntityBlock.count++;
 					newChunk->firstEntityBlock.lowEntityIndices[0]
-						= entity->lowIndex;
+						= entity->stored.id;
 				}
 				newChunk->entityCount++;
 			}
+#if 0
+			// TODO: Move entities in and out of sim regions
 			if (oldChunk->simulated && !newChunk->simulated)
 			{
-				AB_ASSERT(entity->highIndex);
+				//AB_ASSERT(entity->highIndex);
 				_SetEntityToLow(world, entity->highIndex);
 			}
 			else if (!oldChunk->simulated && newChunk->simulated)
 			{
-				AB_ASSERT(!entity->highIndex);
+				//AB_ASSERT(!entity->highIndex);
 				_SetEntityToHigh(world, camTargetWorldPos, entity->lowIndex);
 			}
+#endif
 		}
-
+#if 0
 		HighEntity* high = GetHighEntity(world, entity->highIndex);
 		if (high)
 		{
 			high->pos = GetCamRelPos(entity->worldPos,
 									 camTargetWorldPos);
 		}
+#endif
 		entity->worldPos = newPos;
 		return newPos;
 	}
@@ -556,8 +517,10 @@ namespace AB
 		{
 			index = world->lowEntityCount;
 			world->lowEntities[index] = {};
-			world->lowEntities[index].type = type;
-			world->lowEntities[index].lowIndex = index;
+			world->lowEntities[index].stored.type = type;
+			world->lowEntities[index].stored.id = index;
+			WorldPosition pos = {chunk->coordX, chunk->coordY,chunk->coordZ, V3(0.0f)};
+			world->lowEntities[index].worldPos = pos;
 		
 			chunk->firstEntityBlock.lowEntityIndices[chunk->firstEntityBlock.count]
 				= index;
@@ -577,8 +540,8 @@ namespace AB
 
 				index = world->lowEntityCount;
 				world->lowEntities[index] = {};
-				world->lowEntities[index].type = type;
-				world->lowEntities[index].lowIndex = index;
+				world->lowEntities[index].stored.type = type;
+				world->lowEntities[index].stored.id = index;
 		
 				chunk->firstEntityBlock.lowEntityIndices[0] = index;
 				world->lowEntityCount++;
@@ -744,17 +707,15 @@ namespace AB
 	}
 
 
-	static u32 // NOTE: LowEntityIndex
-	RaycastEntities(World* world, Camera* camera, v3 from, v3 dir)
+	//NOTE: Ray coordinates should be in sim region space 
+	static u32 // NOTE: Entity ID
+	RaycastEntities(SimRegion* region, v3 from, v3 dir)
 	{
-		// TODO: Just reserve null entity instead of this mess
-		u32 colliderIndex = 0;
+		u32 colliderID = 0;
 		f32 tMin = 0.0f;
-		for (u32 index = 1; index < world->highEntityCount; index++)
+		for (u32 index = 0; index < region->entityCount; index++)
 		{
-			Entity _entity = GetEntityFromHighIndex(world, index);
-			LowEntity* entity = _entity.low;
-			v3 entityCamRelPos = _entity.high->pos;
+			SimEntity* entity = region->entities + index;
 			AB_ASSERT(entity);
 
 			f32 tMinForEntity = 0.0f;
@@ -766,15 +727,14 @@ namespace AB
 				v3 minCorner = aabb.min * entity->size;
 				v3 maxCorner = aabb.max * entity->size;
 			
-
 				minCorner = FlipYZ(minCorner);
 				maxCorner = FlipYZ(maxCorner);
 
-				minCorner += entityCamRelPos;
-				maxCorner += entityCamRelPos;
+				minCorner += entity->pos;
+				maxCorner += entity->pos;
 
-				RaycastResult result = RayAABBIntersection(from, dir,
-														   minCorner, maxCorner);
+				RaycastResult result =
+					RayAABBIntersection(from, dir, minCorner, maxCorner);
 				if (result.hit)
 				{
 					if (!intersects || tMinForEntity < result.tMin)
@@ -786,28 +746,24 @@ namespace AB
 			}
 			if (intersects)
 			{
-				colliderIndex = index;
+				colliderID = entity->id;
 			}
 
 		}
-		if (colliderIndex)
-		{
-			Entity entity = GetEntityFromHighIndex(world, colliderIndex);
-			colliderIndex = entity.low->lowIndex;
-		}
-		return colliderIndex;
+		return colliderID;
 	}
 
 
+	//NOTE: Ray coordinates should be in sim region space
 	TilemapRaycastResult
-	TilemapRaycast(World* world, Camera* camera, v3 from, v3 dir)
+	TilemapRaycast(SimRegion* region, v3 from, v3 dir)
 	{
 		// TODO: Sparseness
-		// Maybe read about octrees and voxel cone tracing
+		// STUDY: octrees and voxel cone tracing
 		TilemapRaycastResult result = {};
-		for (u32 chunkIndex = 0; chunkIndex < world->highChunkCount; chunkIndex++)
+		for (u32 chunkIndex = 0; chunkIndex < region->chunkCount; chunkIndex++)
 		{
-			Chunk* chunk = world->highChunks[chunkIndex];
+			Chunk* chunk = region->chunks[chunkIndex];
 			for (u32 tileZ = 0; tileZ < WORLD_CHUNK_DIM_TILES; tileZ++)
 			{
 				for (u32 tileY = 0; tileY < WORLD_CHUNK_DIM_TILES; tileY++)
@@ -831,11 +787,10 @@ namespace AB
 
 							tileWorldPos.offset.z = tileZ * WORLD_TILE_SIZE;
 
-							v3 tileCamRelPos = GetCamRelPos(tileWorldPos,
-															camera->targetWorldPos);
+							v3 tileSimPos = GetSimSpacePos(region, &tileWorldPos);
 							//tileCamRelPos.z -= WORLD_CHUNK_DIM_TILES * WORLD_TILE_SIZE;
-							v3 minCorner = tileCamRelPos;// - world->tileSizeInUnits * 0.5f;
-							v3 maxCorner = tileCamRelPos + WORLD_TILE_SIZE;
+							v3 minCorner = tileSimPos;// - world->tileSizeInUnits * 0.5f;
+							v3 maxCorner = tileSimPos + WORLD_TILE_SIZE;
 #if 0
 							minCorner.z = tile.height - world->tileSizeInUnits;
 							maxCorner.z = tile.height;
@@ -867,14 +822,7 @@ namespace AB
 		return result;
 	}
 
-
-	u32 // NOTE: LowEntityIndex
-	Raycast(World* world, Camera* camera, v3 from, v3 dir)
-	{
-		return RaycastEntities(world, camera, from, dir);
-	}
-
-
+#if 0
 	void
 	SetChunkToLow(World* world, Chunk* chunk)
 	{
@@ -938,7 +886,7 @@ namespace AB
 			MesherAddChunk(world->chunkMesher,chunk);
 		}
 	}
-
+#endif
 	// TODO: Think about what's happens if offset is out if chunk bounds
 	u32
 	AddWallEntity(World* world, Chunk* chunk, v3 offset,
@@ -949,18 +897,10 @@ namespace AB
 		index = AddLowEntity(world, chunk, ENTITY_TYPE_WALL, arena);
 		if (index)
 		{
-			world->lowEntities[index] = {
-			index,
-			ENTITY_TYPE_WALL,
-			// TODO: Offsets that out of chunk bounds
-			{chunk->coordX, chunk->coordY, chunk->coordZ, offset},
-			0.0f,
-			1.0f,
-				
-			V3(1.0f, 0.0f, 1.0f),
-			};
-			world->lowEntities[index].meshCount = 1;
-			world->lowEntities[index].meshes[0] = assetManager->meshes + 0;
+			SimEntity* stored = &world->lowEntities[index].stored;
+			stored->type = ENTITY_TYPE_WALL;
+			stored->meshCount = 1;
+			stored->meshes[0] = assetManager->meshes;
 		}
 		
 		return index;

@@ -60,7 +60,7 @@ namespace AB
 		arena->stackMark = nullptr;
 	}
 
-	inline void* PushSize(MemoryArena* arena, uptr size, uptr aligment)
+	inline void* PushSize(MemoryArena* arena, uptr size, uptr aligment = 0)
 	{
 		uptr nextAdress = 0;
 		uptr padding = 0;
