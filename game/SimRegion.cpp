@@ -3,15 +3,15 @@
 
 namespace AB
 {
-	static SimEntityHashBucket* FindEntityBucket(SimRegion* region, u32 id)
+	static EntityHashBucket* FindEntityBucket(SimRegion* region, u32 id)
 	{
 		AB_ASSERT(id);
-		SimEntityHashBucket* result = nullptr;
+		EntityHashBucket* result = nullptr;
 		u32 hash = id;
 		for (u32 offset = 0; offset < SIM_REGION_HASH_TABLE_SIZE; offset++)
 		{
 			u32 bucketIndex = (hash + offset) & (SIM_REGION_HASH_TABLE_SIZE - 1);
-			SimEntityHashBucket* bucket = region->hashTable + bucketIndex;
+			EntityHashBucket* bucket = region->hashTable + bucketIndex;
 			if ((bucket->id == id) || (bucket->id == 0))
 			{
 				result = bucket;
@@ -21,22 +21,22 @@ namespace AB
 		return result;
 	}
 
-	inline SimEntity* GetSimEntity(SimRegion* region, u32 id)
+	inline Entity* GetSimEntity(SimRegion* region, u32 id)
 	{
-		SimEntity* result = nullptr;
+		Entity* result = nullptr;
 		if (id)
 		{
-			SimEntityHashBucket* bucket = FindEntityBucket(region, id);
+			EntityHashBucket* bucket = FindEntityBucket(region, id);
 			AB_ASSERT(bucket);
 			result = bucket->ptr;
 		}
 		return result;
 	}
 
-	static void MapSimEntityToID(SimRegion* region, u32 id, SimEntity* simEntity)
+	static void MapSimEntityToID(SimRegion* region, u32 id, Entity* simEntity)
 	{
 		AB_ASSERT(id);
-		SimEntityHashBucket* bucket = FindEntityBucket(region, id);
+		EntityHashBucket* bucket = FindEntityBucket(region, id);
 		AB_ASSERT(bucket || (bucket->id == 0) || (bucket->id == id));
 		bucket->id = id;
 		bucket->ptr = simEntity;
@@ -50,7 +50,7 @@ namespace AB
 	
 	inline v3 GetSimSpacePos(SimRegion* region, WorldPosition* pos)
 	{
-		v3 result = WorldPosDiff(*pos, region->origin);
+		v3 result = WorldPosDiff(pos, &region->origin);
 		return result;	
 	}
 
@@ -62,12 +62,12 @@ namespace AB
 			for (u32 i = 0; i < block->count; i++)
 			{
 				u32 index = block->lowEntityIndices[i];
-				LowEntity* stored = GetLowEntity(world, index);
+				StoredEntity* stored = GetStoredEntity(world, index);
 				AB_ASSERT(region->entityCount < region->maxEntityCount);
-				SimEntity* simEntity = region->entities + region->entityCount;
+				Entity* simEntity = region->entities + region->entityCount;
 				region->entityCount++;
 
-				*simEntity = stored->stored;
+				*simEntity = stored->storage;
 				simEntity->pos = GetSimSpacePos(region, &stored->worldPos);
 				// TODO: This should be done when entity added to storage
 				simEntity->id = index;
@@ -81,41 +81,35 @@ namespace AB
 	}
 
 	SimRegion* BeginSim(MemoryArena* tempArena, World* world,
-						WorldPosition origin, v3i span)
+						WorldPosition origin, v3i chunkSpan)
 	{
 		SimRegion* region =
 			(SimRegion*)PushSize(tempArena, sizeof(SimRegion), alignof(SimRegion));
 		AB_ASSERT(region);
 		SetZeroScalar(SimRegion, region);
 
-		u32 chunkCount = (span.x * 2 + 1) * (span.y * 2 + 1) * (span.z * 2 + 1);
 
-		v3i minBound;
-		v3i maxBound;
-
-		minBound.x = SafeSubChunkCoord(origin.chunkX, span.x);
-		minBound.y = SafeSubChunkCoord(origin.chunkY, span.y);
-		minBound.z = SafeSubChunkCoord(origin.chunkZ, span.z);
-		maxBound.x = SafeAddChunkCoord(origin.chunkX, span.x);
-		maxBound.y = SafeAddChunkCoord(origin.chunkY, span.y);
-		maxBound.z = SafeAddChunkCoord(origin.chunkZ, span.z);
+		ChunkPosition chunkOrigin = GetChunkPos(&origin);
+		ChunkRegion area = ChunkRegionFromOriginAndSpan(chunkOrigin.chunk, chunkSpan);
 
 		region->origin = origin;
-		region->minBound = minBound;
-		region->maxBound = maxBound;
+		region->minBound = area.minBound;
+		region->maxBound = area.maxBound;
 		
 		u32 entityCount = 0;
+		u32 chunkCount = 0;
 
-		for (i32 chunkZ = minBound.x; chunkZ <= maxBound.z; chunkZ++)
+		for (i32 chunkZ = area.minBound.z; chunkZ <= area.maxBound.z; chunkZ++)
 		{
-			for (i32 chunkY = minBound.y; chunkY <= maxBound.y; chunkY++)
+			for (i32 chunkY = area.minBound.y; chunkY <= area.maxBound.y; chunkY++)
 			{
-				for (i32 chunkX = minBound.x; chunkX <= maxBound.x; chunkX++)
+				for (i32 chunkX = area.minBound.x; chunkX <= area.maxBound.x; chunkX++)
 				{
-					Chunk* chunk = GetChunk(world, chunkX, chunkY, chunkZ);
+					Chunk* chunk = GetChunk(world, V3I(chunkX, chunkY, chunkZ));
 					if (chunk)
 					{
 						entityCount += chunk->entityCount;
+						chunkCount++;
 					}
 				}
 			}
@@ -123,22 +117,22 @@ namespace AB
 
 		region->maxEntityCount = entityCount;
 
-		region->entities = (SimEntity*)PushSize(tempArena,
-												sizeof(SimEntity) * entityCount,
-												alignof(SimEntity));
+		region->entities = (Entity*)PushSize(tempArena,
+												sizeof(Entity) * entityCount,
+												alignof(Entity));
 		region->chunks = (Chunk**)PushSize(tempArena,
 										  sizeof(Chunk*) * chunkCount,
 										  alignof(Chunk*));
 		AB_ASSERT(region->entities);
-		SetZeroArray(SimEntity, entityCount, region->entities);
+		SetZeroArray(Entity, entityCount, region->entities);
 
-		for (i32 chunkZ = minBound.z; chunkZ <= maxBound.z; chunkZ++)
+		for (i32 chunkZ = area.minBound.z; chunkZ <= area.maxBound.z; chunkZ++)
 		{
-			for (i32 chunkY = minBound.y; chunkY <= maxBound.y; chunkY++)
+			for (i32 chunkY = area.minBound.y; chunkY <= area.maxBound.y; chunkY++)
 			{
-				for (i32 chunkX = minBound.x; chunkX <= maxBound.x; chunkX++)
+				for (i32 chunkX = area.minBound.x; chunkX <= area.maxBound.x; chunkX++)
 				{
-					Chunk* chunk = GetChunk(world, chunkX, chunkY, chunkZ);
+					Chunk* chunk = GetChunk(world, V3I(chunkX, chunkY, chunkZ));
 					if (chunk)
 					{
 						AB_ASSERT(!(chunk->simulated));
@@ -158,12 +152,12 @@ namespace AB
 	{
 		for (u32 simIndex = 0; simIndex < region->entityCount; simIndex++)
 		{
-			SimEntity* sim = region->entities + simIndex;
-			LowEntity* stored = GetLowEntity(world, sim->id);
+			Entity* sim = region->entities + simIndex;
+			StoredEntity* stored = GetStoredEntity(world, sim->id);
 			WorldPosition newPos = OffsetWorldPos(region->origin, sim->pos);
 			stored->worldPos = ChangeEntityPos(world, stored, newPos,
 											   region->origin, arena);
-			stored->stored = *sim;
+			stored->storage = *sim;
 			
 		}
 
@@ -176,7 +170,7 @@ namespace AB
 			{
 				for (i32 chunkX = minBound.x; chunkX <= maxBound.x; chunkX++)
 				{
-					Chunk* chunk = GetChunk(world, chunkX, chunkY, chunkZ);
+					Chunk* chunk = GetChunk(world, V3I(chunkX, chunkY, chunkZ));
 					if (chunk)
 					{
 						AB_ASSERT(chunk->simulated);

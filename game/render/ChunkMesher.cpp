@@ -90,10 +90,10 @@ namespace AB
 			GLuint vertexBufferHandle = mesher->vertexBuffers[i];
 			u32 quadCount = mesher->quadCounts[i];
 			WorldPosition chunkP = {};
-			chunkP.chunkX = chunk->coordX;
-			chunkP.chunkY = chunk->coordY;
-			chunkP.chunkZ = chunk->coordZ;
-			v3 chunkCamRelP = GetCamRelPos(chunkP, camera->targetWorldPos);
+			chunkP.tile.x = chunk->coordX * WORLD_CHUNK_DIM_TILES;
+			chunkP.tile.y = chunk->coordY * WORLD_CHUNK_DIM_TILES;
+			chunkP.tile.z = chunk->coordZ * WORLD_CHUNK_DIM_TILES;
+			v3 chunkCamRelP = GetRelativePos(&camera->targetWorldPos, &chunkP);
 			
 			chunkCamRelP = FlipYZ(chunkCamRelP);
 			RenderCommandDrawChunk chunkCommand = {};
@@ -167,28 +167,28 @@ namespace AB
 					u32 tileYPlusOne = (tileY < (WORLD_CHUNK_DIM_TILES - 1)) ? tileY + 1 : INVALID_TILE_COORD;
 					u32 tileZPlusOne = (tileZ < (WORLD_CHUNK_DIM_TILES - 1)) ? tileZ + 1 : INVALID_TILE_COORD;
 					TerrainTileData testTile =
-						GetTerrainTile(chunk, tileX, tileY, tileZ);
+						GetTerrainTile(chunk, V3U(tileX, tileY, tileZ));
 					TerrainTileData upTile =
-						GetTerrainTile(chunk, tileX, tileY, tileZPlusOne);
+						GetTerrainTile(chunk, V3U(tileX, tileY, tileZPlusOne));
 					TerrainTileData dnTile =
-						GetTerrainTile(chunk, tileX, tileY, tileZMinusOne);
+						GetTerrainTile(chunk, V3U(tileX, tileY, tileZMinusOne));
 					TerrainTileData lTile =
-						GetTerrainTile(chunk, tileXMinusOne, tileY, tileZ);
+						GetTerrainTile(chunk, V3U(tileXMinusOne, tileY, tileZ));
 					TerrainTileData rTile =
-						GetTerrainTile(chunk, tileXPlusOne, tileY, tileZ);
+						GetTerrainTile(chunk, V3U(tileXPlusOne, tileY, tileZ));
 					TerrainTileData fTile =
-						GetTerrainTile(chunk, tileX, tileYPlusOne, tileZ);
+						GetTerrainTile(chunk, V3U(tileX, tileYPlusOne, tileZ));
 					TerrainTileData bTile =
-						GetTerrainTile(chunk, tileX, tileYMinusOne, tileZ);
+						GetTerrainTile(chunk, V3U(tileX, tileYMinusOne, tileZ));
 
 					if (testTile.type)
 					{
-						v3 offset = V3(tileX * WORLD_TILE_SIZE + WORLD_TILE_RADIUS,
-									   tileZ * WORLD_TILE_SIZE + WORLD_TILE_RADIUS,
-									   tileY * WORLD_TILE_SIZE + WORLD_TILE_RADIUS);
+						v3 offset = V3(tileX * WORLD_TILE_SIZE,
+									   tileZ * WORLD_TILE_SIZE,
+									   tileY * WORLD_TILE_SIZE);
 						//offset.y -= (WORLD_CHUNK_DIM_TILES) * WORLD_TILE_SIZE;
-						v3 min = offset - V3(WORLD_TILE_RADIUS);
-						v3 max = offset + V3(WORLD_TILE_RADIUS);
+						v3 min = offset;
+						v3 max = offset + V3(WORLD_TILE_SIZE);
 
 						TerrainType type = testTile.type;
 						v3 vtx0 = min;

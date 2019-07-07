@@ -2,9 +2,6 @@
 // TODO: This is temporary for rand()
 #include <stdlib.h>
 
-#include "World.cpp"
-#include "Camera.cpp"
-
 
 namespace AB
 {
@@ -12,22 +9,24 @@ namespace AB
 	void DrawBlockHighlight(RenderGroup* renderGroup,
 							AssetManager* assetManager,
 							World* world,
-							Camera* camera, TileWorldPos pos)
+							Camera* camera, ChunkPosition* pos)
 	{
 		if (IsValid(pos))
 		{
 			v3 offset = V3(0.0f);
-			Chunk* chunk = GetChunk(world, pos.chunkX, pos.chunkY, pos.chunkZ);
-			offset.x = (chunk->coordX - camera->targetWorldPos.chunkX) * WORLD_CHUNK_SIZE;
-			offset.x -= camera->targetWorldPos.offset.x;
-			offset.x += pos.tileX * WORLD_TILE_SIZE;
-			offset.y = (chunk->coordY - camera->targetWorldPos.chunkY) * WORLD_CHUNK_SIZE;
-			offset.y -= camera->targetWorldPos.offset.y;
-			offset.y += pos.tileY * WORLD_TILE_SIZE;
-			offset.z = (chunk->coordZ - camera->targetWorldPos.chunkZ) * WORLD_CHUNK_SIZE;
+			Chunk* chunk = GetChunk(world, pos->chunk);
+			
+			offset = GetRelativePos(&camera->targetWorldPos, &GetWorldPos(pos));
+#if 0
+			offset.x = (chunk->coordX * WORLD_CHUNK_DIM_TILES - camera->targetWorldPos.tile.x) * WORLD_TILE_SIZE;
+			offset.x += camera->targetWorldPos.offset.x;
+			offset.y = (chunk->coordY * WORLD_CHUNK_DIM_TILES - camera->targetWorldPos.tile.y) * WORLD_TILE_SIZE;
+			offset.y += camera->targetWorldPos.offset.y;
+			//offset.y += pos.tileY * WORLD_TILE_SIZE;
+			offset.z = (chunk->coordZ * WORLD_CHUNK_DIM_TILES - camera->targetWorldPos.tile.z) * WORLD_TILE_SIZE;
 			offset.z -= camera->targetWorldPos.offset.z;
-			offset.z += pos.tileZ * WORLD_TILE_SIZE;
-
+			//offset.z += pos.tileZ * WORLD_TILE_SIZE;
+#endif
 			offset = FlipYZ(offset);
 
 			v3 min = offset;
@@ -102,10 +101,10 @@ namespace AB
 		gameState->camera.nearPlane = 0.1f;
 		gameState->camera.farPlane = 200.0f;
 		
-		gameState->camera.targetWorldPos.chunkX = 0;
-		gameState->camera.targetWorldPos.chunkY = 0;
-		gameState->camera.targetWorldPos.offset.x = 1.0f;
-		gameState->camera.targetWorldPos.offset.y = 1.0f;
+		gameState->camera.targetWorldPos.tile.x = 0;
+		gameState->camera.targetWorldPos.tile.x = 0;
+		gameState->camera.targetWorldPos.offset.x = 0.5f;
+		gameState->camera.targetWorldPos.offset.y = 0.5f;
 
 		//SubscribeKeyboardEvents(&gameState->camera, inputManager,
 		//						&gameState->inputState);
@@ -128,9 +127,9 @@ namespace AB
 				 x < 4;
 				 x++)
 			{
-				Chunk* chunk0 = GetChunk(world, x, y, 0, arena);
-				Chunk* chunkM1 = GetChunk(world, x, y, -1, arena);
-				Chunk* chunkP1 = GetChunk(world, x, y, 1, arena);
+				Chunk* chunk0 = GetChunk(world, V3I(x, y, 0), arena);
+				Chunk* chunkM1 = GetChunk(world, V3I(x, y, -1), arena);
+				Chunk* chunkP1 = GetChunk(world, V3I(x, y, 1), arena);
 				
 				for (u32 tileY = 0; tileY < WORLD_CHUNK_DIM_TILES; tileY++)
 				{
@@ -144,15 +143,13 @@ namespace AB
 								bias = rand() % 2;									
 							}
 
-							TerrainTileData tileM1 = GetTerrainTile(chunkM1, tileX,
-																	tileY, tileZ);
+							TerrainTileData tileM1 = GetTerrainTile(chunkM1, V3U(tileX, tileY, tileZ));
 							tileM1.type = TERRAIN_TYPE_CLIFF;
-							SetTerrainTile(chunkM1, tileX, tileY, tileZ, &tileM1);
+							SetTerrainTile(chunkM1, V3U(tileX, tileY, tileZ), &tileM1);
 
 							if (tileZ  < 16)
 							{
-								TerrainTileData tile0 = GetTerrainTile(chunk0, tileX,
-																	   tileY, tileZ + bias);
+								TerrainTileData tile0 = GetTerrainTile(chunk0, V3U(tileX, tileY, tileZ + bias));
 
 								if ((x == -4 && tileX == 0) ||
 									(x == 3 &&
@@ -183,7 +180,7 @@ namespace AB
 									}
 							
 								}
-								SetTerrainTile(chunk0, tileX, tileY, tileZ + bias, &tile0);
+								SetTerrainTile(chunk0, V3U(tileX, tileY, tileZ + bias), &tile0);
 							}
 						}
 					}
@@ -192,69 +189,67 @@ namespace AB
 		}
 
 		{
-			Chunk* chunk = GetChunk(world, -3, -4, 0, arena);
+			Chunk* chunk = GetChunk(world, V3I(-3, -4, 0), arena);
 			for (u32 tileY = 0; tileY < WORLD_CHUNK_DIM_TILES; tileY++)
 			{
 				for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 				{
-					TerrainTileData tile = GetTerrainTile(chunk, tileX, tileY, 0);
+					TerrainTileData tile = GetTerrainTile(chunk, V3U(tileX, tileY, 0));
 					tile.type = TERRAIN_TYPE_WATER;
-					SetTerrainTile(chunk, tileX, tileY, 0, &tile);
+					SetTerrainTile(chunk, V3U(tileX, tileY, 0), &tile);
 				}
 			}
 
 		}
 
-		Chunk* firstChunk = GetChunk(gameState->world, 0, 0, 0);
+		Chunk* firstChunk = GetChunk(gameState->world, V3I(0, 0, 0));
 		AB_ASSERT(firstChunk);
 #if 1
 		MesherUpdateChunks(world->chunkMesher, world, tempArena);
 #endif
 
-		gameState->entity = AddLowEntity(world, firstChunk,
+		gameState->entity = AddStoredEntity(world, firstChunk,
 										 ENTITY_TYPE_BODY, arena);
-		LowEntity* e = GetLowEntity(world, gameState->entity);
-		e->worldPos.chunkX = 0;
-		e->worldPos.chunkY = 0;
-		e->worldPos.chunkY = 0;
-		e->worldPos.offset = V3(10.0f, 10.0f, 20.0f);
-		e->stored.accelerationAmount = 20.0f;
-		e->stored.size = 0.5f;
+		StoredEntity* e = GetStoredEntity(world, gameState->entity);
+		e->worldPos.tile.x = 10;
+		e->worldPos.tile.y = 10;
+		e->worldPos.tile.z = 20;
+		e->worldPos.offset = V3(0.0f);
+		e->storage.accelerationAmount = 20.0f;
+		e->storage.size = 0.5f;
 #if 0
-		e->stored.meshes[0] = assetManager->meshes + gameState->treeFoliageHandle;
-		e->stored.meshes[1] = assetManager->meshes + gameState->treeTrunkHandle;
-		e->stored.meshCount = 2;
+		e->storage.meshes[0] = assetManager->meshes + gameState->treeFoliageHandle;
+		e->storage.meshes[1] = assetManager->meshes + gameState->treeTrunkHandle;
+		e->storage.meshCount = 2;
 #endif
-		e->stored.meshes[0] = GetMesh(assetManager, 0);
-		e->stored.meshCount = 1;
+		e->storage.meshes[0] = GetMesh(assetManager, 0);
+		e->storage.meshCount = 1;
 		
-		e->stored.color = V3(1.0f, 0.0f, 0.0f);
-		e->stored.friction = 3.0f;
+		e->storage.color = V3(1.0f, 0.0f, 0.0f);
+		e->storage.friction = 3.0f;
 		//e->stored.velocity = V3(0.0f, 0.1f, 0.2f);
 		
-		gameState->entity1 = AddLowEntity(world, firstChunk,
+		gameState->entity1 = AddStoredEntity(world, firstChunk,
 										  ENTITY_TYPE_BODY, arena);
-		LowEntity* e1 = GetLowEntity(world, gameState->entity1);
-		e1->worldPos.chunkX = 0;
-		e1->worldPos.chunkY = 0;
-		e1->worldPos.offset = V3(0.0f, 0.0f, 27.0f);
-		e1->stored.accelerationAmount = 30.0f;
-		e1->stored.size = 2.0f;
-		e1->stored.color = V3(0.0f, 1.0f, 0.0f);
-		e1->stored.friction = 3.0f;
-		e1->stored.type = ENTITY_TYPE_BODY;
-		e1->stored.meshes[0] = assetManager->meshes + gameState->treeFoliageHandle;
-		e1->stored.meshes[1] = assetManager->meshes + gameState->treeTrunkHandle;
-		e1->stored.meshCount = 2;
+		StoredEntity* e1 = GetStoredEntity(world, gameState->entity1);
+		e1->worldPos.offset = V3(0.6f, 0.5f, 0.5f);
+		e1->storage.accelerationAmount = 30.0f;
+		e1->storage.size = 2.0f;
+		e1->storage.color = V3(0.0f, 1.0f, 0.0f);
+		e1->storage.friction = 3.0f;
+		e1->storage.type = ENTITY_TYPE_BODY;
+		e1->storage.meshes[0] = assetManager->meshes + gameState->treeFoliageHandle;
+		e1->storage.meshes[1] = assetManager->meshes + gameState->treeTrunkHandle;
+		e1->storage.meshCount = 2;
 
 
 #if 0
 		for (u32 i = 0; i < MOVING_ENTITIES_COUNT; i++)
 		{
-			u32 id = AddLowEntity(world, firstChunk,
+			u32 id = AddStoredEntity(world, firstChunk,
 								  ENTITY_TYPE_BODY, arena);
 			gameState->movingEntities[i] = id; 
-			LowEntity* e = GetLowEntity(world, id);
+			StoredEntity* e = GetStoredEntity(world, id);
 			if (i < 32)
 			{
 				e->worldPos.chunkX= 0;
@@ -305,11 +300,11 @@ namespace AB
 	
 	void
 	DrawEntity(GameState* gameState, AssetManager* assetManager, SimRegion* region,
-			   SimEntity* entity, bool drawBBox = false)
+			   Entity* entity, bool drawBBox = false)
 	{
 		// TODO: Setting camera on sim region concept
 		WorldPosition wPos = GetWorldPos(region, entity->pos);
-		v3 camRelPos = GetCamRelPos(wPos, gameState->camera.targetWorldPos);
+		v3 camRelPos = GetRelativePos(&gameState->camera.targetWorldPos, &wPos);
 		v3 pos = V3(0.0f);
 		pos.x = camRelPos.x;
 		pos.z = camRelPos.y;
@@ -374,7 +369,7 @@ namespace AB
 	};
 
 	EntityMovement
-	ComputeEntityMovement(SimRegion* region, SimEntity* entity, v3 delta)
+	ComputeEntityMovement(SimRegion* region, Entity* entity, v3 delta)
 	{
 		EntityMovement result;
 		result.dest = entity->pos;
@@ -398,7 +393,7 @@ namespace AB
 				 simIndex < region->entityCount;
 				 simIndex++)
 			{
-				SimEntity* testEntity = region->entities + simIndex;
+				Entity* testEntity = region->entities + simIndex;
 							
 				if (entity != testEntity)
 				{
@@ -444,7 +439,7 @@ namespace AB
 	}
 
 	void
-	MoveEntity(SimRegion* region, SimEntity* entity, v3 acceleration)
+	MoveEntity(SimRegion* region, Entity* entity, v3 acceleration)
 	{
 		f32 speed = entity->accelerationAmount;
 		acceleration *= speed;
@@ -545,45 +540,28 @@ namespace AB
 	void MoveCamera(GameState* gameState, Camera* camera, World* world,
 					AssetManager* assetManager)
 	{
+		ChunkMesher* mesher = world->chunkMesher;
 		MoveCameraTarget(camera, world);
 		UpdateCamera(camera, gameState->renderGroup, world);
 
-		i32 highAreaChunkSpanX = 1;
-		i32 highAreaChunkSpanY = 1;
-		i32 highAreaChunkSpanZ = 1;
+		v3i areaSpan = V3I(1);
 
-		i32 minChunkX = SafeSubChunkCoord(camera->targetWorldPos.chunkX,
-										  highAreaChunkSpanX);
-		i32 minChunkY = SafeSubChunkCoord(camera->targetWorldPos.chunkY,
-										  highAreaChunkSpanY);
-		i32 minChunkZ = SafeSubChunkCoord(camera->targetWorldPos.chunkZ,
-										  highAreaChunkSpanZ);
-		i32 maxChunkX = SafeAddChunkCoord(camera->targetWorldPos.chunkX,
-										  highAreaChunkSpanX);
-		i32 maxChunkY = SafeAddChunkCoord(camera->targetWorldPos.chunkY,
-										  highAreaChunkSpanY);
-		i32 maxChunkZ = SafeAddChunkCoord(camera->targetWorldPos.chunkZ,
-										  highAreaChunkSpanZ); 
+		ChunkRegion region =
+			ChunkRegionFromOriginAndSpan(GetChunkPos(&camera->targetWorldPos).chunk, areaSpan);
 
-		for (u32 i = 0; i < world->highChunkCount;)
+		for (u32 i = 0; i < mesher->chunkCount;)
 		{
-			Chunk* chunk = world->highChunks[i];
-			if ((chunk->coordX < minChunkX) ||
-				(chunk->coordX > maxChunkX) ||
-				(chunk->coordY < minChunkY) ||
-				(chunk->coordY > maxChunkY) ||
-				(chunk->coordZ < minChunkZ) ||
-				(chunk->coordZ > maxChunkZ))
+			Chunk* chunk = mesher->chunks[i];
+			if ((chunk->coordX < region.minBound.x) ||
+				(chunk->coordX > region.maxBound.x) ||
+				(chunk->coordY < region.minBound.y) ||
+				(chunk->coordY > region.maxBound.y) ||
+				(chunk->coordZ < region.minBound.z) ||
+				(chunk->coordZ > region.maxBound.z))
 			{
 				AB_ASSERT(chunk->visible);
 				chunk->visible = false;
 				MesherRemoveChunk(world->chunkMesher, chunk);
-				if (i != world->highChunkCount - 1)
-				{
-					Chunk* swap = world->highChunks[world->highChunkCount - 1];
-					world->highChunks[i] = swap;
-				}
-				world->highChunkCount--;
 			}
 			else
 			{
@@ -591,19 +569,17 @@ namespace AB
 			}
 		}
 
-		for (i32 chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++)
+		for (i32 chunkZ = region.minBound.z; chunkZ <= region.maxBound.z; chunkZ++)
 		{
-			for (i32 chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
+			for (i32 chunkY = region.minBound.y; chunkY <= region.maxBound.y; chunkY++)
 			{
-				for (i32 chunkX = minChunkX; chunkX <= maxChunkX; chunkX++)
+				for (i32 chunkX = region.minBound.x; chunkX <= region.maxBound.x; chunkX++)
 				{
-					Chunk* chunk = GetChunk(world, chunkX, chunkY, chunkZ);
+					Chunk* chunk = GetChunk(world, V3I(chunkX, chunkY, chunkZ));
 					if (chunk)
 					{
 						if (!chunk->visible)
 						{
-							world->highChunks[world->highChunkCount] = chunk;
-							world->highChunkCount++;
 							MesherAddChunk(world->chunkMesher, chunk);
 							chunk->visible = true;
 						}
@@ -611,12 +587,17 @@ namespace AB
 				}
 			}
 		}
+		
+		region.minBound *= WORLD_CHUNK_DIM_TILES;
+		region.maxBound *= WORLD_CHUNK_DIM_TILES;
 
-		v3 minLine = WorldPosDiff({minChunkX, minChunkY, minChunkZ,  0, 0},
-								  camera->targetWorldPos);
+		WorldPosition mn = {region.minBound.x, region.minBound.y, region.minBound.z,  0, 0};
+		WorldPosition mx = {region.maxBound.x + (i32)WORLD_CHUNK_DIM_TILES,
+							region.maxBound.y + (i32)WORLD_CHUNK_DIM_TILES,
+							region.maxBound.z + (i32)WORLD_CHUNK_DIM_TILES, 0, 0};
+		v3 minLine = WorldPosDiff(&mn, &camera->targetWorldPos);
 
-		v3 maxLine = WorldPosDiff({maxChunkX + 1, maxChunkY + 1, maxChunkZ + 1, 0, 0},
-								  camera->targetWorldPos);
+		v3 maxLine = WorldPosDiff(&mx, &camera->targetWorldPos);
 
 		DrawAlignedBoxOutline(gameState->renderGroup, assetManager,
 							  FlipYZ(minLine),
@@ -624,7 +605,6 @@ namespace AB
 							  V3(0.8, 0.0, 0.0), 2.0f);
 
 		DEBUG_OVERLAY_TRACE(world->lowEntityCount);
-		DEBUG_OVERLAY_TRACE(world->highEntityCount);
 	}
 
 	
@@ -649,16 +629,28 @@ namespace AB
 			 simEntityIndex < region->entityCount;
 			 simEntityIndex++)
 		{
-			SimEntity* entity = region->entities + simEntityIndex;
+			Entity* entity = region->entities + simEntityIndex;
 			//MoveEntity(region, entity, V3(0.0f));
 			DrawEntity(gameState, assetManager, region, entity);
 		}
 
-		SimEntity* entity1 = GetSimEntity(region, gameState->entity);
-		SimEntity* entity2 = GetSimEntity(region, gameState->entity1);
+		Entity* entity1 = GetSimEntity(region, gameState->entity);
+		Entity* entity2 = GetSimEntity(region, gameState->entity1);
 		
 		if (entity1)
 		{ // Enitity 1 movement code
+			StoredEntity* st = GetStoredEntity(world, gameState->entity);
+			DEBUG_OVERLAY_TRACE(st->worldPos.tile.x);
+			DEBUG_OVERLAY_TRACE(st->worldPos.tile.y);
+			DEBUG_OVERLAY_TRACE(st->worldPos.tile.z);
+			DEBUG_OVERLAY_TRACE(st->worldPos.offset);
+			DEBUG_OVERLAY_TRACE(GetChunkPos(&st->worldPos).tile.x);
+			DEBUG_OVERLAY_TRACE(GetChunkPos(&st->worldPos).tile.y);
+			DEBUG_OVERLAY_TRACE(GetChunkPos(&st->worldPos).tile.z);
+			DEBUG_OVERLAY_TRACE(GetChunkPos(&st->worldPos).chunk.x);
+			DEBUG_OVERLAY_TRACE(GetChunkPos(&st->worldPos).chunk.y);
+			DEBUG_OVERLAY_TRACE(GetChunkPos(&st->worldPos).chunk.z);
+			
 			v3 _frontDir = V3(camera->front.x, 0.0f, camera->front.z);
 			v3 _rightDir = Cross(V3(0.0f, 1.0f, 0.0f), _frontDir);
 			_rightDir = Normalize(_rightDir);
@@ -744,7 +736,7 @@ namespace AB
 		MesherDrawChunks(world->chunkMesher, world, camera,
 						 gameState->renderGroup, assetManager);
 		DrawBlockHighlight(gameState->renderGroup, assetManager, world, camera,
-						   gameState->selectedTile);
+						   &gameState->selectedTile);
 
 		// TODO: Cleanup. Why axises are flipped?
 		// Fix assert when moving selected entity out of sim region
@@ -760,7 +752,7 @@ namespace AB
 				gameState->selectionMode = SELECTION_MODE_ENTITY;				
 			}
 			gameState->selectedEntityID = 0;
-			gameState->selectedTile = InvalidTileWorldPos();
+			gameState->selectedTile = InvalidChunkPos();
 		}
 
 		if (gameState->selectionEnabled)
@@ -772,13 +764,13 @@ namespace AB
 				{
 					u32 hitIndex = RaycastFromCursor(region, camera);
 					gameState->selectedEntityID = hitIndex;
-					gameState->selectedTile = InvalidTileWorldPos();
+					gameState->selectedTile = InvalidChunkPos();
 				}
 				else if (gameState->selectionMode == SELECTION_MODE_TILEMAP)
 				{
 					auto[hit, tMin, pos, normal] =
 						TilemapRaycast(region, camera->posWorld, camera->mouseRayWorld);
-					gameState->selectedTile = hit ? pos : InvalidTileWorldPos();
+					gameState->selectedTile = hit ? pos : InvalidChunkPos();
 					gameState->selectedEntityID = 0;
 				}
 				else
@@ -809,7 +801,7 @@ namespace AB
 						}
 
 						gameState->dragActive = true;
-						SimEntity* entity =
+						Entity* entity =
 							GetSimEntity(region, gameState->selectedEntityID);
 						v3 newPos = {};
 						f32 t = (entity->pos.z - camera->pos.z) / camera->mouseRay.z;
@@ -838,7 +830,7 @@ namespace AB
 				else if (GlobalInput.mouseButtons[MBUTTON_MIDDLE].pressedNow &&
 						 gameState->dragActive)
 				{
-					SimEntity* entity =
+					Entity* entity =
 						GetSimEntity(region, gameState->selectedEntityID);
 					v3 newPos = {};
 					f32 t = (entity->pos.z - camera->pos.z) / camera->mouseRay.z;
@@ -911,22 +903,16 @@ namespace AB
 		DEBUG_OVERLAY_STRING(gameState->selectionMode == SELECTION_MODE_ENTITY ? "ENTITIES" : "TILEMAP");
 		if (gameState->selectionMode == SELECTION_MODE_TILEMAP)
 		{
-			if (IsValid(gameState->selectedTile))
+			if (IsValid(&gameState->selectedTile))
 			{
-				DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileX);
-				DEBUG_OVERLAY_TRACE(gameState->selectedTile.tileY);
-				Chunk* chunk = GetChunk(world, gameState->selectedTile.chunkX,
-										gameState->selectedTile.chunkY,
-										gameState->selectedTile.chunkZ);
-				TerrainTileData tile = GetTerrainTile(chunk, 
-													  gameState->selectedTile.tileX,
-													  gameState->selectedTile.tileY,
-													  gameState->selectedTile.tileZ);
+				DEBUG_OVERLAY_TRACE(GetWorldPos(&gameState->selectedTile).tile.x);
+				DEBUG_OVERLAY_TRACE(GetWorldPos(&gameState->selectedTile).tile.y);
+				DEBUG_OVERLAY_TRACE(GetWorldPos(&gameState->selectedTile).tile.z);
+				Chunk* chunk = GetChunk(world, gameState->selectedTile.chunk);
+				TerrainTileData tile = GetTerrainTile(chunk, gameState->selectedTile.tile);
 				DEBUG_OVERLAY_PUSH_SLIDER("Tile type", (u32*)(&tile.type), 0, 3);
 
-				SetTerrainTile(chunk, gameState->selectedTile.tileX,
-							   gameState->selectedTile.tileY,
-							   gameState->selectedTile.tileZ, &tile);
+				SetTerrainTile(chunk, gameState->selectedTile.tile, &tile);
 			}
 		}
 
@@ -987,7 +973,7 @@ void
 
 
 WorldPosition
-DoCollisionDetection(World* world, Camera* camera, LowEntity* entity, v3 delta)
+DoCollisionDetection(World* world, Camera* camera, StoredEntity* entity, v3 delta)
 {
 	WorldPosition resultPos = entity->worldPos;
 	// TODO: bounding boxes
@@ -1088,8 +1074,8 @@ DoCollisionDetection(World* world, Camera* camera, LowEntity* entity, v3 delta)
 								 i++)
 							{
 								u32 testEntityIndex = block->lowEntityIndices[i];
-								LowEntity* testEntity =
-									GetLowEntity(world, testEntityIndex);
+								StoredEntity* testEntity =
+									GetStoredEntity(world, testEntityIndex);
 							
 								if (entity != testEntity)
 								{
@@ -1149,7 +1135,7 @@ DoEntityPhysicalMovement(World* world, HighEntity* highEntity,
 						 v3 acceleration, Camera* camera,
 						 MemoryArena* arena)
 {
-	LowEntity* entity = GetLowEntity(world, highEntity->lowIndex);
+	StoredEntity* entity = GetStoredEntity(world, highEntity->lowIndex);
 	f32 speed = entity->accelerationAmount;
 	acceleration *= speed;
 	//acceleration.z += -9.8f;

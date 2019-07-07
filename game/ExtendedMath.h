@@ -66,6 +66,16 @@ namespace AB
 		return result;
 	}
 
+	inline v3i V3I(i32 a)
+	{
+		v3i result;
+		result.x = a;
+		result.y = a;
+		result.z = a;
+		return result;
+	}
+
+
 	inline bool operator==(v3i& a, v3i& b)
 	{
 		bool result = a.x == b.x && a.y == b.y && a.z == b.z;
@@ -87,6 +97,40 @@ namespace AB
 	inline bool operator<=(v3i& a, v3i& b)
 	{
 		bool result = a.x <= b.x && a.y <= b.y && a.z <= b.z;
+		return result;
+	}
+
+	inline v3i& operator*=(v3i& l, i32 s)
+	{
+		l.x *= s;
+		l.y *= s;
+		l.z *= s;
+		return l;
+	}
+
+	union v3u
+	{
+		struct
+		{
+			u32 x, y, z;
+		};
+	};
+
+	inline v3u V3U(u32 x, u32 y, u32 z)
+	{
+		v3u result;
+		result.x = x;
+		result.y = y;
+		result.z = z;
+		return result;
+	}
+
+	inline v3u V3U(u32 a)
+	{
+		v3u result;
+		result.x = a;
+		result.y = a;
+		result.z = a;
 		return result;
 	}
 

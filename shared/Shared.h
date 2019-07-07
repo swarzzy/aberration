@@ -1,5 +1,6 @@
 #pragma once
-#include <cstdint>
+#include <stdint.h>
+#include <float.h>
 
 typedef int8_t				int8;	
 typedef int16_t				int16;	
@@ -47,10 +48,6 @@ typedef byte				b8;
 
 #define AB_API
 
-#define AB_UINT32_MAX  	((u32)(0xffffffff))
-#define AB_INT32_MIN 	(-(i32)(2147483648))
-#define AB_INT32_MAX 	((i32)(2147483647))
-
 #define AB_OFFSETOF(type, member) ((uptr)((byte *)&((type *)0)->member - (byte *)0))
 
 //#define restrict __restrict
@@ -77,6 +74,11 @@ typedef byte				b8;
 
 namespace AB
 {
+	const u32 AB_UINT32_MAX = 0xffffffff;
+	const i32 AB_INT32_MIN = -(i32)(2147483648);
+	const i32 AB_INT32_MAX = (i32)(2147483647);
+	const f32 AB_FLOAT_MAX = FLT_MAX;
+
 	inline u32 SafeCastU64U32(u64 val)
 	{
 		// TODO: Logging

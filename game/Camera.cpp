@@ -69,7 +69,7 @@ namespace AB
 		newVelocity = newVelocity +
 			acceleration * GlobalAbsDeltaTime;
 
-		camFrameOffset = WorldPosDiff(newPos, camera->targetWorldPos);
+		camFrameOffset = WorldPosDiff(&newPos, &camera->targetWorldPos);
 		camera->targetWorldPos = newPos;
 		camera->targetWorldVelocity = newVelocity;
 

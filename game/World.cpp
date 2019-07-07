@@ -1,8 +1,111 @@
 #include "World.h"
-
+#include "render/ChunkMesher.h"
 namespace AB
 {
+	World*
+	CreateWorld(MemoryArena* arena);
 
+	inline StoredEntity*
+	GetStoredEntity(World* world, u32 lowIndex);
+
+	inline Chunk*
+	GetChunk(World* world, v3i chunk, MemoryArena* arena = 0);
+
+	static inline EntityBlock*
+	GetEmptyEntityBlock(World* world, MemoryArena* arena = nullptr);
+
+	u32
+	AddStoredEntity(World* world, Chunk* chunk, EntityType type, MemoryArena* arena);
+
+	u32
+	AddWallEntity(World* world, Chunk* chunk, v3 offset,
+				  AssetManager* assetManager, MemoryArena* arena);
+
+	inline TerrainTileData*
+	GetTerrainTileInternal(Chunk* chunk, u32 tileInChunkX, u32 tileInChunkY,
+						   u32 tileInChunkZ);
+
+	inline TerrainTileData
+	GetTerrainTile(Chunk* chunk, v3u tileInChunk);
+
+	void
+	SetTerrainTile(Chunk* chunk, v3u tileInChunk, TerrainTileData* data);
+
+	inline bool
+	NotEmpty(TerrainTileData* tile);
+
+	inline i32
+	SafeAddTileCoord(i32 a, i32 b);
+
+	inline i32
+	SafeSubTileCoord(i32 a, i32 b);
+
+	inline i32
+	_SafeAddChunkCoord(i32 a, i32 b);	
+
+	inline i32
+	_SafeAddChunkCoord(i32 a, i32 b);
+
+	inline ChunkRegion
+	ChunkRegionFromOriginAndSpan(v3i origin, v3i span);
+
+	inline bool
+	InChunkRegion(ChunkRegion* region, v3i coord);
+
+	inline WorldPosition
+	OffsetWorldPos(WorldPosition oldPos, v3 offset);
+
+	inline bool
+	IsNormalized(WorldPosition* pos);
+
+	inline WorldPosition
+	NormalizeWorldPos(WorldPosition* pos);
+
+	inline ChunkPosition
+	InvalidChunkPos();
+
+	inline WorldPosition
+	InvalidWorldPos();
+
+	inline bool
+	IsValid(WorldPosition* pos);
+
+	inline bool
+	IsValid(ChunkPosition* pos);
+
+	inline WorldPosition
+	GetWorldPos(ChunkPosition* pos);
+
+	inline ChunkPosition
+	GetChunkPos(WorldPosition* pos);
+
+	WorldPosition
+	ChangeEntityPos(World* world, StoredEntity* entity,	WorldPosition newPos,
+					WorldPosition camTargetWorldPos, MemoryArena* arena);
+
+	inline WorldPosition
+	OffsetEntityPos(World* world, StoredEntity* entity,	v3 offset,
+					WorldPosition camTargetWorldPos, MemoryArena* arena);
+
+	inline v3
+	WorldPosDiff(WorldPosition* a, WorldPosition* b);
+
+	inline v3
+	GetRelativePos(WorldPosition* origin, WorldPosition* target);
+
+	// TODO: Make that world and renderer have same coords
+	inline v3
+	FlipYZ(v3 worldCoord);
+
+	RaycastResult
+	RayAABBIntersection(v3 rayFrom, v3 rayDir, v3 boxMin, v3 boxMax);
+
+	static u32 // NOTE: Entity ID
+	RaycastEntities(SimRegion* region, v3 from, v3 dir);
+
+	TilemapRaycastResult
+	TilemapRaycast(SimRegion* region, v3 from, v3 dir);
+	
 	World*
 	CreateWorld(MemoryArena* arena)
 	{
@@ -17,131 +120,36 @@ namespace AB
 		
 		// NOTE: Reserving for null entity
 		world->lowEntityCount = 1;
-		world->highEntityCount = 1;
 		return world;
 	}
 
-	inline LowEntity*
-	GetLowEntity(World* world, u32 lowIndex)
+	inline StoredEntity*
+	GetStoredEntity(World* world, u32 lowIndex)
 	{
-		LowEntity* result = nullptr;
+		StoredEntity* result = nullptr;
 		if (lowIndex > 0 && lowIndex < world->lowEntityCount)
 		{
 			result = world->lowEntities + lowIndex;
 		}
 		return result;		
 	}
-#if 0
-	inline HighEntity*
-	GetHighEntity(World* world, u32 highIndex)
-	{
-		HighEntity* result = nullptr;
-		if (highIndex > 0 && highIndex < world->highEntityCount)
-		{
-			result = world->highEntities + highIndex;
-		}
-		return result;
-	}
-
-   
-	inline Entity
-	GetEntityFromLowIndex(World* world, u32 lowIndex)
-	{
-		Entity result = {};
-		if (lowIndex > 0 && lowIndex < world->lowEntityCount)
-		{
-			result.low = world->lowEntities + lowIndex;
-			
-			u32 highIndex = result.low->highIndex;
-			
-			if (highIndex > 0 && highIndex < world->highEntityCount)
-			{
-				result.high = world->highEntities + highIndex;
-			}
-		}
-		
-		return result;
-	}
-
-	inline Entity
-	GetEntityFromHighIndex(World* world, u32 highIndex)
-	{
-		Entity result = {};
-		if (highIndex > 0 && highIndex < world->highEntityCount)
-		{
-			result.high = world->highEntities + highIndex;
-			result.low = world->lowEntities + result.high->lowIndex;
-		}
-		
-		return result;
-	}
-	u32
-	_SetEntityToHigh(World* world, WorldPosition camTargetWorldPos, u32 lowIndex)
-	{
-		AB_ASSERT(lowIndex < MAX_LOW_ENTITIES);
-		u32 result = 0;
-		LowEntity* low = world->lowEntities + lowIndex;
-		if (!low->highIndex)
-		{
-			if (world->highEntityCount < MAX_HIGH_ENTITIES)
-			{
-				u32 index = world->highEntityCount;
-				HighEntity* high =
-					world->highEntities + index;
-
-				high->pos = GetCamRelPos(low->worldPos, camTargetWorldPos);
-
-				high->lowIndex = lowIndex;
-				low->highIndex = index;
-				result = index;
-				world->highEntityCount++;				
-			}
-			else
-			{
-				INVALID_CODE_PATH();
-			}
-		}
-		return result;
-	}
-
-	void
-	_SetEntityToLow(World* world, u32 highIndex)
-	{
-		AB_ASSERT(highIndex < MAX_HIGH_ENTITIES);
-		HighEntity* high = GetHighEntity(world, highIndex);
-		LowEntity* low = GetLowEntity(world, high->lowIndex);
-
-		u32 lastEntityIndex = world->highEntityCount - 1;
-		u32 currentEntityIndex = low->highIndex;
-		
-		low->highIndex = 0;
-
-		if (!(currentEntityIndex == lastEntityIndex))
-		{
-			Entity lastEntity = GetEntityFromHighIndex(world, lastEntityIndex);
-			*(high) = *(lastEntity.high);
-			lastEntity.low->highIndex = currentEntityIndex;
-		}
-		world->highEntityCount--;
-	}
-#endif
 
 	inline Chunk*
-	GetChunk(World* world, i32 chunkX, i32 chunkY, i32 chunkZ, MemoryArena* arena)
+	GetChunk(World* world, v3i chunk, MemoryArena* arena)
 	{
 		Chunk* result = nullptr;
 		// TODO: Check is chunk coord are valid
 		// TODO: Better hash function !!111
-		u32 chunkHash = (AbsI32(chunkX) * 22 + AbsI32(chunkY) * 12 + 7 * AbsI32(chunkZ))
+		u32 chunkHash = (AbsI32(chunk.x) * 22 + AbsI32(chunk.y) * 12 + 7 * AbsI32(chunk.z))
 			% CHUNK_TABLE_SIZE;
 		AB_ASSERT(chunkHash < CHUNK_TABLE_SIZE);
 
 		Chunk* currentChunk = world->chunkTable[chunkHash];
 		if (currentChunk)
 		{
-			if ((currentChunk->coordX == chunkX) &&
-				(currentChunk->coordY == chunkY) &&
-				(currentChunk->coordZ == chunkZ))
+			if ((currentChunk->coordX == chunk.x) &&
+				(currentChunk->coordY == chunk.y) &&
+				(currentChunk->coordZ == chunk.z))
 			{
 				result = currentChunk;
 			}
@@ -150,9 +158,9 @@ namespace AB
 				while (currentChunk->nextChunk)
 				{
 					Chunk* nextChunk = currentChunk->nextChunk;
-					if ((nextChunk->coordX == chunkX) &&
-						(nextChunk->coordY == chunkY) &&
-						(nextChunk->coordZ == chunkZ))
+					if ((nextChunk->coordX == chunk.x) &&
+						(nextChunk->coordY == chunk.y) &&
+						(nextChunk->coordZ == chunk.z))
 					{
 						result = nextChunk;
 						break;
@@ -182,9 +190,9 @@ namespace AB
 				currentChunk->nextChunk = newChunk;
 			}
 			
-			newChunk->coordX = chunkX;
-			newChunk->coordY = chunkY;
-			newChunk->coordZ = chunkZ;
+			newChunk->coordX = chunk.x;
+			newChunk->coordY = chunk.y;
+			newChunk->coordZ = chunk.z;
 			newChunk->nextChunk = nullptr;
 			world->chunkCount++;
 
@@ -192,6 +200,91 @@ namespace AB
 		}
 		
 		return result;
+	}
+
+	static inline EntityBlock*
+	GetEmptyEntityBlock(World* world, MemoryArena* arena)
+	{
+		EntityBlock* block = nullptr;
+		if (world->firstFreeBlock)
+		{
+			block = world->firstFreeBlock;
+			world->firstFreeBlock = block->nextBlock;
+			world->freeEntityBlockCount--;
+			SetZeroScalar(EntityBlock, block);
+		}
+		else if (arena)
+		{
+			block =	(EntityBlock*)PushSize(arena, sizeof(EntityBlock),
+										   alignof(EntityBlock));
+			world->nonResidentEntityBlocksCount++;
+			SetZeroScalar(EntityBlock, block);
+		}
+		return block;
+	}
+
+	u32
+	AddStoredEntity(World* world, Chunk* chunk, EntityType type,
+					MemoryArena* arena)
+	{
+		AB_ASSERT(world->lowEntityCount < MAX_LOW_ENTITIES);
+		u32 index = 0;
+		if (chunk->firstEntityBlock.count < ENTITY_BLOCK_CAPACITY)
+		{
+			index = world->lowEntityCount;
+			world->lowEntities[index] = {};
+			world->lowEntities[index].storage.type = type;
+			world->lowEntities[index].storage.id = index;
+			WorldPosition pos = {chunk->coordX, chunk->coordY,chunk->coordZ, V3(0.0f)};
+			world->lowEntities[index].worldPos = pos;
+		
+			chunk->firstEntityBlock.lowEntityIndices[chunk->firstEntityBlock.count]
+				= index;
+			chunk->firstEntityBlock.count++;
+			world->lowEntityCount++;
+			chunk->entityCount++;
+		}
+		else
+		{
+			EntityBlock* emptyBlock = GetEmptyEntityBlock(world, arena);
+			if (emptyBlock)
+			{
+				*emptyBlock = chunk->firstEntityBlock;
+				chunk->firstEntityBlock.count = 0;
+				chunk->firstEntityBlock.nextBlock = emptyBlock;
+				chunk->firstEntityBlock.count++;
+
+				index = world->lowEntityCount;
+				world->lowEntities[index] = {};
+				world->lowEntities[index].storage.type = type;
+				world->lowEntities[index].storage.id = index;
+		
+				chunk->firstEntityBlock.lowEntityIndices[0] = index;
+				world->lowEntityCount++;
+				chunk->entityCount++;
+			}
+		}
+
+		return index;
+	}
+	
+	// TODO: Think about what's happens if offset is out if chunk bounds
+	u32
+	AddWallEntity(World* world, Chunk* chunk, v3 offset,
+				  AssetManager* assetManager, MemoryArena* arena)
+	{
+		// assert for coord out of chunk bounds
+		u32 index = 0;
+		index = AddStoredEntity(world, chunk, ENTITY_TYPE_WALL, arena);
+		if (index)
+		{
+			Entity* stored = &world->lowEntities[index].storage;
+			stored->type = ENTITY_TYPE_WALL;
+			stored->meshCount = 1;
+			stored->meshes[0] = assetManager->meshes;
+		}
+		
+		return index;
 	}
 	
 	inline TerrainTileData*
@@ -221,12 +314,11 @@ namespace AB
 	}
 	
 	inline TerrainTileData
-	GetTerrainTile(Chunk* chunk, u32 tileInChunkX,
-				   u32 tileInChunkY, u32 tileInChunkZ)
+	GetTerrainTile(Chunk* chunk, v3u tileInChunk)
 	{
 		TerrainTileData result = {};
-		TerrainTileData* ptr = GetTerrainTileInternal(chunk, tileInChunkX,
-													  tileInChunkY, tileInChunkZ);
+		TerrainTileData* ptr = GetTerrainTileInternal(chunk, tileInChunk.x,
+													  tileInChunk.y, tileInChunk.z);
 		if (ptr)
 		{
 			result = *ptr;
@@ -235,115 +327,166 @@ namespace AB
 		return result;
 	}
 
-	inline TileWorldPos
-	InvalidTileWorldPos()
+	void
+	SetTerrainTile(Chunk* chunk, v3u tileInChunk,
+				   TerrainTileData* data)
 	{
-		TileWorldPos result;
-		result.chunkX = INVALID_CHUNK_COORD;
-		result.chunkY = INVALID_CHUNK_COORD;
-		result.chunkZ = INVALID_CHUNK_COORD;
-		result.tileX = INVALID_TILE_COORD;
-		result.tileY = INVALID_TILE_COORD;
-		result.tileZ = INVALID_TILE_COORD;
-		return result;
+		TerrainTileData* tile = GetTerrainTileInternal(chunk, tileInChunk.x,
+													   tileInChunk.y, tileInChunk.z);
+		*tile = *data;
+		chunk->dirty = true;
 	}
 
 	inline bool
-	IsValid(TileWorldPos pos)
+	NotEmpty(TerrainTileData* tile)
 	{
 		bool result = false;
-		result =
-			(pos.chunkX > CHUNK_COORD_MIN_BOUNDARY) &&
-			(pos.chunkX < CHUNK_COORD_MAX_BOUNDARY);
-		result =
-			(pos.chunkY > CHUNK_COORD_MIN_BOUNDARY) &&
-			(pos.chunkY < CHUNK_COORD_MAX_BOUNDARY);
-		result =
-			(pos.chunkZ > CHUNK_COORD_MIN_BOUNDARY) &&
-			(pos.chunkZ < CHUNK_COORD_MAX_BOUNDARY);
-
-		result = (pos.tileX < WORLD_CHUNK_DIM_TILES);
-		result = (pos.tileY < WORLD_CHUNK_DIM_TILES);
-		result = (pos.tileZ < WORLD_CHUNK_DIM_TILES);
-
+		if (tile)
+		{
+			result = (bool)tile->type;			
+		}
 		return result;
 	}
 
-	inline TileCoord
-	ChunkRelOffsetToTileCoord(v3 chunkRelOffset)
+
+	inline i32
+	SafeSubTileCoord(i32 a, i32 b)
 	{
-		AB_ASSERT(chunkRelOffset.x >= 0.0f);
-		AB_ASSERT(chunkRelOffset.y >= 0.0f);
-		AB_ASSERT(chunkRelOffset.z >= 0.0f);
-		AB_ASSERT(chunkRelOffset.x <=
-				  WORLD_CHUNK_DIM_TILES * WORLD_TILE_SIZE);
-		AB_ASSERT(chunkRelOffset.y <=
-				  WORLD_CHUNK_DIM_TILES * WORLD_TILE_SIZE);
-		AB_ASSERT(chunkRelOffset.z <=
-				  WORLD_CHUNK_DIM_TILES * WORLD_TILE_SIZE);
-
-		TileCoord result;
-		result.x = Floor(chunkRelOffset.x / WORLD_TILE_SIZE);
-		result.y = Floor(chunkRelOffset.y / WORLD_TILE_SIZE);
-		result.z = Floor(chunkRelOffset.z / WORLD_TILE_SIZE);
+		i32 result = 0;
+		if (b < 0)
+		{
+			result = SafeAddTileCoord(a, -b);
+		}
+		else
+		{
+			result = a - b;
+			if (result > a)
+			{
+				result = AB_INT32_MIN + TILEMAP_SAFE_MARGIN + 1;
+			}
+		}
+		
 		return result;
 	}
 
+	inline i32
+	SafeAddTileCoord(i32 a, i32 b)
+	{
+		i32 result;
+		if (b < 0)
+		{
+			result = SafeSubTileCoord(a, -b);
+		}
+		else
+		{
+			result = a + b;
+			if (result < a)
+			{
+				result = AB_INT32_MAX - TILEMAP_SAFE_MARGIN - 1;
+			}
+		}
+
+		return result;
+	}
+
+	inline i32
+	_SafeSubChunkCoord(i32 a, i32 b)
+	{
+		i32 result = 0;
+		if (b < 0)
+		{
+			result = _SafeAddChunkCoord(a, -b);
+		}
+		else
+		{
+			result = a - b;
+			if (result > a)
+			{
+				result = AB_INT32_MIN + CHUNK_SAFE_MARGIN + 1;
+			}
+		}
+		
+		return result;
+	}
+
+	inline i32
+	_SafeAddChunkCoord(i32 a, i32 b)
+	{
+		i32 result;
+		if (b < 0)
+		{
+			result = _SafeSubChunkCoord(a, -b);
+		}
+		else
+		{
+			result = a + b;
+			if (result < a)
+			{
+				result = AB_INT32_MAX - CHUNK_SAFE_MARGIN - 1;
+			}
+		}
+
+		return result;
+	}
+
+	inline ChunkRegion ChunkRegionFromOriginAndSpan(v3i origin, v3i span)
+	{
+		ChunkRegion result;
+
+		result.minBound.x = _SafeSubChunkCoord(origin.x, span.x);
+		result.minBound.y = _SafeSubChunkCoord(origin.y, span.y);
+		result.minBound.z = _SafeSubChunkCoord(origin.z, span.z);
+		result.maxBound.x = _SafeAddChunkCoord(origin.x, span.x);
+		result.maxBound.y = _SafeAddChunkCoord(origin.y, span.y);
+		result.maxBound.z = _SafeAddChunkCoord(origin.z, span.z);
+
+		return result;
+	}
+
+	inline bool InChunkRegion(ChunkRegion* region, v3i coord)
+	{
+		bool result = coord >= region->minBound &&	coord <= region->maxBound;
+		return result;			
+	}
+	
 	inline WorldPosition
 	OffsetWorldPos(WorldPosition oldPos, v3 offset)
 	{
 		// TODO: Better checking!
 		WorldPosition newPos = oldPos;
 		newPos.offset += offset;
-		i32 chunkOffsetX = Floor(newPos.offset.x / WORLD_CHUNK_SIZE);
-		i32 chunkOffsetY = Floor(newPos.offset.y / WORLD_CHUNK_SIZE);
-		i32 chunkOffsetZ = Floor(newPos.offset.z / WORLD_CHUNK_SIZE);
+		i32 tileOffsetX = Floor(newPos.offset.x / WORLD_TILE_SIZE);
+		i32 tileOffsetY = Floor(newPos.offset.y / WORLD_TILE_SIZE);
+		i32 tileOffsetZ = Floor(newPos.offset.z / WORLD_TILE_SIZE);
 
-		newPos.offset.x -= chunkOffsetX * WORLD_CHUNK_SIZE;
-		newPos.offset.y -= chunkOffsetY * WORLD_CHUNK_SIZE;
-		newPos.offset.z -= chunkOffsetZ * WORLD_CHUNK_SIZE;
+		newPos.offset.x -= tileOffsetX * WORLD_TILE_SIZE;
+		newPos.offset.y -= tileOffsetY * WORLD_TILE_SIZE;
+		newPos.offset.z -= tileOffsetZ * WORLD_TILE_SIZE;
 
-		AB_ASSERT(oldPos.chunkX + chunkOffsetX > INT32_MIN + CHUNK_SAFE_MARGIN);
-		AB_ASSERT(oldPos.chunkX + chunkOffsetX < INT32_MAX - CHUNK_SAFE_MARGIN);
+		AB_ASSERT(oldPos.tile.x + tileOffsetX > INT32_MIN + TILEMAP_SAFE_MARGIN);
+		AB_ASSERT(oldPos.tile.x + tileOffsetX < INT32_MAX - TILEMAP_SAFE_MARGIN);
 		
-		AB_ASSERT(oldPos.chunkY + chunkOffsetY > INT32_MIN + CHUNK_SAFE_MARGIN);
-		AB_ASSERT(oldPos.chunkY + chunkOffsetY < INT32_MAX - CHUNK_SAFE_MARGIN);
+		AB_ASSERT(oldPos.tile.y + tileOffsetY > INT32_MIN + TILEMAP_SAFE_MARGIN);
+		AB_ASSERT(oldPos.tile.y + tileOffsetY < INT32_MAX - TILEMAP_SAFE_MARGIN);
 
-		newPos.chunkX = SafeAddChunkCoord(newPos.chunkX, chunkOffsetX);
-		newPos.chunkY = SafeAddChunkCoord(newPos.chunkY, chunkOffsetY);
-		newPos.chunkZ = SafeAddChunkCoord(newPos.chunkZ, chunkOffsetZ);
+		AB_ASSERT(oldPos.tile.z + tileOffsetZ > INT32_MIN + TILEMAP_SAFE_MARGIN);
+		AB_ASSERT(oldPos.tile.z + tileOffsetZ < INT32_MAX - TILEMAP_SAFE_MARGIN);
+
+		// TODO: Should these by safe adds?
+		newPos.tile.x = SafeAddTileCoord(newPos.tile.x, tileOffsetX);
+		newPos.tile.y = SafeAddTileCoord(newPos.tile.y, tileOffsetY);
+		newPos.tile.z = SafeAddTileCoord(newPos.tile.z, tileOffsetZ);
 
 		return newPos;
-	}
-
-	static inline EntityBlock*
-	GetEmptyEntityBlock(World* world, MemoryArena* arena = nullptr)
-	{
-		EntityBlock* block = nullptr;
-		if (world->firstFreeBlock)
-		{
-			block = world->firstFreeBlock;
-			world->firstFreeBlock = block->nextBlock;
-			world->freeEntityBlockCount--;
-			SetZeroScalar(EntityBlock, block);
-		}
-		else if (arena)
-		{
-			block =	(EntityBlock*)PushSize(arena, sizeof(EntityBlock),
-										   alignof(EntityBlock));
-			world->nonResidentEntityBlocksCount++;
-			SetZeroScalar(EntityBlock, block);
-		}
-		return block;
 	}
 
 	inline bool
 	IsNormalized(WorldPosition* pos)
 	{
 		// NOTE: <= ???
-		return ((pos->offset.x <= WORLD_CHUNK_SIZE) &&
-				(pos->offset.y <= WORLD_CHUNK_SIZE) &&
-				(pos->offset.z <= WORLD_CHUNK_SIZE));
+		return ((pos->offset.x <= WORLD_TILE_SIZE) &&
+				(pos->offset.y <= WORLD_TILE_SIZE) &&
+				(pos->offset.z <= WORLD_TILE_SIZE));
 	}
 
 	inline WorldPosition
@@ -352,13 +495,103 @@ namespace AB
 		return OffsetWorldPos(*pos, V3(0.0f));
 	}
 
+	inline ChunkPosition
+	InvalidChunkPos()
+	{
+		ChunkPosition result;
+		result.chunk = V3I(INVALID_CHUNK_COORD);
+		result.tile = V3U(AB_UINT32_MAX);
+		return result;
+	}
+
+	inline WorldPosition
+	InvalidWorldPos()
+	{
+		WorldPosition result;
+		result.tile = V3I(INVALID_TILE_COORD);
+		result.offset = V3(AB_FLOAT_MAX);
+		return result;
+	}
+
+	inline bool
+	IsValid(WorldPosition* pos)
+	{
+		bool result = false;
+		result =
+			(pos->tile.x > TILE_COORD_MIN_BOUNDARY) &&
+			(pos->tile.x < TILE_COORD_MAX_BOUNDARY);
+		result =
+			(pos->tile.y > TILE_COORD_MIN_BOUNDARY) &&
+			(pos->tile.y < TILE_COORD_MAX_BOUNDARY);
+		result =
+			(pos->tile.z > TILE_COORD_MIN_BOUNDARY) &&
+			(pos->tile.z < TILE_COORD_MAX_BOUNDARY);
+
+		// NOTE: <=???
+		result = pos->offset.x <= WORLD_TILE_SIZE;
+		result = pos->offset.y <= WORLD_TILE_SIZE;
+		result = pos->offset.z <= WORLD_TILE_SIZE;
+
+		return result;
+	}
+
+	inline bool
+	IsValid(ChunkPosition* pos)
+	{
+		bool result = false;
+		result =
+			(pos->chunk.x > CHUNK_COORD_MIN_BOUNDARY) &&
+			(pos->chunk.x < CHUNK_COORD_MAX_BOUNDARY);
+		result =
+			(pos->chunk.y > CHUNK_COORD_MIN_BOUNDARY) &&
+			(pos->chunk.y < CHUNK_COORD_MAX_BOUNDARY);
+		result =
+			(pos->chunk.z > CHUNK_COORD_MIN_BOUNDARY) &&
+			(pos->chunk.z < CHUNK_COORD_MAX_BOUNDARY);
+
+		result = pos->tile.x < WORLD_CHUNK_DIM_TILES;
+		result = pos->tile.y < WORLD_CHUNK_DIM_TILES;
+		result = pos->tile.z < WORLD_CHUNK_DIM_TILES;
+		
+		return result;
+	}
+		
+	inline WorldPosition
+	GetWorldPos(ChunkPosition* pos)
+	{
+		WorldPosition result = {};
+		result.tile.x = pos->chunk.x << WORLD_CHUNK_SHIFT;
+		result.tile.y = pos->chunk.y << WORLD_CHUNK_SHIFT;
+		result.tile.z = pos->chunk.z << WORLD_CHUNK_SHIFT;
+
+		result.tile.x += pos->tile.x;
+		result.tile.y += pos->tile.y;
+		result.tile.z += pos->tile.z;
+		return result;
+	}
+
+	inline ChunkPosition
+	GetChunkPos(WorldPosition* pos)
+	{
+		AB_ASSERT(IsNormalized(pos));
+		ChunkPosition result;
+		result.chunk.x = pos->tile.x >> WORLD_CHUNK_SHIFT;
+		result.chunk.y = pos->tile.y >> WORLD_CHUNK_SHIFT;
+		result.chunk.z = pos->tile.z >> WORLD_CHUNK_SHIFT;
+
+		result.tile.x = pos->tile.x & WORLD_CHUNK_MASK;
+		result.tile.y = pos->tile.y & WORLD_CHUNK_MASK;
+		result.tile.z = pos->tile.z & WORLD_CHUNK_MASK;
+		return result;
+	}
+
 	// TODO @Important: It may take some extra blocks of memory
 	// Because entities are spreading across half-filled resident blocks.
 	// When entity goes from half-filled block to full it need extra block.
 	// Number of extra blocks should be fixed and depends of number of chunks and
 	// entities
 	WorldPosition
-	ChangeEntityPos(World* world, LowEntity* entity,
+	ChangeEntityPos(World* world, StoredEntity* entity,
 					WorldPosition newPos, WorldPosition camTargetWorldPos,
 					MemoryArena* arena)
 	{
@@ -369,10 +602,12 @@ namespace AB
 			newPos = NormalizeWorldPos(&newPos);
 		}
 
-		// TODO: Chunk Z!!!
-		if((oldPos.chunkX == newPos.chunkX) &&
-		   (oldPos.chunkY == newPos.chunkY) &&
-		   (oldPos.chunkZ == newPos.chunkZ))
+		ChunkPosition oldChunkCoord = GetChunkPos(&oldPos);
+		ChunkPosition newChunkCoord = GetChunkPos(&newPos);
+
+		if((oldChunkCoord.chunk.x == newChunkCoord.chunk.x) &&
+		   (oldChunkCoord.chunk.y == newChunkCoord.chunk.y) &&
+		   (oldChunkCoord.chunk.z == newChunkCoord.chunk.z))
 		{
 			// NOTE: Are in the same chunk
 		}
@@ -380,10 +615,9 @@ namespace AB
 		{
 			// NOTE: Chunk transition
 			// Here where fun begins!!!
-			Chunk* oldChunk = GetChunk(world, oldPos.chunkX,
-									   oldPos.chunkY, oldPos.chunkZ);
-			Chunk* newChunk = GetChunk(world, newPos.chunkX,
-									   newPos.chunkY, newPos.chunkZ);
+			Chunk* oldChunk = GetChunk(world, oldChunkCoord.chunk);
+			Chunk* newChunk = GetChunk(world, newChunkCoord.chunk);
+			
 			AB_ASSERT(oldChunk);
 			AB_ASSERT(newChunk);
 			{
@@ -394,7 +628,7 @@ namespace AB
 				{
 					for (u32 i = 0; i < oldBlock->count; i++)
 					{
-						if (oldBlock->lowEntityIndices[i] == entity->stored.id)
+						if (oldBlock->lowEntityIndices[i] == entity->storage.id)
 						{
 							// NOTE: Moving last index from last block here
 							EntityBlock* head = &oldChunk->firstEntityBlock;
@@ -438,7 +672,7 @@ namespace AB
 				if (newBlock->count < ENTITY_BLOCK_CAPACITY)
 				{
 					newBlock->lowEntityIndices[newBlock->count] =
-						entity->stored.id;
+						entity->storage.id;
 					newBlock->count++;
 				}
 				else
@@ -450,7 +684,7 @@ namespace AB
 					newChunk->firstEntityBlock.nextBlock = emptyBlock;
 					newChunk->firstEntityBlock.count++;
 					newChunk->firstEntityBlock.lowEntityIndices[0]
-						= entity->stored.id;
+						= entity->storage.id;
 				}
 				newChunk->entityCount++;
 			}
@@ -481,7 +715,7 @@ namespace AB
 	}
 
 	inline WorldPosition
-	OffsetEntityPos(World* world, LowEntity* entity,
+	OffsetEntityPos(World* world, StoredEntity* entity,
 					v3 offset, WorldPosition camTargetWorldPos,
 					MemoryArena* arena)
 	{
@@ -491,73 +725,27 @@ namespace AB
 
 
 	inline v3
-	WorldPosDiff(WorldPosition a, WorldPosition b)
+	WorldPosDiff(WorldPosition* a, WorldPosition* b)
 	{
 		v3 result;
 		// TODO: Potential integer overflow
-		i32 dX = a.chunkX - b.chunkX;
-		i32 dY = a.chunkY - b.chunkY;
-		i32 dZ = a.chunkZ - b.chunkZ;
-		f32 dOffX = a.offset.x - b.offset.x;
-		f32 dOffY = a.offset.y - b.offset.y;
-		f32 dOffZ = a.offset.z - b.offset.z;
-		result = V3(WORLD_CHUNK_SIZE * dX + dOffX,
-					WORLD_CHUNK_SIZE * dY + dOffY,
-					WORLD_CHUNK_SIZE * dZ + dOffZ);
+		i32 dX = a->tile.x - b->tile.x;
+		i32 dY = a->tile.y - b->tile.y;
+		i32 dZ = a->tile.z - b->tile.z;
+		f32 dOffX = a->offset.x - b->offset.x;
+		f32 dOffY = a->offset.y - b->offset.y;
+		f32 dOffZ = a->offset.z - b->offset.z;
+		result = V3(WORLD_TILE_SIZE * dX + dOffX,
+					WORLD_TILE_SIZE * dY + dOffY,
+					WORLD_TILE_SIZE * dZ + dOffZ);
 		return result;
 	}
 
-	u32
-	AddLowEntity(World* world, Chunk* chunk, EntityType type,
-				 MemoryArena* arena)
-	{
-		AB_ASSERT(world->lowEntityCount < MAX_LOW_ENTITIES);
-		u32 index = 0;
-		if (chunk->firstEntityBlock.count < ENTITY_BLOCK_CAPACITY)
-		{
-			index = world->lowEntityCount;
-			world->lowEntities[index] = {};
-			world->lowEntities[index].stored.type = type;
-			world->lowEntities[index].stored.id = index;
-			WorldPosition pos = {chunk->coordX, chunk->coordY,chunk->coordZ, V3(0.0f)};
-			world->lowEntities[index].worldPos = pos;
-		
-			chunk->firstEntityBlock.lowEntityIndices[chunk->firstEntityBlock.count]
-				= index;
-			chunk->firstEntityBlock.count++;
-			world->lowEntityCount++;
-			chunk->entityCount++;
-		}
-		else
-		{
-			EntityBlock* emptyBlock = GetEmptyEntityBlock(world, arena);
-			if (emptyBlock)
-			{
-				*emptyBlock = chunk->firstEntityBlock;
-				chunk->firstEntityBlock.count = 0;
-				chunk->firstEntityBlock.nextBlock = emptyBlock;
-				chunk->firstEntityBlock.count++;
 
-				index = world->lowEntityCount;
-				world->lowEntities[index] = {};
-				world->lowEntities[index].stored.type = type;
-				world->lowEntities[index].stored.id = index;
-		
-				chunk->firstEntityBlock.lowEntityIndices[0] = index;
-				world->lowEntityCount++;
-				chunk->entityCount++;
-			}
-		}
-
-		return index;
-	}
-
-	// TODO: Camera Z
 	inline v3
-	GetCamRelPos(WorldPosition worldPos,
-				 WorldPosition camTargetWorldPos)
+	GetRelativePos(WorldPosition* origin, WorldPosition* target)
 	{
-		v3 result = WorldPosDiff(worldPos, camTargetWorldPos);
+		v3 result = WorldPosDiff(target, origin);
 		return result;
 	}
 
@@ -572,7 +760,8 @@ namespace AB
 		return result;
 	}
 
-	RaycastResult RayAABBIntersection(v3 rayFrom, v3 rayDir, v3 boxMin, v3 boxMax)
+	RaycastResult
+	RayAABBIntersection(v3 rayFrom, v3 rayDir, v3 boxMin, v3 boxMax)
 	{
 		f32 tMin = 0.0f;
 		bool hit = false;
@@ -715,7 +904,7 @@ namespace AB
 		f32 tMin = 0.0f;
 		for (u32 index = 0; index < region->entityCount; index++)
 		{
-			SimEntity* entity = region->entities + index;
+			Entity* entity = region->entities + index;
 			AB_ASSERT(entity);
 
 			f32 tMinForEntity = 0.0f;
@@ -770,31 +959,23 @@ namespace AB
 				{
 					for (u32 tileX = 0; tileX < WORLD_CHUNK_DIM_TILES; tileX++)
 					{
-						TerrainTileData tile = GetTerrainTile(chunk, tileX,
-															  tileY, tileZ);
+						TerrainTileData tile = GetTerrainTile(chunk, V3U(tileX,
+																		 tileY, tileZ));
 						if (tile.type)
 						{
-							WorldPosition tileWorldPos;
-							tileWorldPos.chunkX = chunk->coordX;
-							tileWorldPos.chunkY = chunk->coordY;
-							tileWorldPos.chunkZ = chunk->coordZ;
+							WorldPosition tileWorldPos = {};
+							tileWorldPos.tile.x = chunk->coordX * WORLD_CHUNK_DIM_TILES;
+							tileWorldPos.tile.y = chunk->coordY * WORLD_CHUNK_DIM_TILES;
+							tileWorldPos.tile.z = chunk->coordZ * WORLD_CHUNK_DIM_TILES;
 					
-							tileWorldPos.offset.x = tileX * WORLD_TILE_SIZE;
-							//tileWorldPos.offset.x -= world->tileSizeInUnits * 0.5f;
-					
-							tileWorldPos.offset.y = tileY * WORLD_TILE_SIZE;
-							//tileWorldPos.offset.y -= world->tileSizeInUnits * 0.5f;
+							tileWorldPos.tile.x += tileX;
+							tileWorldPos.tile.y += tileY;
+							tileWorldPos.tile.z += tileZ;
 
-							tileWorldPos.offset.z = tileZ * WORLD_TILE_SIZE;
-
-							v3 tileSimPos = GetSimSpacePos(region, &tileWorldPos);
-							//tileCamRelPos.z -= WORLD_CHUNK_DIM_TILES * WORLD_TILE_SIZE;
-							v3 minCorner = tileSimPos;// - world->tileSizeInUnits * 0.5f;
+							v3 tileSimPos = GetRelativePos(&region->origin, &tileWorldPos);
+							v3 minCorner = tileSimPos;
 							v3 maxCorner = tileSimPos + WORLD_TILE_SIZE;
-#if 0
-							minCorner.z = tile.height - world->tileSizeInUnits;
-							maxCorner.z = tile.height;
-#endif
+
 							RaycastResult r =
 								RayAABBIntersection(from, dir, minCorner, maxCorner);
 					
@@ -805,12 +986,7 @@ namespace AB
 									result.hit = true;
 									result.tMin = r.tMin;
 									result.normal = r.normal;
-									result.pos.chunkX = chunk->coordX;
-									result.pos.chunkY = chunk->coordY;
-									result.pos.chunkZ = chunk->coordZ;
-									result.pos.tileX = tileX;
-									result.pos.tileY = tileY;
-									result.pos.tileZ = tileZ;
+									result.coord = GetChunkPos(&tileWorldPos);
 								}
 							}
 						}
@@ -821,99 +997,4 @@ namespace AB
 		}
 		return result;
 	}
-
-#if 0
-	void
-	SetChunkToLow(World* world, Chunk* chunk)
-	{
-		if (chunk->simulated)
-		{
-			EntityBlock* block = &chunk->firstEntityBlock;
-			do
-			{
-				for (u32 i = 0; i < block->count; i++)
-				{
-					u32 index = block->lowEntityIndices[i];
-					LowEntity* entity = GetLowEntity(world, index);
-					AB_ASSERT(entity->highIndex);
-					_SetEntityToLow(world, entity->highIndex);
-					AB_ASSERT(!entity->highIndex);
-				}
-
-				block = block->nextBlock;
-			}
-			while(block);
-			for (u32 i = 0; i < world->highChunkCount; i++)
-			{
-				Chunk* highPtr = world->highChunks[i];
-				if (highPtr == chunk)
-				{
-					world->highChunks[i] =
-						world->highChunks[world->highChunkCount - 1];
-					world->highChunkCount--;
-					break;
-				}
-			}
-			chunk->simulated = false;
-			MesherRemoveChunk(world->chunkMesher, chunk);
-		}
-	}
-
-	void
-	SetChunkToHigh(World* world, Chunk* chunk, WorldPosition camTargetWorldPos)
-	{
-		if (!chunk->simulated)
-		{
-			EntityBlock* block = &chunk->firstEntityBlock;
-			do
-			{
-				for (u32 i = 0; i < block->count; i++)
-				{
-					u32 index = block->lowEntityIndices[i];
-					LowEntity* entity = GetLowEntity(world, index);
-					AB_ASSERT(!entity->highIndex);
-					_SetEntityToHigh(world, camTargetWorldPos, index);
-				}
-
-				block = block->nextBlock;
-			}
-			while(block);
-			AB_ASSERT(world->highChunkCount < MAX_HIGH_CHUNKS);
-			world->highChunks[world->highChunkCount] = chunk;
-			world->highChunkCount++;
-			chunk->simulated = true;
-			chunk->dirty = true;
-			MesherAddChunk(world->chunkMesher,chunk);
-		}
-	}
-#endif
-	// TODO: Think about what's happens if offset is out if chunk bounds
-	u32
-	AddWallEntity(World* world, Chunk* chunk, v3 offset,
-				  AssetManager* assetManager, MemoryArena* arena)
-	{
-		// assert for coord out of chunk bounds
-		u32 index = 0;
-		index = AddLowEntity(world, chunk, ENTITY_TYPE_WALL, arena);
-		if (index)
-		{
-			SimEntity* stored = &world->lowEntities[index].stored;
-			stored->type = ENTITY_TYPE_WALL;
-			stored->meshCount = 1;
-			stored->meshes[0] = assetManager->meshes;
-		}
-		
-		return index;
-	}
-	
-	void
-	SetTerrainTile(Chunk* chunk, u32 tileX, u32 tileY, u32 tileZ,
-				   TerrainTileData* data)
-	{
-		TerrainTileData* tile = GetTerrainTileInternal(chunk, tileX,
-													   tileY, tileZ);
-		*tile = *data;
-		chunk->dirty = true;
-	}
-	
 }

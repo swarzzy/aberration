@@ -54,7 +54,7 @@ namespace AB
 		MouseDragAxis dragAxis;
 		f32 yDragSpeed;
 		//EntityResidence entityResidence[MAX_LOW_ENTITIES];
-		TileWorldPos selectedTile;
+		ChunkPosition selectedTile;
 		SelectionMode selectionMode;
 	};
 
