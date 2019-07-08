@@ -3,7 +3,8 @@
 
 namespace AB
 {
-	static EntityHashBucket* FindEntityBucket(SimRegion* region, u32 id)
+	static EntityHashBucket*
+	FindEntityBucket(SimRegion* region, u32 id)
 	{
 		AB_ASSERT(id);
 		EntityHashBucket* result = nullptr;
@@ -21,7 +22,8 @@ namespace AB
 		return result;
 	}
 
-	inline Entity* GetSimEntity(SimRegion* region, u32 id)
+	inline Entity*
+	GetSimEntity(SimRegion* region, u32 id)
 	{
 		Entity* result = nullptr;
 		if (id)
@@ -33,7 +35,8 @@ namespace AB
 		return result;
 	}
 
-	static void MapSimEntityToID(SimRegion* region, u32 id, Entity* simEntity)
+	static void
+	MapSimEntityToID(SimRegion* region, u32 id, Entity* simEntity)
 	{
 		AB_ASSERT(id);
 		EntityHashBucket* bucket = FindEntityBucket(region, id);
@@ -42,19 +45,22 @@ namespace AB
 		bucket->ptr = simEntity;
 	}
 	
-	inline WorldPosition GetWorldPos(SimRegion* region, v3 simSpacePos)
+	inline WorldPosition
+	GetWorldPos(SimRegion* region, v3 simSpacePos)
 	{
 		WorldPosition result = OffsetWorldPos(region->origin, simSpacePos);
 		return result;
 	}
 	
-	inline v3 GetSimSpacePos(SimRegion* region, WorldPosition* pos)
+	inline v3
+	GetSimSpacePos(SimRegion* region, WorldPosition* pos)
 	{
 		v3 result = WorldPosDiff(pos, &region->origin);
 		return result;	
 	}
 
-	static void ChunkBeginSim(SimRegion* region, World* world, Chunk* chunk)
+	static void
+	ChunkBeginSim(SimRegion* region, World* world, Chunk* chunk, SimulationType simType)
 	{
 		EntityBlock* block = &chunk->firstEntityBlock;
 		do
@@ -63,9 +69,25 @@ namespace AB
 			{
 				u32 index = block->lowEntityIndices[i];
 				StoredEntity* stored = GetStoredEntity(world, index);
-				AB_ASSERT(region->entityCount < region->maxEntityCount);
-				Entity* simEntity = region->entities + region->entityCount;
-				region->entityCount++;
+				stored->storage.simType = simType;
+
+				Entity* simEntity;
+				switch(simType)
+				{
+				case SIM_TYPE_ACTIVE:
+				{
+					AB_ASSERT(region->entityCount < region->maxEntityCount);
+					simEntity = region->entities + region->entityCount;
+					region->entityCount++;
+				} break;
+				case SIM_TYPE_DORMANT:
+				{
+					AB_ASSERT(region->dormantEntityCount < region->maxDormantEntityCount);
+					simEntity =	region->dormantEntities + region->dormantEntityCount;
+					region->dormantEntityCount++;
+				} break;
+				INVALID_DEFAULT_CASE;
+				}
 
 				*simEntity = stored->storage;
 				simEntity->pos = GetSimSpacePos(region, &stored->worldPos);
@@ -76,12 +98,13 @@ namespace AB
 			block = block->nextBlock;
 		}
 		while(block);
-		chunk->simulated = true;
+		chunk->simType = simType;
 		//chunk->dirty = true;
 	}
 
-	SimRegion* BeginSim(MemoryArena* tempArena, World* world,
-						WorldPosition origin, v3i chunkSpan)
+	SimRegion*
+	BeginSim(MemoryArena* tempArena, World* world,
+			 WorldPosition origin, v3i chunkSpan)
 	{
 		SimRegion* region =
 			(SimRegion*)PushSize(tempArena, sizeof(SimRegion), alignof(SimRegion));
@@ -92,77 +115,133 @@ namespace AB
 		ChunkPosition chunkOrigin = GetChunkPos(&origin);
 		ChunkRegion area = ChunkRegionFromOriginAndSpan(chunkOrigin.chunk, chunkSpan);
 
+		ChunkRegion dormantArea = ChunkRegionFromOriginAndSpan(chunkOrigin.chunk, chunkSpan + 1);
+
 		region->origin = origin;
 		region->minBound = area.minBound;
 		region->maxBound = area.maxBound;
+		region->dormantMinBound = dormantArea.minBound;
+		region->dormantMaxBound = dormantArea.maxBound;
 		
 		u32 entityCount = 0;
 		u32 chunkCount = 0;
 
-		for (i32 chunkZ = area.minBound.z; chunkZ <= area.maxBound.z; chunkZ++)
+		u32 dormantEntityCount = 0;
+		u32 dormantChunkCount = 0;
+
+		for (i32 chunkZ = dormantArea.minBound.z; chunkZ <= dormantArea.maxBound.z; chunkZ++)
 		{
-			for (i32 chunkY = area.minBound.y; chunkY <= area.maxBound.y; chunkY++)
+			for (i32 chunkY = dormantArea.minBound.y; chunkY <= dormantArea.maxBound.y; chunkY++)
 			{
-				for (i32 chunkX = area.minBound.x; chunkX <= area.maxBound.x; chunkX++)
+				for (i32 chunkX = dormantArea.minBound.x; chunkX <= dormantArea.maxBound.x; chunkX++)
 				{
 					Chunk* chunk = GetChunk(world, V3I(chunkX, chunkY, chunkZ));
 					if (chunk)
 					{
-						entityCount += chunk->entityCount;
-						chunkCount++;
+						if (InChunkRegion(&area, V3I(chunkX, chunkY, chunkZ)))
+						{
+							entityCount += chunk->entityCount;
+							chunkCount++;
+
+						}
+						else
+						{
+							dormantEntityCount += chunk->entityCount;
+							dormantChunkCount++;
+						}
 					}
 				}
 			}
 		}
-
+		
 		region->maxEntityCount = entityCount;
+		region->maxDormantEntityCount = dormantEntityCount;
 
 		region->entities = (Entity*)PushSize(tempArena,
-												sizeof(Entity) * entityCount,
-												alignof(Entity));
-		region->chunks = (Chunk**)PushSize(tempArena,
-										  sizeof(Chunk*) * chunkCount,
-										  alignof(Chunk*));
-		AB_ASSERT(region->entities);
-		SetZeroArray(Entity, entityCount, region->entities);
+											 sizeof(Entity) * entityCount,
+											 alignof(Entity));
+		region->dormantEntities = (Entity*)PushSize(tempArena,
+													sizeof(Entity) * dormantEntityCount,
+													alignof(Entity));
 
-		for (i32 chunkZ = area.minBound.z; chunkZ <= area.maxBound.z; chunkZ++)
+		// TODO: Think about making this array in place with fixed size
+		region->chunks = (Chunk**)PushSize(tempArena,
+										   sizeof(Chunk*) * chunkCount,
+										   alignof(Chunk*));
+		
+		region->dormantChunks = (Chunk**)PushSize(tempArena,
+												  sizeof(Chunk*) * dormantChunkCount,
+												  alignof(Chunk*));
+
+		AB_ASSERT(region->entities);
+		AB_ASSERT(region->dormantEntities);
+		AB_ASSERT(region->chunks);
+		AB_ASSERT(region->dormantChunks);
+		
+		SetZeroArray(Entity, entityCount, region->entities);
+		SetZeroArray(Entity, entityCount, region->dormantChunks);
+
+		for (i32 chunkZ = dormantArea.minBound.z; chunkZ <= dormantArea.maxBound.z; chunkZ++)
 		{
-			for (i32 chunkY = area.minBound.y; chunkY <= area.maxBound.y; chunkY++)
+			for (i32 chunkY = dormantArea.minBound.y; chunkY <= dormantArea.maxBound.y; chunkY++)
 			{
-				for (i32 chunkX = area.minBound.x; chunkX <= area.maxBound.x; chunkX++)
+				for (i32 chunkX = dormantArea.minBound.x; chunkX <= dormantArea.maxBound.x; chunkX++)
 				{
 					Chunk* chunk = GetChunk(world, V3I(chunkX, chunkY, chunkZ));
 					if (chunk)
 					{
-						AB_ASSERT(!(chunk->simulated));
-						ChunkBeginSim(region, world, chunk);
-						region->chunks[region->chunkCount] = chunk;
-						region->chunkCount++;
+						AB_ASSERT(!(chunk->simType));
+						// TODO: Flag in entity and chunks that indicates if it is
+						// dormant or not
+						
+						if (InChunkRegion(&area, V3I(chunkX, chunkY, chunkZ)))
+						{
+							ChunkBeginSim(region, world, chunk, SIM_TYPE_ACTIVE);
+							region->chunks[region->chunkCount] = chunk;
+							region->chunkCount++;
+						}
+						else
+						{
+							ChunkBeginSim(region, world, chunk, SIM_TYPE_DORMANT);
+							region->dormantChunks[region->dormantChunkCount] = chunk;
+							region->dormantChunkCount++;
+						}
 					}
 				}
 			}
 		}
 		AB_ASSERT(region->chunkCount == chunkCount);
+		AB_ASSERT(region->dormantChunkCount == dormantChunkCount);
 		AB_ASSERT(region->entityCount == region->maxEntityCount);
+		AB_ASSERT(region->dormantEntityCount == region->maxDormantEntityCount);
+		
 		return region;
 	}
 
-	void EndSim(SimRegion* region, World* world, MemoryArena* arena)
+	void
+	EndSim(SimRegion* region, World* world, MemoryArena* arena)
 	{
 		for (u32 simIndex = 0; simIndex < region->entityCount; simIndex++)
 		{
 			Entity* sim = region->entities + simIndex;
+			sim->simType = SIM_TYPE_INACTIVE;
 			StoredEntity* stored = GetStoredEntity(world, sim->id);
 			WorldPosition newPos = OffsetWorldPos(region->origin, sim->pos);
 			stored->worldPos = ChangeEntityPos(world, stored, newPos,
 											   region->origin, arena);
-			stored->storage = *sim;
-			
+			stored->storage = *sim;			
+		}
+		
+		for (u32 simIndex = 0; simIndex < region->dormantEntityCount; simIndex++)
+		{
+			Entity* sim = region->entities + simIndex;
+			StoredEntity* stored = GetStoredEntity(world, sim->id);
+
+			stored->storage.simType = SIM_TYPE_INACTIVE;
 		}
 
-		v3i minBound = region->minBound;
-		v3i maxBound = region->maxBound;
+		v3i minBound = region->dormantMinBound;
+		v3i maxBound = region->dormantMaxBound;
 		
 		for (i32 chunkZ = minBound.z; chunkZ <= maxBound.z; chunkZ++)
 		{
@@ -173,8 +252,8 @@ namespace AB
 					Chunk* chunk = GetChunk(world, V3I(chunkX, chunkY, chunkZ));
 					if (chunk)
 					{
-						AB_ASSERT(chunk->simulated);
-						chunk->simulated = false;
+						AB_ASSERT(chunk->simType);
+						chunk->simType = SIM_TYPE_INACTIVE;
 						//chunk->dirty = true;
 					}
 				}

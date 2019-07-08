@@ -18,11 +18,18 @@ namespace AB
 		// NOTE: In chunks
         v3i minBound;
 		v3i maxBound;
-        u32 entityCount;
+		v3i dormantMinBound;
+		v3i dormantMaxBound;
         u32 maxEntityCount;
+		u32 maxDormantEntityCount;
 		u32 chunkCount;
+		u32 dormantChunkCount;
+		u32 entityCount;
+		u32 dormantEntityCount;
 		Chunk** chunks;
+		Chunk** dormantChunks;
         Entity* entities;
+		Entity* dormantEntities;
 
 		EntityHashBucket hashTable[SIM_REGION_HASH_TABLE_SIZE];
     };

@@ -388,36 +388,57 @@ namespace AB
 			v3 targetPosition = entity->pos + delta;
 			
 			// TODO: Handle case when entity moved out of sim region boundaries
-			
-			for (u32 simIndex = 0;
-				 simIndex < region->entityCount;
-				 simIndex++)
-			{
-				Entity* testEntity = region->entities + simIndex;
-							
-				if (entity != testEntity)
-				{
-					// TODO: Using aabb's and stuff
-					v3 minCorner = -0.5f * V3(testEntity->size) + testEntity->pos;
-					v3 maxCorner = 0.5f * V3(testEntity->size) + testEntity->pos;
-					//NOTE: Minkowski sum
-					minCorner += colliderSize * -0.5f;
-					maxCorner += colliderSize * 0.5f;
-					auto raycast = RayAABBIntersection(entity->pos, delta,
-													   minCorner, maxCorner);
-					if (raycast.hit)
-					{
-						raycast.tMin = MAXIMUM(0.0f, raycast.tMin - tEps);
 
-						if (raycast.tMin < tMin)
+			for (u32 entityGroup = 0; entityGroup < 2; entityGroup++)
+			{
+				u32 entityCount;
+				Entity* group;
+				
+				switch(entityGroup)
+				{
+				case 0:
+				{
+					entityCount = region->entityCount;
+					group = region->entities;
+				} break;
+				case 1:
+				{
+					entityCount = region->dormantEntityCount;
+					group = region->dormantEntities;
+				} break;
+				INVALID_DEFAULT_CASE;
+				}
+
+				for (u32 simIndex = 0;
+					 simIndex < entityCount;
+					 simIndex++)
+				{
+					Entity* testEntity = group + simIndex;
+							
+					if (entity != testEntity)
+					{
+						// TODO: Using aabb's and stuff
+						v3 minCorner = -0.5f * V3(testEntity->size) + testEntity->pos;
+						v3 maxCorner = 0.5f * V3(testEntity->size) + testEntity->pos;
+						//NOTE: Minkowski sum
+						minCorner += colliderSize * -0.5f;
+						maxCorner += colliderSize * 0.5f;
+						auto raycast = RayAABBIntersection(entity->pos, delta,
+														   minCorner, maxCorner);
+						if (raycast.hit)
 						{
-							tMin = raycast.tMin;
-							wallNormal = raycast.normal;
-							hit = true;												
+							raycast.tMin = MAXIMUM(0.0f, raycast.tMin - tEps);
+
+							if (raycast.tMin < tMin)
+							{
+								tMin = raycast.tMin;
+								wallNormal = raycast.normal;
+								hit = true;												
+							}
 						}
 					}
-				}
 					
+				}				
 			}
 			
 			result.dest = result.dest +  delta * tMin;
@@ -775,7 +796,7 @@ namespace AB
 				}
 				else
 				{
-					INVALID_CODE_PATH();
+					INVALID_CODE_PATH;
 				}
 			}
 			
@@ -822,7 +843,7 @@ namespace AB
 							dragPos.z = newPos.z;
 						} break;
 
-						INVALID_DEFAULT_CASE();
+						INVALID_DEFAULT_CASE;
 						}
 						gameState->prevDragPos = dragPos;
 					}
@@ -852,7 +873,7 @@ namespace AB
 						dragPos.z = newPos.z;
 					} break;
 
-					INVALID_DEFAULT_CASE();
+					INVALID_DEFAULT_CASE;
 					}
 					v3 offset = dragPos - gameState->prevDragPos;
 					entity->pos += offset;

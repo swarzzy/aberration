@@ -75,6 +75,14 @@ namespace AB
 		return result;
 	}
 
+	inline v3i operator+(v3i a, i32 b)
+	{
+		v3i result;
+		result.x = a.x + b;
+		result.y = a.y + b;
+		result.z = a.z + b;
+		return result;
+	}
 
 	inline bool operator==(v3i& a, v3i& b)
 	{

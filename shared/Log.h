@@ -67,8 +67,8 @@ namespace AB
 #endif
 #endif
 
-#define INVALID_DEFAULT_CASE() AB_CORE_FATAL("Invalid default case.")
-#define INVALID_CODE_PATH() AB_CORE_FATAL("Invalid code path.")
+#define INVALID_DEFAULT_CASE default:{ AB_CORE_ASSERT(false, "Invalid default case."); }break
+#define INVALID_CODE_PATH AB_CORE_ASSERT(false, "Invalid code path.")
 
 #define AB_ASSERT(expr, ...) AB_CORE_ASSERT(expr, ##__VA_ARGS__)
 #define AB_INFO(format, ...) AB_CORE_INFO(format, ##__VA_ARGS__)

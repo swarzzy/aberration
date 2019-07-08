@@ -40,9 +40,17 @@ namespace AB
 		ENTITY_TYPE_GIZMOS
 	};
 
+	enum SimulationType : u32
+	{
+		SIM_TYPE_INACTIVE = 0,
+		SIM_TYPE_ACTIVE,
+		SIM_TYPE_DORMANT
+	};
+
     struct Entity
     {
 		u32 id;
+		SimulationType simType;
         v3 pos;
 		EntityType type;
 		f32 accelerationAmount;
@@ -104,7 +112,7 @@ namespace AB
 	{
 		// TODO: This flags here are defintly not a good idea
 		b32 dirty;
-		b32 simulated;
+		SimulationType simType;
 		b32 visible;
 
 		// TODO: v3i

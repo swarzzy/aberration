@@ -446,7 +446,7 @@ namespace AB
 			PushCommandQueueEntry(group, &command);	
 		}
 		break;
-		INVALID_DEFAULT_CASE();
+		INVALID_DEFAULT_CASE;
 		}
 	}
 
