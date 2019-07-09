@@ -162,4 +162,10 @@ namespace AB
 		v3i minBound;
 		v3i maxBound;
 	};
+
+	struct TileRegion
+	{
+		v3i minBound;
+		v3i maxBound;		
+	};
 }

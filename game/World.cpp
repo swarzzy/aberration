@@ -52,6 +52,7 @@ namespace AB
 	inline bool
 	InChunkRegion(ChunkRegion* region, v3i coord);
 
+	// TODO: Pass pointer to world pos
 	inline WorldPosition
 	OffsetWorldPos(WorldPosition oldPos, v3 offset);
 
@@ -75,6 +76,9 @@ namespace AB
 
 	inline WorldPosition
 	GetWorldPos(ChunkPosition* pos);
+
+	inline ChunkPosition
+	GetChunkPos(v3i tileCoord);
 
 	inline ChunkPosition
 	GetChunkPos(WorldPosition* pos);
@@ -105,6 +109,10 @@ namespace AB
 
 	TilemapRaycastResult
 	TilemapRaycast(SimRegion* region, v3 from, v3 dir);
+
+	TilemapRaycastResult
+	TilemapRaycast(World* world, TileRegion* testRegion,
+				   WorldPosition* origin, v3 from, v3 dir);
 	
 	World*
 	CreateWorld(MemoryArena* arena)
@@ -571,17 +579,33 @@ namespace AB
 	}
 
 	inline ChunkPosition
+	GetChunkPos(v3i tileCoord)
+	{
+		AB_ASSERT(tileCoord.x > TILE_COORD_MIN_BOUNDARY);
+		AB_ASSERT(tileCoord.y > TILE_COORD_MIN_BOUNDARY);
+		AB_ASSERT(tileCoord.z > TILE_COORD_MIN_BOUNDARY);
+		AB_ASSERT(tileCoord.x < TILE_COORD_MAX_BOUNDARY);
+		AB_ASSERT(tileCoord.y < TILE_COORD_MAX_BOUNDARY);
+		AB_ASSERT(tileCoord.z < TILE_COORD_MAX_BOUNDARY);
+
+		ChunkPosition result;
+		result.chunk.x = tileCoord.x >> WORLD_CHUNK_SHIFT;
+		result.chunk.y = tileCoord.y >> WORLD_CHUNK_SHIFT;
+		result.chunk.z = tileCoord.z >> WORLD_CHUNK_SHIFT;
+
+		result.tile.x = tileCoord.x & WORLD_CHUNK_MASK;
+		result.tile.y = tileCoord.y & WORLD_CHUNK_MASK;
+		result.tile.z = tileCoord.z & WORLD_CHUNK_MASK;
+		
+		return result;
+	}
+
+	inline ChunkPosition
 	GetChunkPos(WorldPosition* pos)
 	{
 		AB_ASSERT(IsNormalized(pos));
 		ChunkPosition result;
-		result.chunk.x = pos->tile.x >> WORLD_CHUNK_SHIFT;
-		result.chunk.y = pos->tile.y >> WORLD_CHUNK_SHIFT;
-		result.chunk.z = pos->tile.z >> WORLD_CHUNK_SHIFT;
-
-		result.tile.x = pos->tile.x & WORLD_CHUNK_MASK;
-		result.tile.y = pos->tile.y & WORLD_CHUNK_MASK;
-		result.tile.z = pos->tile.z & WORLD_CHUNK_MASK;
+		result = GetChunkPos(pos->tile);
 		return result;
 	}
 
@@ -942,8 +966,6 @@ namespace AB
 		return colliderID;
 	}
 
-
-	//NOTE: Ray coordinates should be in sim region space
 	TilemapRaycastResult
 	TilemapRaycast(SimRegion* region, v3 from, v3 dir)
 	{
@@ -991,6 +1013,77 @@ namespace AB
 							}
 						}
 					
+					}
+				}
+			}
+		}
+		return result;
+	}
+
+	TilemapRaycastResult
+	TilemapRaycast(World* world, TileRegion* testRegion,
+				   WorldPosition* origin, v3 from, v3 dir)
+	{
+		// TODO: Sparseness
+		// STUDY: octrees and voxel cone tracing
+		
+		AB_ASSERT(testRegion->minBound.x < TILE_COORD_MAX_BOUNDARY);
+		AB_ASSERT(testRegion->minBound.y < TILE_COORD_MAX_BOUNDARY);
+		AB_ASSERT(testRegion->minBound.z < TILE_COORD_MAX_BOUNDARY);
+
+		AB_ASSERT(testRegion->maxBound.x > TILE_COORD_MIN_BOUNDARY);
+		AB_ASSERT(testRegion->maxBound.y > TILE_COORD_MIN_BOUNDARY);
+		AB_ASSERT(testRegion->maxBound.z > TILE_COORD_MIN_BOUNDARY);
+		
+		TilemapRaycastResult result = {};
+		Chunk* currentChunk = nullptr;
+		v3i currentChunkCoord = V3I(INVALID_CHUNK_COORD);
+		v3i minBound = testRegion->minBound;
+		v3i maxBound = testRegion->maxBound;
+		
+		for (i32 tileZ = minBound.z; tileZ <= maxBound.z; tileZ++)
+		{
+			for (i32 tileY = minBound.y; tileY <= maxBound.y; tileY++)
+			{
+				for (i32 tileX = minBound.x; tileX <= maxBound.x; tileX++)
+				{
+					// TODO: Is that actually faster than just fetch chunk
+					// pointer using GetChunk every iteration?
+					ChunkPosition tileChunkPos = GetChunkPos(V3I(tileX, tileY, tileZ));
+					if (tileChunkPos.chunk != currentChunkCoord)
+					{
+						currentChunk = GetChunk(world, tileChunkPos.chunk);
+						AB_ASSERT(currentChunk->simType);
+						currentChunkCoord = tileChunkPos.chunk;
+					}
+					
+					if (currentChunk)
+					{
+						WorldPosition tileWorldPos = {};
+						tileWorldPos.tile = V3I(tileX, tileY, tileZ);
+						
+						TerrainTileData tile =
+							GetTerrainTile(currentChunk, tileChunkPos.tile);
+						if (tile.type)
+						{
+							v3 tileSimPos = GetRelativePos(origin, &tileWorldPos);
+							v3 minCorner = tileSimPos;
+							v3 maxCorner = tileSimPos + WORLD_TILE_SIZE;
+
+							RaycastResult r =
+								RayAABBIntersection(from, dir, minCorner, maxCorner);
+					
+							if (r.hit)
+							{
+								if (!result.hit || r.tMin < result.tMin)
+								{
+									result.hit = true;
+									result.tMin = r.tMin;
+									result.normal = r.normal;
+									result.coord = GetChunkPos(&tileWorldPos);
+								}
+							}
+						}
 					}
 				}
 			}

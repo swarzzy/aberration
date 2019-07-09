@@ -209,7 +209,7 @@ namespace AB
 #endif
 
 		gameState->entity = AddStoredEntity(world, firstChunk,
-										 ENTITY_TYPE_BODY, arena);
+											ENTITY_TYPE_BODY, arena);
 		StoredEntity* e = GetStoredEntity(world, gameState->entity);
 		e->worldPos.tile.x = 10;
 		e->worldPos.tile.y = 10;
@@ -230,7 +230,7 @@ namespace AB
 		//e->stored.velocity = V3(0.0f, 0.1f, 0.2f);
 		
 		gameState->entity1 = AddStoredEntity(world, firstChunk,
-										  ENTITY_TYPE_BODY, arena);
+											 ENTITY_TYPE_BODY, arena);
 		StoredEntity* e1 = GetStoredEntity(world, gameState->entity1);
 		e1->worldPos.offset = V3(0.6f, 0.5f, 0.5f);
 		e1->storage.accelerationAmount = 30.0f;
@@ -247,7 +247,7 @@ namespace AB
 		for (u32 i = 0; i < MOVING_ENTITIES_COUNT; i++)
 		{
 			u32 id = AddStoredEntity(world, firstChunk,
-								  ENTITY_TYPE_BODY, arena);
+									 ENTITY_TYPE_BODY, arena);
 			gameState->movingEntities[i] = id; 
 			StoredEntity* e = GetStoredEntity(world, id);
 			if (i < 32)
@@ -368,8 +368,9 @@ namespace AB
 		v3 newVelocity;
 	};
 
+	// TODO: Stop passing world here
 	EntityMovement
-	ComputeEntityMovement(SimRegion* region, Entity* entity, v3 delta)
+	ComputeEntityMovement(World* world, SimRegion* region, Entity* entity, v3 delta)
 	{
 		EntityMovement result;
 		result.dest = entity->pos;
@@ -388,6 +389,41 @@ namespace AB
 			v3 targetPosition = entity->pos + delta;
 			
 			// TODO: Handle case when entity moved out of sim region boundaries
+
+			TileRegion testRegion;
+			// TODO: Maybe just take world pos from entity
+			// If all collision detection will be applied.
+			// But this may cause problrms when entity was moved before
+			// in this frame
+			
+			WorldPosition entityBegWorldPos =
+				OffsetWorldPos(region->origin, entity->pos);
+			WorldPosition entityEndWorldPos =
+				OffsetWorldPos(region->origin, entity->pos + delta);
+			// TODO: Optimize this
+
+			testRegion.minBound.x = MINIMUM(entityBegWorldPos.tile.x, entityEndWorldPos.tile.x);
+			testRegion.minBound.y = MINIMUM(entityBegWorldPos.tile.y, entityEndWorldPos.tile.y);
+			testRegion.minBound.z = MINIMUM(entityBegWorldPos.tile.z, entityEndWorldPos.tile.z);
+
+			testRegion.maxBound.x = MAXIMUM(entityBegWorldPos.tile.x, entityEndWorldPos.tile.x);
+			testRegion.maxBound.y = MAXIMUM(entityBegWorldPos.tile.y, entityEndWorldPos.tile.y);
+			testRegion.maxBound.z = MAXIMUM(entityBegWorldPos.tile.z, entityEndWorldPos.tile.z);
+
+			TilemapRaycastResult tileRaycastResult;
+			tileRaycastResult =	TilemapRaycast(world, &testRegion,
+											   &region->origin, entity->pos, delta);
+			if (tileRaycastResult.hit)
+			{
+				tileRaycastResult.tMin = MAXIMUM(0.0f, tileRaycastResult.tMin - tEps);
+
+				if (tileRaycastResult.tMin < tMin)
+				{
+					tMin = tileRaycastResult.tMin;
+					wallNormal = tileRaycastResult.normal;
+					hit = true;												
+				}
+			}
 
 			for (u32 entityGroup = 0; entityGroup < 2; entityGroup++)
 			{
@@ -459,11 +495,14 @@ namespace AB
 		return result;
 	}
 
+	// TODO: Stop pass world here
 	void
-	MoveEntity(SimRegion* region, Entity* entity, v3 acceleration)
+	MoveEntity(World* world, SimRegion* region, Entity* entity, v3 acceleration)
 	{
 		f32 speed = entity->accelerationAmount;
+		acceleration.z -= 0.5f;
 		acceleration *= speed;
+
 
 		f32 friction = entity->friction;
 		acceleration = acceleration - entity->velocity * friction;
@@ -473,7 +512,7 @@ namespace AB
 			entity->velocity *
 			GlobalGameDeltaTime;
 		EntityMovement movement =
-			ComputeEntityMovement(region, entity, movementDelta);
+			ComputeEntityMovement(world, region, entity, movementDelta);
 		
 		entity->pos = movement.dest;
 		entity->velocity = movement.newVelocity;
@@ -661,6 +700,7 @@ namespace AB
 		if (entity1)
 		{ // Enitity 1 movement code
 			StoredEntity* st = GetStoredEntity(world, gameState->entity);
+#if 0
 			DEBUG_OVERLAY_TRACE(st->worldPos.tile.x);
 			DEBUG_OVERLAY_TRACE(st->worldPos.tile.y);
 			DEBUG_OVERLAY_TRACE(st->worldPos.tile.z);
@@ -671,7 +711,7 @@ namespace AB
 			DEBUG_OVERLAY_TRACE(GetChunkPos(&st->worldPos).chunk.x);
 			DEBUG_OVERLAY_TRACE(GetChunkPos(&st->worldPos).chunk.y);
 			DEBUG_OVERLAY_TRACE(GetChunkPos(&st->worldPos).chunk.z);
-			
+#endif
 			v3 _frontDir = V3(camera->front.x, 0.0f, camera->front.z);
 			v3 _rightDir = Cross(V3(0.0f, 1.0f, 0.0f), _frontDir);
 			_rightDir = Normalize(_rightDir);
@@ -708,7 +748,7 @@ namespace AB
 		 
 			acceleration = Normalize(acceleration);
 
-			MoveEntity(region, entity1, acceleration);
+			MoveEntity(world, region, entity1, acceleration);
 			DEBUG_OVERLAY_TRACE(entity1->velocity);
 
 		}
@@ -750,7 +790,7 @@ namespace AB
 			}
 		
 			acceleration = Normalize(acceleration);
-			MoveEntity(region, entity2, acceleration);
+			MoveEntity(world, region, entity2, acceleration);
 		}
 
 		MesherUpdateChunks(world->chunkMesher, world, tempArena);
