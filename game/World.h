@@ -54,6 +54,7 @@ namespace AB
         v3 pos;
 		EntityType type;
 		f32 accelerationAmount;
+		f32 distanceLimit;
 		f32 size;
 		v3 color;
 		f32 friction;

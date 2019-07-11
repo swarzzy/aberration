@@ -83,6 +83,38 @@ namespace AB
 		result.z = a.z + b;
 		return result;
 	}
+	
+	inline v3i& operator+=(v3i& a, i32 b)
+	{
+		a.x += b;
+		a.y += b;
+		a.z += b;
+		return a;
+	}
+	
+	inline v3i& operator+=(v3i& a, v3i b)
+	{
+		a.x += b.x;
+		a.y += b.y;
+		a.z += b.z;
+		return a;
+	}
+
+	inline v3i& operator-=(v3i& a, i32 b)
+	{
+		a.x -= b;
+		a.y -= b;
+		a.z -= b;
+		return a;
+	}
+	
+	inline v3i& operator-=(v3i& a, v3i b)
+	{
+		a.x -= b.x;
+		a.y -= b.y;
+		a.z -= b.z;
+		return a;
+	}
 
 	inline bool operator==(v3i& a, v3i& b)
 	{

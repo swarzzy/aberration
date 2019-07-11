@@ -234,7 +234,7 @@ namespace AB
 		
 		for (u32 simIndex = 0; simIndex < region->dormantEntityCount; simIndex++)
 		{
-			Entity* sim = region->entities + simIndex;
+			Entity* sim = region->dormantEntities + simIndex;
 			StoredEntity* stored = GetStoredEntity(world, sim->id);
 
 			stored->storage.simType = SIM_TYPE_INACTIVE;

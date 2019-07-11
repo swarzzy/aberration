@@ -208,6 +208,7 @@ namespace AB
 		MesherUpdateChunks(world->chunkMesher, world, tempArena);
 #endif
 
+		// TODO: Robust way to add entities and set their positions
 		gameState->entity = AddStoredEntity(world, firstChunk,
 											ENTITY_TYPE_BODY, arena);
 		StoredEntity* e = GetStoredEntity(world, gameState->entity);
@@ -216,7 +217,7 @@ namespace AB
 		e->worldPos.tile.z = 20;
 		e->worldPos.offset = V3(0.0f);
 		e->storage.accelerationAmount = 20.0f;
-		e->storage.size = 0.5f;
+		e->storage.size = 1.0f;
 #if 0
 		e->storage.meshes[0] = assetManager->meshes + gameState->treeFoliageHandle;
 		e->storage.meshes[1] = assetManager->meshes + gameState->treeTrunkHandle;
@@ -232,6 +233,7 @@ namespace AB
 		gameState->entity1 = AddStoredEntity(world, firstChunk,
 											 ENTITY_TYPE_BODY, arena);
 		StoredEntity* e1 = GetStoredEntity(world, gameState->entity1);
+		e1->worldPos.tile.z = 30;
 		e1->worldPos.offset = V3(0.6f, 0.5f, 0.5f);
 		e1->storage.accelerationAmount = 30.0f;
 		e1->storage.size = 2.0f;
@@ -366,6 +368,7 @@ namespace AB
 	{
 		v3 dest;
 		v3 newVelocity;
+		f32 distanceRemaining;
 	};
 
 	// TODO: Stop passing world here
@@ -380,117 +383,147 @@ namespace AB
 		v3 iterationOffset = {};
 
 		const f32 tEps = 0.01f;
-
+		f32 distanceRemaining = entity->distanceLimit;
+		if (distanceRemaining == 0.0f)
+		{
+			distanceRemaining = 100.0f;
+		}
+		
 		for (u32 pass = 0; pass < 4; pass++)
 		{
-			v3 wallNormal = V3(0.0f);
-			f32 tMin = 1.0f;
-			bool hit = false;
-			v3 targetPosition = entity->pos + delta;
-			
-			// TODO: Handle case when entity moved out of sim region boundaries
-
-			TileRegion testRegion;
-			// TODO: Maybe just take world pos from entity
-			// If all collision detection will be applied.
-			// But this may cause problrms when entity was moved before
-			// in this frame
-			
-			WorldPosition entityBegWorldPos =
-				OffsetWorldPos(region->origin, entity->pos);
-			WorldPosition entityEndWorldPos =
-				OffsetWorldPos(region->origin, entity->pos + delta);
-			// TODO: Optimize this
-
-			testRegion.minBound.x = MINIMUM(entityBegWorldPos.tile.x, entityEndWorldPos.tile.x);
-			testRegion.minBound.y = MINIMUM(entityBegWorldPos.tile.y, entityEndWorldPos.tile.y);
-			testRegion.minBound.z = MINIMUM(entityBegWorldPos.tile.z, entityEndWorldPos.tile.z);
-
-			testRegion.maxBound.x = MAXIMUM(entityBegWorldPos.tile.x, entityEndWorldPos.tile.x);
-			testRegion.maxBound.y = MAXIMUM(entityBegWorldPos.tile.y, entityEndWorldPos.tile.y);
-			testRegion.maxBound.z = MAXIMUM(entityBegWorldPos.tile.z, entityEndWorldPos.tile.z);
-
-			TilemapRaycastResult tileRaycastResult;
-			tileRaycastResult =	TilemapRaycast(world, &testRegion,
-											   &region->origin, entity->pos, delta);
-			if (tileRaycastResult.hit)
+			f32 deltaLength = Length(delta);
+			// TODO: Epsilon?
+			if (deltaLength > 0.0f)
 			{
-				tileRaycastResult.tMin = MAXIMUM(0.0f, tileRaycastResult.tMin - tEps);
+				f32 tMin = 1.0f;
+				DEBUG_OVERLAY_TRACE(deltaLength);
 
-				if (tileRaycastResult.tMin < tMin)
+				if (deltaLength > distanceRemaining)
 				{
-					tMin = tileRaycastResult.tMin;
-					wallNormal = tileRaycastResult.normal;
-					hit = true;												
+					tMin = distanceRemaining / deltaLength;
 				}
-			}
-
-			for (u32 entityGroup = 0; entityGroup < 2; entityGroup++)
-			{
-				u32 entityCount;
-				Entity* group;
 				
-				switch(entityGroup)
+				v3 wallNormal = V3(0.0f);
+				bool hit = false;
+				v3 targetPosition = entity->pos + delta;
+			
+				// TODO: Handle case when entity moved out of sim region boundaries
+
+				TileRegion testRegion;
+				// TODO: Maybe just take world pos from entity
+				// If all collision detection will be applied.
+				// But this may cause problrms when entity was moved before
+				// in this frame
+			
+				WorldPosition entityBegWorldPos =
+					OffsetWorldPos(region->origin, entity->pos);
+				WorldPosition entityEndWorldPos =
+					OffsetWorldPos(region->origin, entity->pos + delta);
+				// TODO: Optimize this
+
+				testRegion.minBound.x = MINIMUM(entityBegWorldPos.tile.x, entityEndWorldPos.tile.x);
+				testRegion.minBound.y = MINIMUM(entityBegWorldPos.tile.y, entityEndWorldPos.tile.y);
+				testRegion.minBound.z = MINIMUM(entityBegWorldPos.tile.z, entityEndWorldPos.tile.z);
+
+				testRegion.maxBound.x = MAXIMUM(entityBegWorldPos.tile.x, entityEndWorldPos.tile.x);
+				testRegion.maxBound.y = MAXIMUM(entityBegWorldPos.tile.y, entityEndWorldPos.tile.y);
+				testRegion.maxBound.z = MAXIMUM(entityBegWorldPos.tile.z, entityEndWorldPos.tile.z);
+
+				testRegion.maxBound += 1;
+				testRegion.minBound -= 1;
+			
+				TilemapRaycastResult tileRaycastResult;
+				tileRaycastResult =
+					FindTilemapAABBIntersection(world, &testRegion, &region->origin,
+												entity->pos, delta, V3(entity->size));
+				if (tileRaycastResult.hit)
 				{
-				case 0:
-				{
-					entityCount = region->entityCount;
-					group = region->entities;
-				} break;
-				case 1:
-				{
-					entityCount = region->dormantEntityCount;
-					group = region->dormantEntities;
-				} break;
-				INVALID_DEFAULT_CASE;
+					tileRaycastResult.tMin = MAXIMUM(0.0f, tileRaycastResult.tMin - tEps);
+
+					if (tileRaycastResult.tMin < tMin)
+					{
+						tMin = tileRaycastResult.tMin;
+						wallNormal = tileRaycastResult.normal;
+						hit = true;												
+					}
 				}
 
-				for (u32 simIndex = 0;
-					 simIndex < entityCount;
-					 simIndex++)
+				for (u32 entityGroup = 0; entityGroup < 2; entityGroup++)
 				{
-					Entity* testEntity = group + simIndex;
-							
-					if (entity != testEntity)
+					u32 entityCount;
+					Entity* group;
+				
+					switch(entityGroup)
 					{
-						// TODO: Using aabb's and stuff
-						v3 minCorner = -0.5f * V3(testEntity->size) + testEntity->pos;
-						v3 maxCorner = 0.5f * V3(testEntity->size) + testEntity->pos;
-						//NOTE: Minkowski sum
-						minCorner += colliderSize * -0.5f;
-						maxCorner += colliderSize * 0.5f;
-						auto raycast = RayAABBIntersection(entity->pos, delta,
-														   minCorner, maxCorner);
-						if (raycast.hit)
-						{
-							raycast.tMin = MAXIMUM(0.0f, raycast.tMin - tEps);
+					case 0:
+					{
+						entityCount = region->entityCount;
+						group = region->entities;
+					} break;
+					case 1:
+					{
+						entityCount = region->dormantEntityCount;
+						group = region->dormantEntities;
+					} break;
+					INVALID_DEFAULT_CASE;
+					}
 
-							if (raycast.tMin < tMin)
+					for (u32 simIndex = 0;
+						 simIndex < entityCount;
+						 simIndex++)
+					{
+						Entity* testEntity = group + simIndex;
+							
+						if (entity != testEntity)
+						{
+							// TODO: Using aabb's and stuff
+							v3 minCorner = -0.5f * V3(testEntity->size) + testEntity->pos;
+							v3 maxCorner = 0.5f * V3(testEntity->size) + testEntity->pos;
+							//NOTE: Minkowski sum
+							minCorner += colliderSize * -0.5f;
+							maxCorner += colliderSize * 0.5f;
+							auto raycast = RayAABBIntersection(entity->pos, delta,
+															   minCorner, maxCorner);
+							if (raycast.hit)
 							{
-								tMin = raycast.tMin;
-								wallNormal = raycast.normal;
-								hit = true;												
+								raycast.tMin = MAXIMUM(0.0f, raycast.tMin - tEps);
+
+								if (raycast.tMin < tMin)
+								{
+									tMin = raycast.tMin;
+									wallNormal = raycast.normal;
+									hit = true;												
+								}
 							}
 						}
-					}
 					
-				}				
-			}
+					}				
+				}
 			
-			result.dest = result.dest +  delta * tMin;
+				result.dest = result.dest + delta * tMin;
+				distanceRemaining -= tMin * deltaLength;
 
-			if (hit)
-			{
-				delta = targetPosition - result.dest;
-				result.newVelocity -= 2.0f * Dot(result.newVelocity, wallNormal) * wallNormal;
-				// TODO: Should it be here
-				//delta *= 1.0f - tMin;
-				delta -= Dot(delta, wallNormal) * wallNormal;				
+				if (hit)
+				{
+					delta = targetPosition - result.dest;
+					result.newVelocity -= 1.0f * Dot(result.newVelocity, wallNormal) * wallNormal;
+					// TODO: Should it be here
+					//delta *= 1.0f - tMin;
+					delta -= 1.0f * Dot(delta, wallNormal) * wallNormal;				
+				}
+				else
+				{
+					break;
+				}
 			}
 			else
 			{
-				break;
+				break; 
 			}
+		}
+		if (entity->distanceLimit != 0.0f)
+		{
+			result.distanceRemaining = distanceRemaining;
 		}
 		return result;
 	}
@@ -500,7 +533,7 @@ namespace AB
 	MoveEntity(World* world, SimRegion* region, Entity* entity, v3 acceleration)
 	{
 		f32 speed = entity->accelerationAmount;
-		acceleration.z -= 0.5f;
+		//acceleration.z -= 0.5f;
 		acceleration *= speed;
 
 
@@ -883,7 +916,6 @@ namespace AB
 							dragPos.z = newPos.z;
 						} break;
 
-						INVALID_DEFAULT_CASE;
 						}
 						gameState->prevDragPos = dragPos;
 					}

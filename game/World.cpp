@@ -111,8 +111,8 @@ namespace AB
 	TilemapRaycast(SimRegion* region, v3 from, v3 dir);
 
 	TilemapRaycastResult
-	TilemapRaycast(World* world, TileRegion* testRegion,
-				   WorldPosition* origin, v3 from, v3 dir);
+	FindTilemapAABBIntersection(World* world, TileRegion* testRegion,
+								WorldPosition* origin, v3 from, v3 dir, v3 boxSize);
 	
 	World*
 	CreateWorld(MemoryArena* arena)
@@ -1021,8 +1021,8 @@ namespace AB
 	}
 
 	TilemapRaycastResult
-	TilemapRaycast(World* world, TileRegion* testRegion,
-				   WorldPosition* origin, v3 from, v3 dir)
+	FindTilemapAABBIntersection(World* world, TileRegion* testRegion,
+								WorldPosition* origin, v3 from, v3 dir, v3 boxSize)
 	{
 		// TODO: Sparseness
 		// STUDY: octrees and voxel cone tracing
@@ -1067,8 +1067,9 @@ namespace AB
 						if (tile.type)
 						{
 							v3 tileSimPos = GetRelativePos(origin, &tileWorldPos);
-							v3 minCorner = tileSimPos;
-							v3 maxCorner = tileSimPos + WORLD_TILE_SIZE;
+							f32 eps = 0.001f;
+							v3 minCorner = tileSimPos - boxSize * 0.5f - eps;
+							v3 maxCorner = tileSimPos + WORLD_TILE_SIZE + boxSize * 0.5f + eps;
 
 							RaycastResult r =
 								RayAABBIntersection(from, dir, minCorner, maxCorner);
