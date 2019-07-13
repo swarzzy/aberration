@@ -31,13 +31,17 @@ namespace AB
 	const f32 WORLD_TILE_RADIUS = WORLD_TILE_SIZE * 0.5f;
 	const f32 WORLD_CHUNK_SIZE = WORLD_TILE_SIZE * WORLD_CHUNK_DIM_TILES;
 
+	// TODO: IMPORTANT: NAN Should only be used in DEBUG BUILD!!!
+	const f32 INVALID_REL_COORD = FLOAT_NAN;
+
 	const u32 ENTITY_MAX_MESHES = 4;
 
 	enum EntityType
 	{
 		ENTITY_TYPE_BODY,
 		ENTITY_TYPE_WALL,
-		ENTITY_TYPE_GIZMOS
+		ENTITY_TYPE_GIZMOS,
+		ENTITY_TYPE_MINER
 	};
 
 	enum SimulationType : u32
@@ -47,23 +51,11 @@ namespace AB
 		SIM_TYPE_DORMANT
 	};
 
-    struct Entity
-    {
-		u32 id;
-		SimulationType simType;
-        v3 pos;
-		EntityType type;
-		f32 accelerationAmount;
-		f32 distanceLimit;
-		f32 size;
-		v3 color;
-		f32 friction;
-		u32 highIndex;
-		v3 velocity;
-		u32 meshCount;
-		Mesh* meshes[ENTITY_MAX_MESHES];
-    };
-
+	enum ResourceType : u32
+	{
+		RESOURCE_TYPE_COAL
+	};
+ 
 	struct WorldPosition
 	{
 		v3i tile;
@@ -76,10 +68,16 @@ namespace AB
 		v3u tile;
 	};
 
-	struct StoredEntity
+	struct ChunkRegion
 	{
-		Entity storage;
-		WorldPosition worldPos;
+		v3i minBound;
+		v3i maxBound;
+	};
+
+	struct TileRegion
+	{
+		v3i minBound;
+		v3i maxBound;		
 	};
 
 	enum TerrainType : u32
@@ -87,12 +85,14 @@ namespace AB
 		TERRAIN_TYPE_EMPTY = 0,
 		TERRAIN_TYPE_GRASS,
 		TERRAIN_TYPE_CLIFF,
-		TERRAIN_TYPE_WATER
+		TERRAIN_TYPE_WATER,
+		TERRAIN_TYPE_COAL_ORE	
 	};
 
 	struct TerrainTileData
 	{
 	   	TerrainType type;
+		u16 resourceCapacity;
 	};
 
 	struct TerrainTile
@@ -100,6 +100,38 @@ namespace AB
 		TerrainTileData data;
 		v3i coord;
 	};
+
+	struct Entity
+    {
+		u32 id;
+		b32 tiled;
+		SimulationType simType;
+        v3 pos;
+		EntityType type;
+		f32 accelerationAmount;
+		f32 distanceLimit;
+		f32 size;
+		v3 color;
+		f32 friction;
+		u32 highIndex;
+		v3 velocity;
+		u32 meshCount;
+		Mesh* meshes[ENTITY_MAX_MESHES];
+
+		// NOTE: Tiled entity stuff
+		ChunkPosition tileOriginPos;
+		v3i tileFootprintSize;
+		v3i outputNodeOffset;
+		v3i miningAreaSize;
+		ResourceType extractedResource;
+    };
+
+	struct StoredEntity
+	{
+		Entity storage;
+		WorldPosition worldPos;
+	};
+
 	
 	struct EntityBlock
 	{
@@ -156,17 +188,5 @@ namespace AB
 		f32 tMin;
 		ChunkPosition coord;
 		v3 normal;
-	};
-
-	struct ChunkRegion
-	{
-		v3i minBound;
-		v3i maxBound;
-	};
-
-	struct TileRegion
-	{
-		v3i minBound;
-		v3i maxBound;		
 	};
 }

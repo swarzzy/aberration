@@ -90,7 +90,18 @@ namespace AB
 				}
 
 				*simEntity = stored->storage;
-				simEntity->pos = GetSimSpacePos(region, &stored->worldPos);
+				if (!simEntity->tiled)
+				{
+					simEntity->pos = GetSimSpacePos(region, &stored->worldPos);
+					// TODO: Should this be invalid?
+					simEntity->tileOriginPos = InvalidChunkPos();
+				}
+				else
+				{
+					simEntity->pos = V3(INVALID_REL_COORD);
+					// TODO: Should this be invalid?
+					simEntity->tileOriginPos = GetChunkPos(&stored->worldPos);
+				}
 				// TODO: This should be done when entity added to storage
 				simEntity->id = index;
 				MapSimEntityToID(region, index, simEntity);
@@ -226,7 +237,15 @@ namespace AB
 			Entity* sim = region->entities + simIndex;
 			sim->simType = SIM_TYPE_INACTIVE;
 			StoredEntity* stored = GetStoredEntity(world, sim->id);
-			WorldPosition newPos = OffsetWorldPos(region->origin, sim->pos);
+			WorldPosition newPos;
+			if (!sim->tiled)
+			{
+				newPos = OffsetWorldPos(region->origin, sim->pos);
+			}
+			else
+			{
+				newPos = GetWorldPos(&sim->tileOriginPos);
+			}
 			stored->worldPos = ChangeEntityPos(world, stored, newPos,
 											   region->origin, arena);
 			stored->storage = *sim;			

@@ -144,10 +144,10 @@ namespace AB
 								  TerrainType type)
 	{
 		v3 normal = Cross(vtx3 - vtx0, vtx1 - vtx0);
-		PushChunkMeshVertex(mesh, arena, vtx0, normal, type - 1);
-		PushChunkMeshVertex(mesh, arena, vtx1, normal, type - 1);
-		PushChunkMeshVertex(mesh, arena, vtx2, normal, type - 1);		
-		PushChunkMeshVertex(mesh, arena, vtx3, normal, type - 1);
+		PushChunkMeshVertex(mesh, arena, vtx0, normal, type);
+		PushChunkMeshVertex(mesh, arena, vtx1, normal, type);
+		PushChunkMeshVertex(mesh, arena, vtx2, normal, type);		
+		PushChunkMeshVertex(mesh, arena, vtx3, normal, type);
 		mesh->quadCount++;
 	}
 

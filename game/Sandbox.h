@@ -56,6 +56,7 @@ namespace AB
 		//EntityResidence entityResidence[MAX_LOW_ENTITIES];
 		ChunkPosition selectedTile;
 		SelectionMode selectionMode;
+		u32 coalMinerID;
 	};
 
 	void Init(MemoryArena* arena,

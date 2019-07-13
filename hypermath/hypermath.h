@@ -33,8 +33,9 @@ typedef __m128				f128;
 #define HPM_CALL //__vectorcall
 namespace hpm
 {
-	constexpr f32 PI_32 = 3.14159265358979323846f;
-	constexpr f32 FLOAT_EPS = 0.000001f;
+	const f32 PI_32 = 3.14159265358979323846f;
+	const f32 FLOAT_EPS = 0.000001f;
+	const f32 FLOAT_NAN = NAN;
 
 	inline f32 AbsF32(f32 value)
 	{

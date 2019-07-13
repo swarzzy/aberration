@@ -294,6 +294,36 @@ namespace AB
 		
 		return index;
 	}
+
+	u32
+	AddCoalMinerEntity(World* world, Chunk* chunk, v3u tile, MemoryArena* arena)
+	{
+		// assert for coord out of chunk bounds
+		u32 index = 0;
+		index = AddStoredEntity(world, chunk, ENTITY_TYPE_MINER, arena);
+		if (index)
+		{
+			StoredEntity* storage = &world->lowEntities[index];
+			Entity* stored = &storage->storage;
+			ChunkPosition entityChunkPos =
+			{
+				chunk->coordX, chunk->coordY, chunk->coordZ,
+				tile
+			};
+			storage->worldPos = GetWorldPos(&entityChunkPos);
+			stored->type = ENTITY_TYPE_WALL;
+			stored->meshCount = 1;
+
+			stored->tiled = true;
+			stored->tileFootprintSize = V3I(5, 3, 1);
+			stored->outputNodeOffset = V3I(3, 0, 0);
+			stored->miningAreaSize = V3I(10, 10, 10);
+			stored->extractedResource = RESOURCE_TYPE_COAL;
+		}
+		
+		return index;
+	}
+
 	
 	inline TerrainTileData*
 	GetTerrainTileInternal(Chunk* chunk, u32 tileInChunkX, u32 tileInChunkY,

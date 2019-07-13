@@ -169,8 +169,13 @@ namespace AB
 								}
 								else
 								{
-									auto choise = rand() % 3;
-									if (choise < 2)
+									auto choise = rand() % 10;
+									if (choise < 1)
+									{
+										tile0.type = TERRAIN_TYPE_COAL_ORE;
+										tile0.resourceCapacity = 100;
+									}
+									else if (choise < 7)
 									{
 										tile0.type = TERRAIN_TYPE_GRASS;									
 									}
@@ -207,6 +212,8 @@ namespace AB
 #if 1
 		MesherUpdateChunks(world->chunkMesher, world, tempArena);
 #endif
+		gameState->coalMinerID = AddCoalMinerEntity(world, firstChunk,
+												  V3U(17, 10, 10),	arena);
 
 		// TODO: Robust way to add entities and set their positions
 		gameState->entity = AddStoredEntity(world, firstChunk,
@@ -304,63 +311,66 @@ namespace AB
 	DrawEntity(GameState* gameState, AssetManager* assetManager, SimRegion* region,
 			   Entity* entity, bool drawBBox = false)
 	{
-		// TODO: Setting camera on sim region concept
-		WorldPosition wPos = GetWorldPos(region, entity->pos);
-		v3 camRelPos = GetRelativePos(&gameState->camera.targetWorldPos, &wPos);
-		v3 pos = V3(0.0f);
-		pos.x = camRelPos.x;
-		pos.z = camRelPos.y;
-
-		v3 scale = V3(0.0f);
-		scale.x = entity->size;
-		scale.z = entity->size;
-		scale.y = entity->size;
-		// TODO: Mesh aligment, tilemap footprints n' stuff
-		pos.y = camRelPos.z;
-
-		//pos.x -= scale.x * 0.5f;
-		//pos.z -= scale.z * 0.5f;
-		v3 color = entity->color;
-		bool selected = false;
-		if (entity->id == gameState->selectedEntityID)
+		if (!entity->tiled)
 		{
-			selected = true;
-		}
-		for (u32 i = 0; i < entity->meshCount; i++)
-		{
-			Mesh* mesh = entity->meshes[i];
-			DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
-						  mesh, selected);
-			if (drawBBox || selected)
+			// TODO: Setting camera on sim region concept
+			WorldPosition wPos = GetWorldPos(region, entity->pos);
+			v3 camRelPos = GetRelativePos(&gameState->camera.targetWorldPos, &wPos);
+			v3 pos = V3(0.0f);
+			pos.x = camRelPos.x;
+			pos.z = camRelPos.y;
+
+			v3 scale = V3(0.0f);
+			scale.x = entity->size;
+			scale.z = entity->size;
+			scale.y = entity->size;
+			// TODO: Mesh aligment, tilemap footprints n' stuff
+			pos.y = camRelPos.z;
+
+			//pos.x -= scale.x * 0.5f;
+			//pos.z -= scale.z * 0.5f;
+			v3 color = entity->color;
+			bool selected = false;
+			if (entity->id == gameState->selectedEntityID)
 			{
-				v3 worldPos = FlipYZ(camRelPos);
-				v3 min = mesh->aabb.min * entity->size + worldPos;
-				v3 max = mesh->aabb.max * entity->size + worldPos;
-
-				DrawAlignedBoxOutline(gameState->renderGroup, assetManager,
-									  min,
-									  max,
-									  V3(0.0f, 0.0f, 1.0f), 2.0f);
+				selected = true;
 			}
+			for (u32 i = 0; i < entity->meshCount; i++)
+			{
+				Mesh* mesh = entity->meshes[i];
+				DrawDebugMesh(gameState->renderGroup, assetManager, pos, scale,
+							  mesh, selected);
+				if (drawBBox || selected)
+				{
+					v3 worldPos = FlipYZ(camRelPos);
+					v3 min = mesh->aabb.min * entity->size + worldPos;
+					v3 max = mesh->aabb.max * entity->size + worldPos;
+
+					DrawAlignedBoxOutline(gameState->renderGroup, assetManager,
+										  min,
+										  max,
+										  V3(0.0f, 0.0f, 1.0f), 2.0f);
+				}
 			
-		}
-		if (selected)
-		{
-			scale.x = 1.0f;
-			scale.z = 1.0f;
-			scale.y = 1.0f;
+			}
+			if (selected)
+			{
+				scale.x = 1.0f;
+				scale.z = 1.0f;
+				scale.y = 1.0f;
 
-			DrawDebugMesh(gameState->renderGroup, assetManager, pos,
-						  scale,
-						  gameState->xAxisMesh, false);
+				DrawDebugMesh(gameState->renderGroup, assetManager, pos,
+							  scale,
+							  gameState->xAxisMesh, false);
 
-			DrawDebugMesh(gameState->renderGroup, assetManager, pos,
-						  scale,
-						  gameState->yAxisMesh, false);
+				DrawDebugMesh(gameState->renderGroup, assetManager, pos,
+							  scale,
+							  gameState->yAxisMesh, false);
 
-			DrawDebugMesh(gameState->renderGroup, assetManager, pos,
-						  scale,
-						  gameState->zAxisMesh, false);
+				DrawDebugMesh(gameState->renderGroup, assetManager, pos,
+							  scale,
+							  gameState->zAxisMesh, false);
+			}
 		}
 	}
 
@@ -532,6 +542,7 @@ namespace AB
 	void
 	MoveEntity(World* world, SimRegion* region, Entity* entity, v3 acceleration)
 	{
+		AB_ASSERT(!entity->tiled);
 		f32 speed = entity->accelerationAmount;
 		//acceleration.z -= 0.5f;
 		acceleration *= speed;
@@ -724,7 +735,10 @@ namespace AB
 		{
 			Entity* entity = region->entities + simEntityIndex;
 			//MoveEntity(region, entity, V3(0.0f));
-			DrawEntity(gameState, assetManager, region, entity);
+			if (entity->tiled)
+			{
+				DrawEntity(gameState, assetManager, region, entity);
+			}
 		}
 
 		Entity* entity1 = GetSimEntity(region, gameState->entity);
@@ -1003,9 +1017,10 @@ namespace AB
 				DEBUG_OVERLAY_TRACE(GetWorldPos(&gameState->selectedTile).tile.z);
 				Chunk* chunk = GetChunk(world, gameState->selectedTile.chunk);
 				TerrainTileData tile = GetTerrainTile(chunk, gameState->selectedTile.tile);
-				DEBUG_OVERLAY_PUSH_SLIDER("Tile type", (u32*)(&tile.type), 0, 3);
-
-				SetTerrainTile(chunk, gameState->selectedTile.tile, &tile);
+				//DEBUG_OVERLAY_PUSH_SLIDER("Tile type", (u32*)(&tile.type), 0, 3);
+				DEBUG_OVERLAY_TRACE(tile.type);
+				DEBUG_OVERLAY_TRACE(tile.resourceCapacity);
+				//SetTerrainTile(chunk, gameState->selectedTile.tile, &tile);
 			}
 		}
 

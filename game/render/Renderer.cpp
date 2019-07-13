@@ -563,7 +563,9 @@ out vec4 out_FragColor;
 			Image bitmap = LoadBMP(tempArena, "../assets/grass_tile.bmp", TEX_COLOR_SPACE_SRGB);
 			AB_ASSERT(bitmap.bitmap);
 			Image stone = LoadBMP(tempArena, "../assets/stone_tile.bmp", TEX_COLOR_SPACE_SRGB);
-			AB_ASSERT(bitmap.bitmap);
+			AB_ASSERT(stone.bitmap);
+			Image coalOre = LoadBMP(tempArena, "../assets/coal_ore_tile.bmp", TEX_COLOR_SPACE_SRGB);
+			AB_ASSERT(coalOre.bitmap);
 
 			GLuint terrainTexArray;
 			GLCall(glGenTextures(1, &terrainTexArray));
@@ -571,15 +573,13 @@ out vec4 out_FragColor;
 			// TODO : STUDY: glTexStorage ang glTexSubImage
 			const u32 TERRAIN_TILE_TEXTURE_DIM = 256;
 			const u32 TERRAIN_TILE_MAX_TEXTURES = 32;
-#if 0
-			GLCall(glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_SRGB8, 256, 256, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, bitmap.bitmap));
-			GLCall(glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_SRGB8, 256, 256, 2, 0, GL_RGB, GL_UNSIGNED_BYTE, stone.bitmap));
-			GLCall(glGenerateMipmap(GL_TEXTURE_2D_ARRAY));
-#else
 			GLCall(glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_SRGB8, 256, 256, 32));
-			GLCall(glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, 256, 256, 1, GL_RGB, GL_UNSIGNED_BYTE, bitmap.bitmap));
-			GLCall(glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 1, 256, 256, 1, GL_RGB, GL_UNSIGNED_BYTE, stone.bitmap));
-#endif
+			GLCall(glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, TERRAIN_TYPE_GRASS,
+								   256, 256, 1, GL_RGB, GL_UNSIGNED_BYTE, bitmap.bitmap));
+			GLCall(glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, TERRAIN_TYPE_CLIFF,
+								   256, 256, 1, GL_RGB, GL_UNSIGNED_BYTE, stone.bitmap));
+			GLCall(glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, TERRAIN_TYPE_COAL_ORE,
+								   256, 256, 1, GL_RGB, GL_UNSIGNED_BYTE, coalOre.bitmap));
 			
 			//glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAX_LOD, 1000.0f);
 			//glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAX_LEVEL, 4);
